@@ -5,14 +5,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run:  unzip -q ScamShield.zip
+      - name: Giải nén
+        run: unzip -oq ScamShield.zip -d src
+      - name: Tìm thư mục dự án
+        id: find
+        run: echo "dir=$(dirname "$(find src -name settings.gradle.kts | head -1)")" >> "$GITHUB_OUTPUT"
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: 8.9 }
       - run: gradle assembleDebug --no-daemon
-        working-directory: ScamShield
+        working-directory: ${{ steps.find.outputs.dir }}
       - uses: actions/upload-artifact@v4
         with:
           name: ScamShield-debug-apk
-          path: ScamShield/app/build/outputs/apk/debug/*.apk
+          path: src/**/app/build/outputs/apk/debug/*.apk
