@@ -1,0 +1,14 @@
+{
+  "source": "dữ liệu TỔNG HỢP (chỉ để chạy thử)",
+  "holdout": {
+    "n": 126,
+    "tp": 44,
+    "fp": 7,
+    "fn": 26,
+    "tn": 49,
+    "precision": 0.863,
+    "recall": 0.629,
+    "f1": 0.727,
+    "fpr": 0.125
+  }
+}
