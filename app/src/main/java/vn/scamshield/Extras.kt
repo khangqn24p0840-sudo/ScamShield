@@ -27,15 +27,19 @@ fun err(j: JSONObject?) = j?.optString("error")?.takeIf { it.isNotEmpty() } ?: "
 fun fmtText(code: Int, j: JSONObject?): String {
     if (code !in 200..299 || j == null) return "Lỗi: " + err(j)
     val r = j.optJSONArray("reasons") ?: JSONArray()
-    val rs = (0 until r.length()).joinToString("\n") { "• " + r.getString(it) }
+    val rs = (0 until r.length()).joinToString("
+") { "• " + r.getString(it) }
     val lbl = when (j.optString("label")) { "scam" -> "Rất có thể là lừa đảo"; "safe" -> "Có vẻ an toàn"; else -> "Đáng ngờ" }
-    return "$lbl (${j.optInt("risk")}/100)\n$rs\n${j.optString("advice")}"
+    return "$lbl (${j.optInt("risk")}/100)
+$rs
+${j.optString("advice")}"
 }
 
 fun fmtMedia(code: Int, j: JSONObject?): String {
     if (code !in 200..299 || j == null) return "Lỗi: " + err(j)
     val v = when (j.optString("verdict")) { "likely_fake" -> "Nhiều khả năng ảnh bị làm giả"; "uncertain" -> "Chưa chắc chắn"; else -> "Nhiều khả năng ảnh thật" }
-    return "$v (${(j.optDouble("score") * 100).toInt()}%)\n${j.optString("note")}"
+    return "$v (${(j.optDouble("score") * 100).toInt()}%)
+${j.optString("note")}"
 }
 
 @Composable fun SurveyPanel(c: Context) {
@@ -93,7 +97,9 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         }
         Text("Khi đang video call, bật chế độ này: app quan sát màn hình, đo các chỉ báo trên khuôn mặt và cảnh báo nếu nghi giả mạo. Chỉ xử lý trong máy, không lưu hình. Kết quả chỉ là chỉ báo, không phải kết luận.",
             fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
-        GoldButton("Chọn video trong điện thoại", leading = Icons.Rounded.VideoLibrary, onClick = onPickVideo)\n        GoldButton("Quét trực tiếp bằng camera", leading = Icons.Rounded.CameraAlt, onClick = onCamera)\n        if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
+        GoldButton("Chọn video trong điện thoại", leading = Icons.Rounded.VideoLibrary, onClick = onPickVideo)
+        GoldButton("Quét trực tiếp bằng camera", leading = Icons.Rounded.CameraAlt, onClick = onCamera)
+        if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
         else GoldButton("Bắt đầu kiểm tra video call", leading = Icons.Rounded.PlayArrow, onClick = onStart)
         if (FaceBus.running && v != null) {
             val col = when (v.level) { FaceLevel.HIGH -> C.Bad; FaceLevel.SUSPICIOUS -> C.Warn; FaceLevel.OK -> C.Mint; else -> Color.White }
