@@ -27,19 +27,15 @@ fun err(j: JSONObject?) = j?.optString("error")?.takeIf { it.isNotEmpty() } ?: "
 fun fmtText(code: Int, j: JSONObject?): String {
     if (code !in 200..299 || j == null) return "Lỗi: " + err(j)
     val r = j.optJSONArray("reasons") ?: JSONArray()
-    val rs = (0 until r.length()).joinToString("
-") { "• " + r.getString(it) }
+    val rs = (0 until r.length()).joinToString("\\n") { "• " + r.getString(it) }
     val lbl = when (j.optString("label")) { "scam" -> "Rất có thể là lừa đảo"; "safe" -> "Có vẻ an toàn"; else -> "Đáng ngờ" }
-    return "$lbl (${j.optInt("risk")}/100)
-$rs
-${j.optString("advice")}"
+    return "$lbl (${j.optInt("risk")}/100)\\n$rs\\n${j.optString("advice")}"
 }
 
 fun fmtMedia(code: Int, j: JSONObject?): String {
     if (code !in 200..299 || j == null) return "Lỗi: " + err(j)
     val v = when (j.optString("verdict")) { "likely_fake" -> "Nhiều khả năng ảnh bị làm giả"; "uncertain" -> "Chưa chắc chắn"; else -> "Nhiều khả năng ảnh thật" }
-    return "$v (${(j.optDouble("score") * 100).toInt()}%)
-${j.optString("note")}"
+    return "$v (${(j.optDouble("score") * 100).toInt()}%)\\n${j.optString("note")}"
 }
 
 @Composable fun SurveyPanel(c: Context) {
