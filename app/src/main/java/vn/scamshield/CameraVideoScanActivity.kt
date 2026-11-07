@@ -1,7 +1,6 @@
 package vn.scamshield
 
 import android.Manifest
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.ImageFormat
@@ -13,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -31,7 +31,7 @@ import kotlin.math.max
  * Quét video đã chọn hoặc camera trực tiếp.
  * Hiện tại dùng ML Kit face detection + chỉ báo hình ảnh/chuyển động; chưa phải mô hình Deepfake đã huấn luyện.
  */
-class CameraVideoScanActivity : Activity() {
+class CameraVideoScanActivity : ComponentActivity() {
     private lateinit var status: TextView
     private var preview: PreviewView? = null
     private val executor = Executors.newSingleThreadExecutor()
