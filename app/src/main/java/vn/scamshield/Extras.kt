@@ -81,7 +81,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     }
 }
 
-@Composable fun FacePanel(onStart: () -> Unit, onStop: () -> Unit) {
+@Composable fun FacePanel(onStart: () -> Unit, onStop: () -> Unit, onPickVideo: () -> Unit, onCamera: () -> Unit) {
     val v = FaceBus.verdict
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -93,7 +93,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         }
         Text("Khi đang video call, bật chế độ này: app quan sát màn hình, đo các chỉ báo trên khuôn mặt và cảnh báo nếu nghi giả mạo. Chỉ xử lý trong máy, không lưu hình. Kết quả chỉ là chỉ báo, không phải kết luận.",
             fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
-        if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
+        GoldButton("Chọn video trong điện thoại", leading = Icons.Rounded.VideoLibrary, onClick = onPickVideo)\n        GoldButton("Quét trực tiếp bằng camera", leading = Icons.Rounded.CameraAlt, onClick = onCamera)\n        if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
         else GoldButton("Bắt đầu kiểm tra video call", leading = Icons.Rounded.PlayArrow, onClick = onStart)
         if (FaceBus.running && v != null) {
             val col = when (v.level) { FaceLevel.HIGH -> C.Bad; FaceLevel.SUSPICIOUS -> C.Warn; FaceLevel.OK -> C.Mint; else -> Color.White }
