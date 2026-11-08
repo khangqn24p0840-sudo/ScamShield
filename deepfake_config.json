@@ -1,0 +1,13 @@
+{
+    "model_name": "ScamShield Deepfake",
+    "input_size": 224,
+    "input_channels": 3,
+    "input_format": "RGB",
+    "normalization": "[-1, 1]",
+    "class_names": [
+        "Fake",
+        "Real"
+    ],
+    "threshold": 0.4,
+    "output": "probability_of_real"
+}
