@@ -46,7 +46,7 @@ class ScreenFaceService : Service() {
         ht = HandlerThread("face").also { it.start() }
         val r = ImageReader.newInstance(w, h, PixelFormat.RGBA_8888, 2); reader = r
         vd = p.createVirtualDisplay("scamshield-face", w, h, dm.densityDpi, DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, r.surface, null, null)
-        observer = FaceObserver(this)
+        observer = FaceObserver(this, TfliteDeepfakeClassifier(this))
         startAt = SystemClock.elapsedRealtime(); FaceBus.verdict = null; FaceBus.running = true
         r.setOnImageAvailableListener({ handle(it) }, Handler(ht!!.looper))
         return START_NOT_STICKY
