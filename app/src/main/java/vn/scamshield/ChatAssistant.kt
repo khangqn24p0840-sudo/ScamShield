@@ -52,7 +52,7 @@ fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
                     .padding(end = 14.dp, bottom = 88.dp)
                     .fillMaxWidth()
                     .widthIn(max = 380.dp)
-                    .heightIn(maxHeight = 560.dp),
+                    .heightIn(max = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = C.Card,
                 tonalElevation = 10.dp,
@@ -125,13 +125,13 @@ fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
                             shape = RoundedCornerShape(18.dp),
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = {
-                                if (draft.isNotBlank() && !loading) sendChat(lines, draft, c) { loading = it; if (!it) draft = "" }
+                                if (draft.isNotBlank() && !loading) sendChat(lines, draft, c, scanContext) { loading = it; if (!it) draft = "" }
                             })
                         )
                         Spacer(Modifier.width(6.dp))
                         IconButton(
                             enabled = draft.isNotBlank() && !loading,
-                            onClick = { sendChat(lines, draft, c) { loading = it; if (!it) draft = "" } }
+                            onClick = { sendChat(lines, draft, c, scanContext) { loading = it; if (!it) draft = "" } }
                         ) {
                             Icon(Icons.Rounded.Send, "Gửi", tint = if (draft.isNotBlank() && !loading) C.Gold else C.Dim)
                         }
