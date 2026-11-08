@@ -27,8 +27,9 @@ jobs:
         run: |
           target="${{ steps.find.outputs.dir }}/app/src/main/java/vn/scamshield"
           mkdir -p "$target"
-          cp app/src/main/java/vn/scamshield/Screens.kt "$target/Screens.kt"
-          cp app/src/main/java/vn/scamshield/ChatAssistant.kt "$target/ChatAssistant.kt"
+          for f in Screens.kt ChatAssistant.kt Extras.kt Features.kt MainActivity.kt; do
+            cp "app/src/main/java/vn/scamshield/$f" "$target/$f"
+          done
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
