@@ -161,7 +161,6 @@ private fun sendChat(lines: MutableList<ChatLine>, prompt: String, c: Context, s
         history.put(JSONObject().put("role", line.role).put("content", line.text))
     }
     Api.call(c, "POST", "/api/chat", JSONObject().put("messages", history).put("scan_context", scanContext)) { code, json ->
-        if (scanContext.isNotBlank()) ChatContext.clear()
         val answer = if (code in 200..299) json?.optString("reply").orEmpty()
             else json?.optString("error").orEmpty().ifBlank { "Không thể kết nối trợ lý AI (HTTP $code)." }
         lines.add(ChatLine("assistant", answer.ifBlank { "AI chưa trả về nội dung. Bạn thử lại nhé." }))
