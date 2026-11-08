@@ -54,7 +54,7 @@ object ScamDetector {
             val aiScore = (probability.coerceIn(0f, 1f) * 100f).toInt()
             // Quy tắc chỉ có thể nâng cảnh báo tối đa lên 35, không lấn át kết quả AI.
             score = maxOf(aiScore, ruleScore.coerceAtMost(35))
-            reasons += "AI phân tích: \${(probability.coerceIn(0f, 1f) * 100f).toInt()}% nguy cơ"
+            reasons += "AI phân tích: ${(probability.coerceIn(0f, 1f) * 100f).toInt()}% nguy cơ"
             if (ruleReasons.isNotEmpty()) reasons += ruleReasons
         } else {
             // Chỉ dùng quy tắc khi mô hình chưa nạp được hoặc gặp lỗi.
