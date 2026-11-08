@@ -1,35 +1,34 @@
 name: Build APK
-on: [push, workflow_dispatch]
+
+on:
+  push:
+    branches: [main, ai-primary-sms-detection]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Giải nén (kể cả zip lồng nhau)
-        run: |
-          mkdir -p src
-          unzip -oq ScamShield.zip -d src
-          for i in 1 2 3; do
-            find src -name '*.zip' | while read -r z; do
-              d="${z%.zip}_unz"
-              [ -d "$d" ] || unzip -oq "$z" -d "$d"
-            done
-          done
-          echo "--- Cấu trúc sau khi giải nén ---"
-          find src -maxdepth 4 | head -40
-      - name: Tìm thư mục dự án
-        id: find
-        run: |
-          f=$(find src -name settings.gradle.kts | head -1)
-          if [ -z "$f" ]; then echo "KHÔNG tìm thấy settings.gradle.kts trong zip"; exit 1; fi
-          echo "dir=$GITHUB_WORKSPACE/$(dirname "$f")" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: 17 }
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: 8.9 }
-      - run: gradle assembleDebug --no-daemon
-        working-directory: ${{ steps.find.outputs.dir }}
-      - uses: actions/upload-artifact@v4
+        with:
+          gradle-version: '8.9'
+
+      # Build directly from checked-out source, not from an older ZIP snapshot.
+      - name: Build debug APK
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: ScamShield-debug-apk
-          path: src/**/app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
