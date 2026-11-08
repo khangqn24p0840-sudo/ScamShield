@@ -46,6 +46,7 @@ class Hooks(
     val toggleListen: () -> Unit,
     val pickImage: () -> Unit,
     val startFace: () -> Unit, val stopFace: () -> Unit,
+    val pickVideo: () -> Unit, val startCameraScan: () -> Unit,
     val openOverlay: () -> Unit, val openSocial: () -> Unit,
     val aiMsg: () -> String, val setAiMsg: (String) -> Unit
 )

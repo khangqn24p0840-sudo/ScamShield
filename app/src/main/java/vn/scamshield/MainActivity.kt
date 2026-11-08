@@ -35,6 +35,9 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) { aiMsg = "Không đọc được ảnh" }
     }
+    private val videoPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) startActivity(Intent(this, CameraVideoScanActivity::class.java).setData(uri))
+    }
     private val captureL = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == RESULT_OK && r.data != null)
             androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, ScreenFaceService::class.java).putExtra("code", r.resultCode).putExtra("data", r.data))
@@ -54,6 +57,8 @@ class MainActivity : ComponentActivity() {
             pickImage = { picker.launch("image/*") },
             startFace = { captureL.launch(getSystemService(android.media.projection.MediaProjectionManager::class.java).createScreenCaptureIntent()) },
             stopFace = { stopService(Intent(this, ScreenFaceService::class.java)); FaceBus.running = false },
+            pickVideo = { videoPicker.launch("video/*") },
+            startCameraScan = { startActivity(Intent(this, CameraVideoScanActivity::class.java).putExtra("camera", true)) },
             openOverlay = { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },
             openSocial = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
             aiMsg = { aiMsg }, setAiMsg = { aiMsg = it }

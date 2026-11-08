@@ -1,7 +1,6 @@
 package vn.scamshield.face
 
 import kotlin.math.abs
-import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.sqrt
 
@@ -53,39 +52,46 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
             )
         }
 
-        val blink = blinkIndicator(faces, span, fps)
+        // Không dùng chớp mắt làm bằng chứng: camera/ánh sáng/nén video có thể làm đo sai.
         val jitter = jitterIndicator(faces)
         val blend = blendIndicator(faces)
         val box = boxIndicator(faces)
         val model = modelIndicator(faces)
-        val inds = listOfNotNull(blink, jitter, blend, box, model)
+        val inds = listOfNotNull(jitter, blend, box, model)
 
-        var logit = BIAS
-        for (i in inds) logit += (WEIGHTS[i.id] ?: 0.0) * i.score
-        if (profilePassed(faces, box, blend)) logit -= 0.6
-        val p = 1.0 / (1.0 + exp(-logit))
+        val modelAvailable = model != null
+        val heuristics = listOfNotNull(jitter, blend, box)
+        val heuristicFlags = heuristics.count { it.score >= 0.55 }
+        val heuristicMean = if (heuristics.isEmpty()) 0.0 else heuristics.map { it.score }.average()
+        val p = if (modelAvailable) {
+            (0.75 * model!!.score + 0.25 * heuristicMean).coerceIn(0.0, 1.0)
+        } else {
+            // Không có mô hình: chỉ là điểm rủi ro heuristic, không phải xác suất Deepfake.
+            (heuristicMean * 0.65).coerceIn(0.0, 0.64)
+        }
 
-        val flagged = inds.count { it.score >= 0.4 }
-        var level = when {
-            p >= cfg.highAt -> FaceLevel.HIGH
-            p >= cfg.suspiciousAt -> FaceLevel.SUSPICIOUS
+        val level = when {
+            modelAvailable && p >= cfg.highAt && heuristicFlags >= 1 -> FaceLevel.HIGH
+            (modelAvailable && p >= cfg.suspiciousAt) || (!modelAvailable && heuristicFlags >= 2) ->
+                FaceLevel.SUSPICIOUS
             else -> FaceLevel.OK
         }
-        // Không bao giờ kết luận mức cao chỉ dựa trên một chỉ báo
-        if (level == FaceLevel.HIGH && flagged < 2) level = FaceLevel.SUSPICIOUS
 
         val (headline, advice) = when (level) {
             FaceLevel.HIGH -> Pair(
-                "Nhiều dấu hiệu nghi giả mạo khuôn mặt",
-                "Đừng chuyển tiền, đừng cung cấp OTP hay thông tin cá nhân. Hãy thử:\n" + tips()
+                "Mô hình và chỉ báo phụ cùng phát hiện rủi ro cao",
+                "Đây vẫn là cảnh báo hỗ trợ, không phải bằng chứng chắc chắn. Không chuyển tiền hoặc cung cấp OTP khi chưa xác minh. Hãy kiểm tra qua kênh khác:\n" + tips()
             )
             FaceLevel.SUSPICIOUS -> Pair(
-                "Có dấu hiệu bất thường, hãy kiểm tra thêm",
-                "Hãy thử:\n" + tips()
+                "Có một số dấu hiệu bất thường, cần kiểm tra thêm",
+                "Đây không phải kết luận video giả. Chất lượng hình ảnh, góc máy và nén video có thể ảnh hưởng kết quả. Hãy xác minh qua kênh khác:\n" + tips()
             )
             else -> Pair(
-                "Chưa thấy dấu hiệu bất thường",
-                "Không công cụ nào chắc chắn 100%. Nếu bị yêu cầu chuyển tiền hoặc đưa OTP, hãy gọi lại bằng số đã lưu để xác minh."
+                "Chưa thấy dấu hiệu bất thường rõ ràng",
+                if (modelAvailable)
+                    "Kết quả chỉ mang tính hỗ trợ, không bảo đảm chính xác 100%. Nếu bị yêu cầu chuyển tiền hoặc đưa OTP, hãy gọi lại bằng số đã lưu để xác minh."
+                else
+                    "Chưa có mô hình Deepfake đã kiểm chứng được cài đặt. Hiện chỉ phân tích một số dấu hiệu chuyển động/hình ảnh, vì vậy kết quả này KHÔNG xác nhận video là thật. Hãy xác minh qua kênh khác."
             )
         }
         return FaceVerdict(level, p, 1f, inds, fps, headline, advice)
@@ -170,26 +176,21 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
 
     private fun modelIndicator(f: List<FaceObservation>): FaceIndicator? {
         val m = f.takeLast(40).mapNotNull { it.modelFakeProb }
+            .filter { it.isFinite() && it in 0f..1f }
         if (m.size < 5) return null
-        val mean = m.average()
-        val score = ((mean - 0.35) / 0.45).coerceIn(0.0, 1.0)
-        return FaceIndicator("model", "Mô hình AI đánh giá", score, "xác suất giả ${(mean * 100).toInt()}%")
-    }
-
-    /** Mặt quay nghiêng mạnh mà vẫn ổn định -> bằng chứng nghiêng về "người thật". */
-    private fun profilePassed(f: List<FaceObservation>, box: FaceIndicator?, blend: FaceIndicator?): Boolean {
-        val profileFrames = f.count { abs(it.yaw) >= 40f }
-        return profileFrames >= 4 && (box?.score ?: 0.0) < 0.3 && (blend?.score ?: 0.0) < 0.4
+        // Median giảm ảnh hưởng của vài khung hình lỗi hoặc nhiễu đột ngột.
+        val sorted = m.sorted()
+        val median = if (sorted.size % 2 == 0)
+            (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
+        else sorted[sorted.size / 2].toDouble()
+        val score = ((median - 0.35) / 0.45).coerceIn(0.0, 1.0)
+        return FaceIndicator("model", "Mô hình AI đánh giá", score, "điểm đầu ra trung vị ${(median * 100).toInt()}%")
     }
 
     private fun tips() = CHALLENGES.joinToString("\n") { "• $it" }
 
     companion object {
         private const val MIN_BOX = 0.06f
-        private const val BIAS = -2.2
-        private val WEIGHTS = mapOf(
-            "blink" to 2.0, "jitter" to 0.8, "blend" to 1.0, "box" to 0.8, "model" to 3.5
-        )
         val CHALLENGES = listOf(
             "Yêu cầu họ quay mặt nghiêng hẳn sang trái/phải",
             "Yêu cầu đưa bàn tay quét ngang trước mặt",
