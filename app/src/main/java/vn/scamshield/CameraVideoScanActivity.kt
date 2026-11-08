@@ -23,13 +23,14 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import vn.scamshield.face.FaceLivenessAnalyzer
 import vn.scamshield.face.FaceObserver
+import vn.scamshield.face.TfliteDeepfakeClassifier
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import kotlin.math.max
 
 /**
  * Quét video đã chọn hoặc camera trực tiếp.
- * Hiện tại dùng ML Kit face detection + chỉ báo hình ảnh/chuyển động; chưa phải mô hình Deepfake đã huấn luyện.
+ * Nạp mô hình TFLite nếu app assets có deepfake_face.tflite; nếu thiếu thì chỉ dùng heuristic.
  */
 class CameraVideoScanActivity : ComponentActivity() {
     private lateinit var status: TextView
@@ -37,6 +38,7 @@ class CameraVideoScanActivity : ComponentActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private val analyzer = FaceLivenessAnalyzer(FaceLivenessAnalyzer.Config(minObserveMs = 5_000))
     private var observer: FaceObserver? = null
+    private var deepfakeClassifier: TfliteDeepfakeClassifier? = null
     private var lastFrameAt = 0L
     private var closed = false
 
@@ -70,7 +72,9 @@ class CameraVideoScanActivity : ComponentActivity() {
         root.addView(Button(this).apply { text = "Đóng"; setOnClickListener { finish() } })
         setContentView(root)
 
-        observer = FaceObserver(this)
+        deepfakeClassifier = TfliteDeepfakeClassifier(this)
+        observer = FaceObserver(this, deepfakeClassifier!!)
+        status.text = if (deepfakeClassifier!!.isAvailable) "Mô hình Deepfake TFLite đã nạp. Đang chuẩn bị…" else "Chưa có deepfake_face.tflite: hiện chỉ dùng chỉ báo heuristic, chưa phải AI Deepfake đã huấn luyện."
         val uri = intent.data
         if (uri != null) {
             preview?.visibility = android.view.View.GONE
@@ -104,7 +108,7 @@ class CameraVideoScanActivity : ComponentActivity() {
                         runOnUiThread {
                             status.text = verdict.headline + "\n" +
                                 "Điểm chỉ báo: " + (verdict.probability * 100).toInt() + "%\n" +
-                                verdict.advice
+                                (if (deepfakeClassifier?.isAvailable == true) "AI TFLite: đã nạp\\n" else "AI TFLite: chưa có mô hình\\n") + verdict.advice
                         }
                         bitmap.recycle()
                     }
@@ -140,7 +144,7 @@ class CameraVideoScanActivity : ComponentActivity() {
                     lastHeadline = v.headline
                     runOnUiThread {
                         status.text = "Đang quét: ${(t * 100 / max(1L, durationMs))}%\n" +
-                            v.headline + "\nĐiểm chỉ báo: " + (v.probability * 100).toInt() + "%\n" + v.advice
+                            v.headline + "\nĐiểm chỉ báo: " + (v.probability * 100).toInt() + "%\n" + (if (deepfakeClassifier?.isAvailable == true) "AI TFLite: đã nạp\\n" else "AI TFLite: chưa có mô hình\\n") + v.advice
                     }
                     frame.recycle()
                 }
@@ -186,6 +190,7 @@ class CameraVideoScanActivity : ComponentActivity() {
         closed = true
         executor.shutdown()
         observer?.close()
+        deepfakeClassifier?.close()
         super.onDestroy()
     }
 }

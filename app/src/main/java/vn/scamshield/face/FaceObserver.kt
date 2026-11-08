@@ -31,8 +31,11 @@ class FaceObserver(ctx: Context, private val classifier: DeepfakeClassifier = No
         val eye = if (l != null && r != null) (l + r) / 2f else null
         val outer = Rect(bb).apply { inset(-(bb.width() * 0.3f).toInt(), -(bb.height() * 0.3f).toInt()) }
         val fake = if (classifier.isAvailable) {
-            val c = Rect(bb); if (c.intersect(0, 0, b.width, b.height) && c.width() > 16 && c.height() > 16)
-                classifier.fakeProbability(Bitmap.createBitmap(b, c.left, c.top, c.width(), c.height())) else null
+            val c = Rect(bb)
+            if (c.intersect(0, 0, b.width, b.height) && c.width() > 16 && c.height() > 16) {
+                val crop = Bitmap.createBitmap(b, c.left, c.top, c.width(), c.height())
+                try { classifier.fakeProbability(crop) } finally { crop.recycle() }
+            } else null
         } else null
         return FaceObservation(ts, true, bb.width().toFloat() / b.width, bb.height().toFloat() / b.height,
             f.headEulerAngleY, f.headEulerAngleX, f.headEulerAngleZ, eye,
