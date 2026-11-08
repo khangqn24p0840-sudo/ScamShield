@@ -23,6 +23,7 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import vn.scamshield.face.FaceLivenessAnalyzer
 import vn.scamshield.face.FaceObserver
+import vn.scamshield.face.TfliteDeepfakeClassifier
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 import kotlin.math.max
@@ -37,6 +38,7 @@ class CameraVideoScanActivity : ComponentActivity() {
     private val executor = Executors.newSingleThreadExecutor()
     private val analyzer = FaceLivenessAnalyzer(FaceLivenessAnalyzer.Config(minObserveMs = 5_000))
     private var observer: FaceObserver? = null
+    private var deepfakeClassifier: TfliteDeepfakeClassifier? = null
     private var lastFrameAt = 0L
     private var closed = false
 
@@ -70,7 +72,9 @@ class CameraVideoScanActivity : ComponentActivity() {
         root.addView(Button(this).apply { text = "Đóng"; setOnClickListener { finish() } })
         setContentView(root)
 
-        observer = FaceObserver(this)
+        deepfakeClassifier = TfliteDeepfakeClassifier(this)
+        observer = FaceObserver(this, deepfakeClassifier!!)
+        status.text = if (deepfakeClassifier!!.isAvailable) "Mô hình Deepfake TFLite đã nạp. Đang chuẩn bị…" else "Chưa có deepfake_face.tflite: hiện chỉ dùng chỉ báo heuristic, chưa phải AI Deepfake đã huấn luyện."
         val uri = intent.data
         if (uri != null) {
             preview?.visibility = android.view.View.GONE
@@ -186,6 +190,7 @@ class CameraVideoScanActivity : ComponentActivity() {
         closed = true
         executor.shutdown()
         observer?.close()
+        deepfakeClassifier?.close()
         super.onDestroy()
     }
 }
