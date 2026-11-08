@@ -30,7 +30,7 @@ import kotlin.math.max
 
 /**
  * Quét video đã chọn hoặc camera trực tiếp.
- * Hiện tại dùng ML Kit face detection + chỉ báo hình ảnh/chuyển động; chưa phải mô hình Deepfake đã huấn luyện.
+ * Nạp mô hình TFLite nếu app assets có deepfake_face.tflite; nếu thiếu thì chỉ dùng heuristic.
  */
 class CameraVideoScanActivity : ComponentActivity() {
     private lateinit var status: TextView
@@ -108,7 +108,7 @@ class CameraVideoScanActivity : ComponentActivity() {
                         runOnUiThread {
                             status.text = verdict.headline + "\n" +
                                 "Điểm chỉ báo: " + (verdict.probability * 100).toInt() + "%\n" +
-                                verdict.advice
+                                (if (deepfakeClassifier?.isAvailable == true) "AI TFLite: đã nạp\\n" else "AI TFLite: chưa có mô hình\\n") + verdict.advice
                         }
                         bitmap.recycle()
                     }
@@ -144,7 +144,7 @@ class CameraVideoScanActivity : ComponentActivity() {
                     lastHeadline = v.headline
                     runOnUiThread {
                         status.text = "Đang quét: ${(t * 100 / max(1L, durationMs))}%\n" +
-                            v.headline + "\nĐiểm chỉ báo: " + (v.probability * 100).toInt() + "%\n" + v.advice
+                            v.headline + "\nĐiểm chỉ báo: " + (v.probability * 100).toInt() + "%\n" + (if (deepfakeClassifier?.isAvailable == true) "AI TFLite: đã nạp\\n" else "AI TFLite: chưa có mô hình\\n") + v.advice
                     }
                     frame.recycle()
                 }
