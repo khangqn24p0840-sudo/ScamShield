@@ -367,7 +367,12 @@ fun linkCheck(u: String): Result {
             OutlinedTextField(link, { link = it }, Modifier.fillMaxWidth(), placeholder = { Text("https://…") }, singleLine = true)
             GoldButton("Kiểm tra link", enabled = link.isNotBlank(), leading = Icons.Rounded.Link) { lr = linkCheck(link) }
         }
-        lr?.let { ResultCard(it) }
+        lr?.let { result ->
+            ResultCard(result)
+            OutlinedButton(onClick = {
+                ChatContext.set("Kết quả kiểm tra đường link: $link\nĐiểm rủi ro: ${result.score}/100\nDấu hiệu: ${result.reasons.joinToString("; ")}\nLưu ý: ứng dụng chỉ đánh giá dấu hiệu bề ngoài, không mở link và chưa xác minh đích đến thực tế.")
+            }, modifier = Modifier.fillMaxWidth()) { Text("Hỏi AI giải thích kết quả link") }
+        }
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.BugReport, C.Rose)

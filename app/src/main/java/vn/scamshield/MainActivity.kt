@@ -31,7 +31,11 @@ class MainActivity : ComponentActivity() {
             if (bytes.size > 5_000_000) aiMsg = "Ảnh quá lớn (tối đa 5MB)" else {
                 aiMsg = "Đang kiểm tra ảnh…"
                 Api.call(this, "POST", "/api/analyze/media", JSONObject().put("mime", contentResolver.getType(uri) ?: "image/jpeg")
-                    .put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))) { code, j -> aiMsg = fmtMedia(code, j) }
+                    .put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP))) { code, j ->
+                        val result = fmtMedia(code, j)
+                        aiMsg = result
+                        ChatContext.set("Kết quả phân tích ảnh bằng AI trên máy chủ: $result. Lưu ý: kết quả ảnh chỉ là chỉ báo, không chứng minh chắc chắn ảnh thật hay giả.")
+                    }
             }
         } catch (e: Exception) { aiMsg = "Không đọc được ảnh" }
     }

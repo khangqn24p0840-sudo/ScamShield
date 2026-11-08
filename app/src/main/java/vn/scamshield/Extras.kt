@@ -74,7 +74,11 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         Text("Cần đăng nhập. Chỉ nội dung bạn bấm phân tích mới được gửi lên máy chủ của bạn để AI đánh giá.", fontSize = 12.sp, color = C.Sub, lineHeight = 16.sp)
         OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), placeholder = { Text("Dán tin nhắn / lời thoại nghi ngờ…") }, minLines = 3)
         GoldButton("Phân tích nội dung bằng AI", enabled = text.isNotBlank(), leading = Icons.Rounded.Bolt) {
-            onMsg("Đang phân tích…"); Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", text)) { code, j -> onMsg(fmtText(code, j)) }
+            onMsg("Đang phân tích…"); Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", text)) { code, j ->
+                val result = fmtText(code, j)
+                onMsg(result)
+                ChatContext.set("Phân tích tin nhắn/văn bản:\nNội dung: ${text.take(1800)}\nKết quả: $result")
+            }
         }
         GhostButton("Kiểm tra ảnh có bị làm giả (qua máy chủ)", leading = Icons.Rounded.Image, onClick = onPick)
         if (aiMsg.isNotEmpty()) Text(aiMsg, fontSize = 14.sp, color = Color.White, lineHeight = 19.sp)
@@ -114,6 +118,9 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
                 }
             }
             if (v.advice.isNotEmpty()) Text(v.advice, fontSize = 12.sp, color = C.Dim, lineHeight = 16.sp)
+            OutlinedButton(onClick = {
+                ChatContext.set("Kết quả kiểm tra video call deepfake trên thiết bị: ${v.headline}; điểm rủi ro ${(v.probability * 100).toInt()}%; tiến độ ${(v.progress * 100).toInt()}%; các chỉ báo: ${v.indicators.joinToString("; ") { it.label + ": " + it.detail }}; khuyến nghị: ${v.advice}. Đây là chỉ báo thử nghiệm, không phải kết luận xác thực danh tính.")
+            }) { Text("Hỏi AI về kết quả này") }
         }
     }
 }

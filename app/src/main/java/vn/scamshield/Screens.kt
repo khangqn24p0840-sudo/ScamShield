@@ -64,6 +64,7 @@ fun displayName(c: Context): String {
         AppBackground()
         if (!loginDone) LoginScreen(c, { loginDone = true }, { Store.putFlag(c, "skip_login", true); loginDone = true })
         else MainShell(c, h) { Store.putFlag(c, "skip_login", false); loginDone = false }
+        if (loginDone) FloatingChatAssistant(c, Modifier.align(Alignment.BottomEnd))
     }
 }
 
