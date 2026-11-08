@@ -26,12 +26,21 @@ import org.json.JSONObject
 
 private data class ChatLine(val role: String, val text: String)
 
+/** Kết quả quét được người dùng chủ động chuyển sang trợ lý AI. */
+object ChatContext {
+    var current by mutableStateOf("")
+        private set
+    fun set(value: String) { current = value.take(6000) }
+    fun clear() { current = "" }
+}
+
 /** Nút AI nổi dùng chung ở lớp ShieldApp nên luôn hiện khi chuyển tab/trang con. */
 @Composable
 fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
     var expanded by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf("") }
     var loading by remember { mutableStateOf(false) }
+    val scanContext = ChatContext.current
     val lines = remember { mutableStateListOf<ChatLine>() }
     val scroll = androidx.compose.foundation.rememberScrollState()
 
@@ -64,6 +73,15 @@ fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
                         }
                     }
                     HorizontalDivider(color = C.Stroke)
+                    if (scanContext.isNotBlank()) {
+                        Surface(color = C.Cyan.copy(alpha = 0.10f), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(10.dp)) {
+                                Text("Đã nhận kết quả quét từ ScamShield", color = C.Cyan, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                Text(scanContext.take(220), color = C.Sub, fontSize = 11.sp, maxLines = 3)
+                                TextButton(onClick = { ChatContext.clear() }) { Text("Bỏ ngữ cảnh", color = C.Dim, fontSize = 11.sp) }
+                            }
+                        }
+                    }
                     if (lines.isEmpty()) {
                         Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally) {
@@ -133,7 +151,7 @@ fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
     }
 }
 
-private fun sendChat(lines: MutableList<ChatLine>, prompt: String, c: Context, setLoading: (Boolean) -> Unit) {
+private fun sendChat(lines: MutableList<ChatLine>, prompt: String, c: Context, scanContext: String, setLoading: (Boolean) -> Unit) {
     val text = prompt.trim()
     if (text.isEmpty()) return
     lines.add(ChatLine("user", text))
@@ -142,7 +160,8 @@ private fun sendChat(lines: MutableList<ChatLine>, prompt: String, c: Context, s
     lines.takeLast(12).forEach { line ->
         history.put(JSONObject().put("role", line.role).put("content", line.text))
     }
-    Api.call(c, "POST", "/api/chat", JSONObject().put("messages", history)) { code, json ->
+    Api.call(c, "POST", "/api/chat", JSONObject().put("messages", history).put("scan_context", scanContext)) { code, json ->
+        if (scanContext.isNotBlank()) ChatContext.clear()
         val answer = if (code in 200..299) json?.optString("reply").orEmpty()
             else json?.optString("error").orEmpty().ifBlank { "Không thể kết nối trợ lý AI (HTTP $code)." }
         lines.add(ChatLine("assistant", answer.ifBlank { "AI chưa trả về nội dung. Bạn thử lại nhé." }))
