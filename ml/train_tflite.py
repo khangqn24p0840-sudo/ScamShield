@@ -15,7 +15,7 @@ import tensorflow as tf
 from sklearn.model_selection import train_test_split
 
 import seed_data
-from build_starter_model import load_csv, metrics
+from build_starter_model import load_csv, metrics, split as grouped_split
 from features import DIM, featurize_many
 
 OUT = Path(__file__).resolve().parent.parent / "app" / "src" / "main" / "assets" / "scam_text.tflite"
@@ -27,13 +27,24 @@ a = ap.parse_args()
 
 if a.csv:
     texts, labels = load_csv(a.csv)
+    if len(set(labels)) < 2 or len(texts) < 40:
+        sys.exit("Cần ít nhất ~40 mẫu, gồm cả hai loại nhãn.")
+    X, y = featurize_many(texts), np.array(labels, dtype="float32")
+    # CSV: chia có phân tầng để giữ tỷ lệ hai nhãn.
+    Xtr, Xte, ytr, yte = train_test_split(
+        X, y, test_size=0.2, stratify=y, random_state=1
+    )
 else:
-    texts, labels, _ = seed_data.generate()
-if len(set(labels)) < 2 or len(texts) < 40:
-    sys.exit("Cần ít nhất ~40 mẫu, gồm cả hai loại nhãn.")
+    texts, labels, groups = seed_data.generate()
+    if len(set(labels)) < 2 or len(texts) < 40:
+        sys.exit("Cần ít nhất ~40 mẫu, gồm cả hai loại nhãn.")
+    X, y = featurize_many(texts), np.array(labels, dtype="float32")
+    # Dữ liệu tổng hợp: giữ nguyên các khuôn câu giữa train/test để tránh rò rỉ.
+    tr, te = grouped_split(texts, labels, groups)
+    Xtr, Xte, ytr, yte = X[tr], X[te], y[tr], y[te]
 
-X, y = featurize_many(texts), np.array(labels, dtype="float32")
-Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, stratify=y, random_state=1)
+if len(set(ytr.tolist())) < 2 or len(set(yte.tolist())) < 2:
+    sys.exit("Tập train/test phải có đủ cả hai nhãn 0 và 1.")
 
 model = tf.keras.Sequential([
     tf.keras.layers.Input(shape=(DIM,)),
