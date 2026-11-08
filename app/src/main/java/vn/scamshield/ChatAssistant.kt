@@ -43,7 +43,7 @@ fun FloatingChatAssistant(c: Context, modifier: Modifier = Modifier) {
                     .padding(end = 14.dp, bottom = 88.dp)
                     .fillMaxWidth()
                     .widthIn(max = 380.dp)
-                    .heightIn(max = 360.dp, maxHeight = 560.dp),
+                    .heightIn(maxHeight = 560.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = C.Card,
                 tonalElevation = 10.dp,
