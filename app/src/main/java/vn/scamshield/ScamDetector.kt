@@ -12,6 +12,7 @@ object ScamDetector {
     fun norm(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
         .replace(Regex("\\p{Mn}+"), "").replace('đ', 'd')
 
+    // Quy tắc chỉ đóng vai trò hỗ trợ; điểm quy tắc bị giới hạn để AI giữ vai trò chính.
     private val rules = listOf(
         Triple("cong an|vien kiem sat|toa an|co quan dieu tra|bo cong an|lenh bat|trieu tap", 40, "Giả danh cơ quan chức năng"),
         Triple("tai khoan.*(khoa|dong bang|tam ngung|bi han che)|xac thuc.*tai khoan", 30, "Dọa khóa/đóng băng tài khoản"),
@@ -30,20 +31,38 @@ object ScamDetector {
         Triple("anydesk|ultraviewer|teamviewer|chia se man hinh|cai ung dung|tai ung dung|cai dat app", 35, "Yêu cầu cài app / chia sẻ màn hình"),
         Triple("buu dien|buu cuc|giao hang|don hang|hoan tien|hoan phi|shipper", 20, "Giả giao hàng / hoàn tiền"),
         Triple("ngan hang|nhan vien|can bo|hop tac|giu bi mat|khong noi voi ai", 15, "Nhắc ngân hàng / yêu cầu giữ bí mật"),
-        Triple("https?://|www\\.", 10, "Chứa đường link"),
+        Triple("https?://|www\\.", 10, "Chứa đường link")
     )
 
     fun analyze(text: String): Result {
         val t = norm(text)
-        var score = 0
-        val why = mutableListOf<String>()
-        for ((re, pts, label) in rules) if (Regex(re).containsMatchIn(t)) { score += pts; why += label }
-        // Mô hình học máy TFLite: chỉ CỘNG điểm khi tin chắc là lừa đảo (tối đa +30), không bao giờ trừ điểm của bộ quy tắc
-        val p = TextModel.predict(text)
-        if (p != null && p >= 0.5f) {
-            score += ((p - 0.5f) * 60f).toInt()
-            why += "Mô hình học máy (TFLite): ${(p * 100).toInt()}% giống mẫu lừa đảo"
+        var ruleScore = 0
+        val ruleReasons = mutableListOf<String>()
+        for ((pattern, points, label) in rules) {
+            if (Regex(pattern).containsMatchIn(t)) {
+                ruleScore += points
+                ruleReasons += label
+            }
         }
-        return Result(score.coerceAtMost(100), why)
+
+        val probability = TextModel.predict(text)
+        val score: Int
+        val reasons = mutableListOf<String>()
+
+        if (probability != null && probability.isFinite()) {
+            // AI quyết định điểm chính trên thang 0..100.
+            val aiScore = (probability.coerceIn(0f, 1f) * 100f).toInt()
+            // Quy tắc chỉ có thể nâng cảnh báo tối đa lên 35, không lấn át kết quả AI.
+            score = maxOf(aiScore, ruleScore.coerceAtMost(35))
+            reasons += "AI phân tích: \${(probability.coerceIn(0f, 1f) * 100f).toInt()}% nguy cơ"
+            if (ruleReasons.isNotEmpty()) reasons += ruleReasons
+        } else {
+            // Chỉ dùng quy tắc khi mô hình chưa nạp được hoặc gặp lỗi.
+            score = ruleScore.coerceAtMost(100)
+            if (ruleReasons.isNotEmpty()) reasons += ruleReasons
+            reasons += "AI chưa khả dụng – đang dùng chế độ quy tắc dự phòng"
+        }
+
+        return Result(score.coerceIn(0, 100), reasons)
     }
 }
