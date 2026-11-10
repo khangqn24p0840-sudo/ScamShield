@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
+import org.json.JSONArray
 
 private data class ChatLine(
     val fromUser: Boolean,
@@ -138,34 +139,28 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
     fun sendMessage() {
         val message = draft.trim()
         if (message.isEmpty() || busy) return
-
+        val history = JSONArray()
+        lines.filter { !it.pending }.takeLast(10).forEach { line ->
+            history.put(JSONObject().put("role", if (line.fromUser) "user" else "assistant").put("text", line.text))
+        }
         lines.add(ChatLine(fromUser = true, text = message))
         draft = ""
-
         if (Store.str(c, "token").isBlank()) {
-            lines.add(
-                ChatLine(
-                    fromUser = false,
-                    text = "Bạn cần đăng nhập tài khoản ScamShield để sử dụng phân tích AI. Hãy mở mục Tài khoản, đăng nhập hoặc đăng ký rồi quay lại đây nhé."
-                )
-            )
+            lines.add(ChatLine(fromUser = false, text =
+                "Bạn cần đăng nhập để trò chuyện AI và đồng bộ phân tích với máy chủ."))
             return
         }
-
         busy = true
-        lines.add(ChatLine(fromUser = false, text = "Mình đang phân tích nội dung…", pending = true))
-        Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", message)) { code, result ->
+        lines.add(ChatLine(fromUser = false, text = "Mình đang suy nghĩ…", pending = true))
+        Api.call(c, "POST", "/api/chat", JSONObject().put("message", message).put("history", history)) { code, result ->
             val reply = if (code in 200..299 && result != null) {
-                fmtText(code, result)
+                result.optString("reply").ifBlank { "Mình chưa tạo được câu trả lời. Bạn thử diễn đạt lại nhé." }
             } else {
-                "Mình chưa phân tích được nội dung này. ${err(result)}"
+                "Mình chưa kết nối được trợ lý AI. " + (result?.optString("error") ?: "Vui lòng thử lại.")
             }
             val pendingIndex = lines.indexOfLast { it.pending }
-            if (pendingIndex >= 0) {
-                lines[pendingIndex] = ChatLine(fromUser = false, text = reply)
-            } else {
-                lines.add(ChatLine(fromUser = false, text = reply))
-            }
+            if (pendingIndex >= 0) lines[pendingIndex] = ChatLine(fromUser = false, text = reply)
+            else lines.add(ChatLine(fromUser = false, text = reply))
             busy = false
         }
     }
