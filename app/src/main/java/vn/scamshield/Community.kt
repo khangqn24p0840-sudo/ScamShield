@@ -254,13 +254,20 @@ fun openUrl(c: Context, url: String) {
             delay(10000)
         }
     }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (posts.isEmpty()) Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(18.dp))
+    if (posts.isEmpty()) {
+        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(18.dp))
             .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(16.dp)) {
-            Text(if (offline) "Chưa tải được dữ liệu (mất kết nối máy chủ)." else if (kind == "news") "Chưa có tin báo chí nào. Máy chủ sẽ tự tải tin mới định kỳ." else "Chưa có cảnh báo nào từ cộng đồng. Hãy là người đầu tiên chia sẻ!",
+            Text(if (offline) "Chưa tải được dữ liệu (mất kết nối máy chủ)." else if (kind == "news") "Chưa có tin nổi bật. Máy chủ sẽ tự tải tin mới định kỳ." else "Chưa có cảnh báo nào từ cộng đồng. Hãy là người đầu tiên chia sẻ!",
                 color = C.Dim, fontSize = 13.sp)
         }
-        posts.forEach { p -> PostCard(p) { if (p.kind == "news") reading = p else onPost(p.id) } }
+    } else {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            posts.forEach { p ->
+                Box(Modifier.width(280.dp)) {
+                    PostCard(p) { if (p.kind == "news") reading = p else onPost(p.id) }
+                }
+            }
+        }
     }
     reading?.let { NewsReader(c, it) { reading = null } }
 }

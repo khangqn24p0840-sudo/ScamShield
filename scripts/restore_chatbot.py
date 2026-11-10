@@ -10,22 +10,6 @@ if len(sys.argv) != 2:
 screens_path = Path(sys.argv[1])
 source = screens_path.read_text(encoding="utf-8")
 
-# Temporary read-only inspection of the packaged home/category source and sub-screen routing.
-for candidate, keys, limit in (
-    (screens_path.parent / "Screens.kt", ("catsBase", "cats.chunked", "FeatureCard", "HomeTab"), 150),
-    (screens_path.parent / "Features.kt", ("fun SubScreen", '"ai" ->'), 60),
-    (screens_path.parent / "Theme.kt", ("fun FeatureCard", "fun CatTile", "fun AiBotBadge"), 75),
-):
-    if candidate.exists():
-        source_lines = candidate.read_text(encoding="utf-8", errors="replace").splitlines()
-        selected = set()
-        for i, line in enumerate(source_lines):
-            if any(k in line for k in keys):
-                selected.update(range(max(0, i - 12), min(len(source_lines), i + limit)))
-        print(f"===== INSPECT {candidate.name} =====")
-        for i in sorted(selected):
-            print(f"{i+1}: {source_lines[i]}")
-
 main_start = source.find("@Composable fun MainShell(")
 next_func = source.find("@Composable fun BottomBar(", main_start)
 if main_start < 0 or next_func < 0:
@@ -106,6 +90,31 @@ if theme_file.exists():
     theme = theme.replace("Color(0xFFE3E0FA)", "Color(0xFFD6E9DF)")
     theme = theme.replace('Text("Hỏi AI", color = C.Blue', 'Text("Hỏi AI", color = C.Primary')
     print("Feature cards compacted and unified to the green palette.")
+    feature_start = theme.find("@Composable fun FeatureCard(")
+    feature_end = theme.find("@Composable fun RowCard(", feature_start)
+    if feature_start < 0 or feature_end < 0:
+        raise SystemExit("FeatureCard component not found in packaged Theme.kt.")
+    compact_feature = """@Composable fun FeatureCard(modifier: Modifier = Modifier, icon: ImageVector, label: String, tint: Color, onClick: () -> Unit, leading: (@Composable () -> Unit)? = null) {
+    Pressable(onClick, modifier) {
+        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Box(Modifier.size(52.dp)
+                .background(tint.copy(alpha = 0.13f), RoundedCornerShape(17.dp))
+                .border(1.dp, tint.copy(alpha = 0.18f), RoundedCornerShape(17.dp)),
+                contentAlignment = Alignment.Center) {
+                if (leading != null) leading()
+                else Icon(icon, null, tint = tint, modifier = Modifier.size(25.dp))
+            }
+            Text(label, color = C.Text, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center, maxLines = 2, lineHeight = 14.sp,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp))
+        }
+    }
+}
+
+"""
+    theme = theme[:feature_start] + compact_feature + theme[feature_end:]
     # Recolor only the floating AI robot badge, keeping its friendly white robot and sparkle.
     bot_start = theme.find("@Composable fun AiBotBadge(")
     if bot_start >= 0:
@@ -124,6 +133,85 @@ if theme_file.exists():
         print("AiBotBadge not found; retained the existing robot component.")
     theme_file.write_text(theme, encoding="utf-8")
     print("Theme colors saved: unified green accents and compact feature cards.")
+# Compact the packaged HomeBody into a 3-column, 2-row feature pager and expose Family Chat.
+screens_path = Path(sys.argv[1])
+source = screens_path.read_text(encoding="utf-8")
+home_start = source.find("@Composable private fun HomeBody(")
+status_start = source.find("/** Thẻ trạng thái bảo vệ", home_start)
+if home_start < 0 or status_start < 0:
+    raise SystemExit("HomeBody block not found in packaged Screens.kt.")
+home = source[home_start:status_start]
+
+if "featurePage" not in home:
+    home = home.replace(
+        "@Composable private fun HomeBody(c: Context, h: Hooks, open: (String) -> Unit, onPost: (Long) -> Unit, onFeed: () -> Unit) {",
+        "@Composable private fun HomeBody(c: Context, h: Hooks, open: (String) -> Unit, onPost: (Long) -> Unit, onFeed: () -> Unit) {\n    var featurePage by remember { mutableIntStateOf(0) }",
+        1,
+    )
+
+if '"Chat gia đình"' not in home:
+    home = home.replace(
+        'Cat(Icons.Rounded.CenterFocusStrong, "Quét camera", C.Primary, "scan"))',
+        'Cat(Icons.Rounded.CenterFocusStrong, "Quét camera", C.Primary, "scan"),\n        Cat(Icons.Rounded.FamilyRestroom, "Chat gia đình", C.Primary, "family"))',
+        1,
+    )
+
+grid_start = home.find('    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {\n        cats.chunked(2)')
+grid_end = home.find('    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {\n        SectionHeader("Cảnh báo cộng đồng"', grid_start)
+if grid_start < 0 or grid_end < 0:
+    raise SystemExit("Could not locate the packaged feature grid and recommendation section.")
+
+new_grid = """    val featurePages = cats.chunked(6)
+    val currentPage = featurePage.coerceIn(0, featurePages.lastIndex)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        featurePages[currentPage].chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { ct ->
+                    FeatureCard(Modifier.weight(1f), ct.icon, ct.label, ct.tint,
+                        { if (ct.key == "scan") h.startLiveScan() else open(ct.key) })
+                }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        if (featurePages.size > 1) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                featurePages.indices.forEach { index ->
+                    Box(Modifier.padding(horizontal = 4.dp).size(if (index == currentPage) 8.dp else 6.dp)
+                        .background(if (index == currentPage) C.Primary else Color(0xFFD9EAE1), CircleShape)
+                        .clickable { featurePage = index })
+                }
+            }
+        }
+    }
+    SectionHeader("Tin nổi bật", "Xem thêm") { feedStartSection = "news"; onFeed() }
+    FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
+"""
+home = home[:grid_start] + new_grid + home[grid_end:]
+home = home.replace(
+    """    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader("Tin tức & kiến thức", "Xem tất cả") { feedStartSection = "news"; onFeed() }
+        FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
+    }
+""",
+    "",
+    1,
+)
+source = source[:home_start] + home + source[status_start:]
+screens_path.write_text(source, encoding="utf-8")
+print("Home menu changed to a compact 3-column grid with page dots and a Chat gia đình tile.")
+
+features_file = screens_path.parent / "Features.kt"
+if features_file.exists():
+    features = features_file.read_text(encoding="utf-8")
+    route = '"family" -> FamilyChatScreen(c, back)'
+    if route not in features:
+        anchor = '        "ai" -> Page("Trợ lý AI", back) { AiPanel(c, h.aiMsg(), h.pickImage) { h.setAiMsg(it) } }'
+        if anchor not in features:
+            raise SystemExit("Could not find the AI sub-screen route in Features.kt.")
+        features = features.replace(anchor, anchor + "\n        " + route, 1)
+        features_file.write_text(features, encoding="utf-8")
+print("Family chat route is registered.")
+
 # Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
 # remains the only floating robot. Its sparkle/tools now live inside the chat.
 
@@ -131,7 +219,7 @@ if theme_file.exists():
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 14", gradle, count=1)
-    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.9"', gradle, count=1)
+    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 15", gradle, count=1)
+    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.10"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
-    print("App version set to 4.9 (versionCode 14).")
+    print("App version set to 4.10 (versionCode 15).")

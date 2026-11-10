@@ -207,14 +207,17 @@ object C {
 /** Ô danh mục: nền gradient màu nhạt + icon màu, co nhẹ khi nhấn. */
 @Composable fun CatTile(modifier: Modifier = Modifier, icon: ImageVector, label: String, tint: Color, onClick: () -> Unit) {
     Pressable(onClick, modifier) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.fillMaxWidth().aspectRatio(1f)
-                .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.30f), tint.copy(alpha = 0.10f))), RoundedCornerShape(18.dp))
-                .border(1.dp, tint.copy(alpha = 0.30f), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = tint, modifier = Modifier.size(26.dp))
+        Column(Modifier.fillMaxWidth().padding(vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Box(Modifier.size(52.dp)
+                .background(tint.copy(alpha = 0.14f), RoundedCornerShape(17.dp))
+                .border(1.dp, tint.copy(alpha = 0.18f), RoundedCornerShape(17.dp)),
+                contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(25.dp))
             }
-            Spacer(Modifier.height(7.dp))
-            Text(label, color = C.Sub, fontSize = 11.sp, textAlign = TextAlign.Center, maxLines = 2, lineHeight = 13.sp, modifier = Modifier.fillMaxWidth())
+            Text(label, color = C.Sub, fontSize = 11.5.sp, textAlign = TextAlign.Center,
+                maxLines = 2, lineHeight = 14.sp, modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp))
         }
     }
 }

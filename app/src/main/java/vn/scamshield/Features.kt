@@ -59,6 +59,7 @@ import java.util.Locale
         "social" -> SocialScreen(c, h, back)
         "malware", "link" -> MalwareScreen(c, back)
         "ai" -> Page("Yêu cầu AI", back) { AiPanel(c, h.aiMsg(), h.pickImage) { h.setAiMsg(it) } }
+        "family" -> FamilyChatScreen(c, back)
         "live" -> LiveScreen(h, back)
         "stats" -> StatsScreen(c, back)
         else -> OtherScreen(c, back)

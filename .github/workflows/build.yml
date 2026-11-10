@@ -30,6 +30,7 @@ jobs:
       - name: Khôi phục chatbot nổi trong bản APK
         run: |
           cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/Chatbot.kt" app/src/main/java/vn/scamshield/Chatbot.kt
+          cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/FamilyChat.kt" app/src/main/java/vn/scamshield/FamilyChat.kt
           python3 "$GITHUB_WORKSPACE/scripts/restore_chatbot.py" app/src/main/java/vn/scamshield/Screens.kt
         working-directory: ${{ steps.find.outputs.dir }}
       - run: gradle assembleDebug --no-daemon

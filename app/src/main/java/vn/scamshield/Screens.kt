@@ -247,6 +247,7 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
 }
 
 @Composable private fun HomeBody(c: Context, h: Hooks, open: (String) -> Unit, onPost: (Long) -> Unit, onFeed: () -> Unit) {
+    var featurePage by remember { mutableIntStateOf(0) }
     StatusCard(h, open)
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         StatCard(Store.count(c, "blocked"), "Đã chặn", Icons.Rounded.Block, C.Bad, Modifier.weight(1f))
@@ -262,32 +263,32 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
         Cat(Icons.Rounded.Forum, "Zalo, Messenger", C.Cyan, "social"),
         Cat(Icons.Rounded.BugReport, "Mã Độc & Link", C.Rose, "malware"),
         Cat(Icons.Rounded.SmartToy, "Yêu Cầu AI", C.Blue, "ai"),
+        Cat(Icons.Rounded.FamilyRestroom, "Chat gia đình", C.Mint, "family"),
         Cat(Icons.Rounded.MoreHoriz, "Khác", C.Dim, "other"))
+    val featurePages = cats.chunked(6)
+    val currentPage = featurePage.coerceIn(0, featurePages.lastIndex)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        cats.chunked(4).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        featurePages[currentPage].chunked(3).forEach { row ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 row.forEach { ct -> CatTile(Modifier.weight(1f), ct.icon, ct.label, ct.tint) { open(ct.key) } }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            }
+        }
+        if (featurePages.size > 1) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                featurePages.indices.forEach { index ->
+                    Box(Modifier.padding(horizontal = 4.dp).size(if (index == currentPage) 8.dp else 6.dp)
+                        .background(if (index == currentPage) C.Mint else C.Dim.copy(alpha = 0.35f), CircleShape)
+                        .clickable { featurePage = index })
+                }
             }
         }
     }
-    SectionHeader("Đề xuất")
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        RecCard(Icons.Rounded.GraphicEq, "Nghe cuộc gọi qua loa ngoài",
-            if (ListenService.running) "Đang nghe" else "Đã chặn ${Store.count(c, "blocked")}",
-            listOf(Color(0xFF7F1D1D), Color(0xFF450A0A))) { open("live") }
-        RecCard(Icons.Rounded.Videocam, "Kiểm tra Deepfake", if (FaceBus.running) "Đang chạy" else "Video call",
-            listOf(Color(0xFF4338CA), Color(0xFF1E1B4B))) { open("video") }
-        RecCard(Icons.Rounded.Analytics, "Thống kê cảnh báo", "${Store.count(c, "warned") + Store.count(c, "blocked")} lần",
-            listOf(Color(0xFF047857), Color(0xFF022C22))) { open("stats") }
-        RecCard(Icons.Rounded.Link, "Phân tích link", "Mã độc & link", listOf(Color(0xFF1D4ED8), Color(0xFF172554))) { open("link") }
-    }
+    SectionHeader("Tin nổi bật", "Xem thêm") { feedStartSection = "news"; onFeed() }
+    FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader("Cảnh báo từ cộng đồng", "Xem tất cả") { feedStartSection = "post"; onFeed() }
         FeedPreview(c, "post", { feedStartSection = "post"; onFeed() }, onPost)
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader("Tin báo chí", "Xem tất cả") { feedStartSection = "news"; onFeed() }
-        FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
     }
     TipBanner("Ngân hàng, công an không bao giờ yêu cầu OTP hay chuyển tiền qua điện thoại.")
 }
