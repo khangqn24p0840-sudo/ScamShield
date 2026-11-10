@@ -10,6 +10,22 @@ if len(sys.argv) != 2:
 screens_path = Path(sys.argv[1])
 source = screens_path.read_text(encoding="utf-8")
 
+# Temporary read-only inspection of the packaged home/category source and sub-screen routing.
+for candidate, keys, limit in (
+    (screens_path.parent / "Screens.kt", ("catsBase", "cats.chunked", "FeatureCard", "HomeTab"), 150),
+    (screens_path.parent / "Features.kt", ("fun SubScreen", '"ai" ->'), 60),
+    (screens_path.parent / "Theme.kt", ("fun FeatureCard", "fun CatTile", "fun AiBotBadge"), 75),
+):
+    if candidate.exists():
+        source_lines = candidate.read_text(encoding="utf-8", errors="replace").splitlines()
+        selected = set()
+        for i, line in enumerate(source_lines):
+            if any(k in line for k in keys):
+                selected.update(range(max(0, i - 12), min(len(source_lines), i + limit)))
+        print(f"===== INSPECT {candidate.name} =====")
+        for i in sorted(selected):
+            print(f"{i+1}: {source_lines[i]}")
+
 main_start = source.find("@Composable fun MainShell(")
 next_func = source.find("@Composable fun BottomBar(", main_start)
 if main_start < 0 or next_func < 0:
