@@ -38,6 +38,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
+import java.text.Normalizer
 
 private data class ChatLine(
     val fromUser: Boolean,
@@ -141,6 +142,13 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
 
         lines.add(ChatLine(fromUser = true, text = message))
         draft = ""
+
+        // Chào hỏi / xã giao: trả lời tự nhiên ngay trên máy, không cần đăng nhập, không chấm điểm.
+        val chatReply = ChatIntent.localReply(message)
+        if (chatReply != null) {
+            lines.add(ChatLine(fromUser = false, text = chatReply))
+            return
+        }
 
         if (Store.str(c, "token").isBlank()) {
             lines.add(
@@ -368,4 +376,133 @@ private fun ChatToolChip(label: String, onClick: () -> Unit) {
         fontSize = 10.5.sp,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+/**
+ * Phân loại tin nhắn người dùng gõ vào chatbot.
+ * - Xã giao (chào, cảm ơn, hỏi bot là ai...) -> trả lời tự nhiên ngay trên máy, KHÔNG gửi lên server.
+ * - Nội dung cần kiểm tra (link, số điện thoại/tài khoản, tin nhắn dài, có từ khóa lừa đảo) -> trả null để gọi phân tích AI.
+ */
+internal object ChatIntent {
+
+    private val diacritics = Regex("\\p{Mn}+")
+    private val nonWord = Regex("[^a-z0-9 ]")
+    private val spaces = Regex("\\s+")
+    private val urlLike = Regex(
+        "(https?://|www\\.|\\b[a-z0-9-]+\\.(com|vn|net|org|info|xyz|top|click|club|online|site|link|cc|me|co|app|shop|icu|live|vip)\\b)",
+        RegexOption.IGNORE_CASE
+    )
+    private val longNumber = Regex("\\d[\\d .\\-]{6,}\\d")
+
+    private val toolPrefixes = listOf(
+        "hay phan tich tin nhan sau",
+        "hay danh gia duong link sau",
+        "hay giup toi nhan dien cac dau hieu lua dao trong cuoc goi"
+    )
+
+    private val scamKeywords = listOf(
+        "otp", "chuyen khoan", "so tai khoan", "ngan hang", "trung thuong", "nhan qua", "cong an", "vien kiem sat",
+        "toa an", "khoa tai khoan", "xac minh", "mat khau", "dat coc", "dau tu", "viec nhe luong cao", "cong tac vien",
+        "vay tien", "giai ngan", "hoan tien", "tien dien", "shipper", "buu dien", "thue bao", "mat sim", "click",
+        "bam vao", "nhap ma", "ma xac thuc", "can cuoc", "cccd", "lenh bat", "truy na"
+    )
+
+    private fun norm(s: String): String {
+        val d = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
+            .replace(diacritics, "")
+            .replace('đ', 'd')
+        return d.replace(nonWord, " ").replace(spaces, " ").trim()
+    }
+
+    private fun pick(vararg options: String) = options.random()
+
+    private val greetWords = setOf("hi", "hii", "hello", "helo", "hey", "alo", "chao", "yo", "hallo", "hola", "e", "oi")
+
+    /** @return câu trả lời xã giao, hoặc null nếu nên gọi phân tích AI. */
+    fun localReply(raw: String): String? {
+        val text = raw.trim()
+        val n = norm(text)
+        val words = if (n.isEmpty()) emptyList() else n.split(" ")
+
+        // Chỉ có emoji/ký hiệu
+        if (n.isEmpty()) return pick(
+            "Mình đây! 😊 Bạn cần mình giúp kiểm tra tin nhắn hay đường link nào không?",
+            "Chào bạn! Bạn cứ dán nội dung đáng ngờ vào đây, mình xem giúp nhé."
+        )
+
+        // Link / số dài => chắc chắn là nội dung cần kiểm tra
+        if (urlLike.containsMatchIn(text) || longNumber.containsMatchIn(text)) return null
+
+        // Các nút gợi ý (tool chip) đã điền sẵn câu mở đầu
+        toolPrefixes.firstOrNull { n.startsWith(it) }?.let { p ->
+            val rest = n.removePrefix(p).trim()
+            return if (rest.length < 6) {
+                "Bạn dán nội dung cần kiểm tra vào sau câu đó giúp mình nhé, mình xem ngay! 🔍"
+            } else null
+        }
+
+        // ---- Xã giao ----
+        val first = words.first()
+        if (words.size <= 5 && (first in greetWords || n.startsWith("xin chao"))) {
+            return pick(
+                "Chào bạn! 👋 Mình là trợ lý ScamShield. Bạn cần mình kiểm tra tin nhắn, cuộc gọi hay đường link nào không?",
+                "Hello bạn! Hôm nay có tin nhắn hay cuộc gọi nào làm bạn thấy lấn cấn không? Cứ gửi mình xem giúp nhé.",
+                "Xin chào! Mình sẵn sàng hỗ trợ bạn rồi. Bạn muốn hỏi gì về lừa đảo hay muốn mình kiểm tra nội dung nào?"
+            )
+        }
+        if (n.startsWith("chao buoi") || n.startsWith("good morning") || n.startsWith("good evening")) {
+            return "Chào bạn! Chúc bạn một ngày an toàn nhé 😊 Bạn cần mình giúp gì không?"
+        }
+        if (words.size <= 6 && ("cam on" in n || n.startsWith("thanks") || n.startsWith("thank") || n == "tks" || n == "ty")) {
+            return pick(
+                "Không có gì đâu bạn! Có gì đáng ngờ cứ gửi mình nhé 💚",
+                "Rất vui được giúp bạn! Cẩn thận với tin nhắn lạ nha."
+            )
+        }
+        if (words.size <= 4 && (n.contains("tam biet") || n == "bye" || n.startsWith("bye ") || n == "bb" || n.contains("hen gap lai"))) {
+            return "Tạm biệt bạn! Nhớ là đừng bao giờ chia sẻ OTP cho ai nhé. Hẹn gặp lại 👋"
+        }
+        if (n.contains("ban la ai") || n.contains("ten ban la gi") || n.contains("may la ai") || n.contains("who are you") ||
+            n.contains("ban ten gi")
+        ) {
+            return "Mình là trợ lý AI của ScamShield 🤖 — chuyên giúp bạn nhận diện tin nhắn, cuộc gọi, đường link và ảnh có dấu hiệu lừa đảo, rồi gợi ý cách xử lý."
+        }
+        if (n.contains("ban lam duoc gi") || n.contains("ban giup duoc gi") || n.contains("giup gi") ||
+            n.contains("lam duoc gi") || n.contains("huong dan") || n == "help" || n.contains("cach dung") || n.contains("su dung the nao")
+        ) {
+            return "Mình có thể giúp bạn:\n• Phân tích tin nhắn/lời thoại nghi lừa đảo\n• Đánh giá đường link\n• Nhận diện dấu hiệu qua cuộc gọi\n• Kiểm tra ảnh có bị làm giả không (bấm biểu tượng ✨ ở trên)\n\nBạn chỉ cần dán nội dung vào đây là được."
+        }
+        if (n.contains("khoe khong") || n.contains("khoe ko") || n.contains("how are you") || n.contains("dang lam gi") ||
+            n.contains("an com chua")
+        ) {
+            return pick(
+                "Mình khỏe, cảm ơn bạn đã hỏi! 😄 Còn bạn thì sao, có tin nhắn lạ nào cần mình xem không?",
+                "Mình ổn lắm, lúc nào cũng sẵn sàng canh chừng giúp bạn đây! Bạn cần hỗ trợ gì nào?"
+            )
+        }
+        if (words.size <= 2 && n in setOf("ok", "oke", "okie", "uh", "u", "da", "vang", "um", "uhm", "duoc", "roi", "hay", "tot", "good")) {
+            return pick("Ok bạn! Cần gì cứ nhắn mình nhé 😊", "Vâng! Có gì cần kiểm tra bạn cứ gửi nhé.")
+        }
+        if (n.contains("xin loi") && words.size <= 5) {
+            return "Bạn đừng ngại, cứ hỏi thoải mái nhé! 😊"
+        }
+
+        // Hỏi chung chung về lừa đảo nhưng chưa gửi nội dung
+        val hasKeyword = scamKeywords.any { it in n } || "lua dao" in n || "scam" in n
+        if (words.size <= 8 && hasKeyword && (n.contains("khong") || words.contains("ko") || text.endsWith("?")) &&
+            !n.contains("http")
+        ) {
+            return "Bạn dán nguyên văn tin nhắn, lời thoại hoặc đường link vào đây giúp mình nhé, mình sẽ phân tích dấu hiệu lừa đảo cho bạn. Đừng gửi OTP hay mật khẩu nha."
+        }
+
+        // ---- Nội dung cần phân tích ----
+        if (n.length >= 40) return null
+        if (hasKeyword && words.size >= 4) return null
+
+        // Câu ngắn không rõ ý: trả lời thân thiện thay vì chấm điểm
+        return pick(
+            "Mình chưa rõ ý bạn lắm 😅 Nếu bạn có tin nhắn, lời thoại hay đường link đáng ngờ thì dán vào đây, mình sẽ phân tích giúp nhé.",
+            "Bạn nói rõ hơn một chút được không? Hoặc cứ gửi nội dung đáng ngờ, mình sẽ kiểm tra ngay."
+        )
+    }
 }
