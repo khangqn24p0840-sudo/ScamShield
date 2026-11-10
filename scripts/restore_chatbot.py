@@ -212,6 +212,36 @@ if features_file.exists():
         features_file.write_text(features, encoding="utf-8")
 print("Family chat route is registered.")
 
+# Put featured news/community preview cards in a horizontal rail like the reference screen.
+community_file = screens_path.parent / "Community.kt"
+if community_file.exists():
+    community = community_file.read_text(encoding="utf-8")
+    preview_start = community.find("@Composable fun FeedPreview(")
+    preview_end = community.find("// ───────────────────────── Tab Cộng đồng", preview_start)
+    if preview_start < 0 or preview_end < 0:
+        raise SystemExit("FeedPreview block not found in packaged Community.kt.")
+    preview = community[preview_start:preview_end]
+    old_card_line = '        posts.forEach { p -> PostCard(p) { if (p.kind == "news") reading = p else onPost(p.id) } }'
+    if old_card_line in preview:
+        preview = preview.replace(
+            old_card_line,
+            """        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            posts.forEach { p ->
+                Box(Modifier.width(280.dp)) {
+                    PostCard(p) { if (p.kind == "news") reading = p else onPost(p.id) }
+                }
+            }
+        }""",
+            1,
+        )
+        community = community[:preview_start] + preview + community[preview_end:]
+        community_file.write_text(community, encoding="utf-8")
+        print("Featured feed cards now scroll horizontally.")
+    elif "posts.forEach { p ->" in preview and "horizontalScroll" not in preview:
+        raise SystemExit("FeedPreview list format changed; refusing an unsafe automatic replacement.")
+    else:
+        print("FeedPreview already uses a horizontal rail.")
+
 # Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
 # remains the only floating robot. Its sparkle/tools now live inside the chat.
 
@@ -219,7 +249,7 @@ print("Family chat route is registered.")
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 15", gradle, count=1)
-    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.10"', gradle, count=1)
+    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 16", gradle, count=1)
+    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.11"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
-    print("App version set to 4.10 (versionCode 15).")
+    print("App version set to 4.11 (versionCode 16).")
