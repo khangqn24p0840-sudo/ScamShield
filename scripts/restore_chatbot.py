@@ -8,6 +8,19 @@ if len(sys.argv) != 2:
     raise SystemExit("Usage: restore_chatbot.py <path-to-Screens.kt>")
 
 screens_path = Path(sys.argv[1])
+
+# Temporary build diagnostics: identify any pre-existing floating robot/chat entry
+# in the ZIP source before adding the current launcher.
+source_root = screens_path.parent
+for candidate in source_root.glob("*.kt"):
+    lines = candidate.read_text(encoding="utf-8", errors="replace").splitlines()
+    matches = [(i, line.strip()) for i, line in enumerate(lines, 1)
+               if any(key in line.lower() for key in
+                      ("chatbot", "floatingactionbutton", "smarttoy", "robot", "alignment.bottomend"))]
+    if matches:
+        print(f"--- EXISTING FLOATING/CHAT MATCHES: {candidate.name} ---")
+        for number, line in matches[:30]:
+            print(f"{number}: {line[:240]}")
 source = screens_path.read_text(encoding="utf-8")
 if "ChatbotLauncher(c)" not in source:
     start = source.find("@Composable fun MainShell(")
