@@ -45,6 +45,17 @@ private data class ChatLine(
     val pending: Boolean = false
 )
 
+private val ChatGreen = Color(0xFF118465)
+private val ChatGreenDeep = Color(0xFF0D6D53)
+private val ChatGreenDark = Color(0xFF174B3D)
+private val ChatMint = Color(0xFFEAF6F0)
+private val ChatCanvas = Color(0xFFF4FAF7)
+private val ChatBorder = Color(0xFFD6E9DF)
+private val ChatMuted = Color(0xFF698579)
+private val ChatBubbleUser = Color(0xFFDDF2E8)
+private val ChatChip = Color(0xFFE6F4ED)
+
+
 /** One entry point for the AI assistant. The packaged project keeps its original FloatingBot button. */
 @Composable
 fun ChatbotLauncher(c: Context, h: Hooks) {
@@ -167,47 +178,47 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         modifier = modifier
             .shadow(24.dp, RoundedCornerShape(26.dp))
             .clip(RoundedCornerShape(26.dp))
-            .background(C.Card)
-            .border(1.dp, C.Stroke, RoundedCornerShape(26.dp))
+            .background(Color.White)
+            .border(1.dp, ChatBorder, RoundedCornerShape(26.dp))
     ) {
         Row(
             Modifier.fillMaxWidth()
-                .background(Brush.horizontalGradient(listOf(C.CardHi, C.Card)))
+                .background(Brush.horizontalGradient(listOf(ChatGreenDeep, ChatGreen)))
                 .padding(horizontal = 14.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(11.dp)
         ) {
             Box(
                 Modifier.size(42.dp)
-                    .background(Brush.linearGradient(C.goldGrad), CircleShape),
+                    .background(Brush.linearGradient(listOf(ChatGreen, ChatGreenDeep)), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.SmartToy, null, tint = C.Ink, modifier = Modifier.size(25.dp))
+                Icon(Icons.Rounded.SmartToy, null, tint = Color.White, modifier = Modifier.size(25.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Trợ lý AI ScamShield", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("Hỗ trợ nhận diện lừa đảo", color = C.Mint, fontSize = 11.sp)
+                Text("Hỗ trợ nhận diện lừa đảo", color = Color(0xFFD9F6E8), fontSize = 11.sp)
             }
             IconButton(onClick = { showTools = !showTools }) {
-                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Mở tính năng AI", tint = Color(0xFFFFC86A))
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Mở tính năng AI", tint = Color.White)
             }
             IconButton(onClick = onClose) {
-                Icon(Icons.Rounded.Close, contentDescription = "Đóng chatbot", tint = C.Sub)
+                Icon(Icons.Rounded.Close, contentDescription = "Đóng chatbot", tint = Color.White)
             }
         }
 
-        Divider(color = C.Stroke)
+        HorizontalDivider(color = ChatBorder)
 
         if (showTools) {
             Column(
                 Modifier.fillMaxWidth()
-                    .background(C.CardHi)
+                    .background(ChatMint)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFC86A), modifier = Modifier.size(16.dp))
-                    Text("TÍNH NĂNG AI", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = ChatGreen, modifier = Modifier.size(16.dp))
+                    Text("TÍNH NĂNG AI", color = ChatGreenDark, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     ChatToolChip("Phân tích tin nhắn") {
@@ -234,7 +245,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth()
-                .background(C.Bg.copy(alpha = 0.48f))
+                .background(ChatCanvas)
                 .padding(horizontal = 12.dp, vertical = 12.dp),
             state = listState,
             verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -251,10 +262,23 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                 value = draft,
                 onValueChange = { if (it.length <= 4000) draft = it },
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Dán tin nhắn hoặc đường link…", fontSize = 12.sp) },
+                placeholder = { Text("Dán tin nhắn hoặc đường link…", color = ChatMuted, fontSize = 12.sp) },
                 maxLines = 3,
-                textStyle = TextStyle(color = Color.White, fontSize = 13.sp, lineHeight = 18.sp),
+                textStyle = TextStyle(color = ChatGreenDark, fontSize = 13.sp, lineHeight = 18.sp),
                 shape = RoundedCornerShape(17.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ChatGreenDark,
+                    unfocusedTextColor = ChatGreenDark,
+                    disabledTextColor = ChatMuted,
+                    focusedContainerColor = Color.White,
+                    unfocusedContainerColor = Color.White,
+                    disabledContainerColor = ChatCanvas,
+                    cursorColor = ChatGreen,
+                    focusedBorderColor = ChatGreen,
+                    unfocusedBorderColor = ChatBorder,
+                    focusedPlaceholderColor = ChatMuted,
+                    unfocusedPlaceholderColor = ChatMuted
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = KeyboardActions(onSend = { sendMessage() })
             )
@@ -263,22 +287,22 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                 enabled = draft.isNotBlank() && !busy,
                 modifier = Modifier.size(46.dp)
                     .background(
-                        if (draft.isNotBlank() && !busy) Brush.linearGradient(C.goldGrad)
-                        else Brush.linearGradient(listOf(C.Dim, C.Dim)),
+                        if (draft.isNotBlank() && !busy) Brush.linearGradient(listOf(ChatGreen, ChatGreenDeep))
+                        else Brush.linearGradient(listOf(ChatBorder, ChatBorder)),
                         CircleShape
                     )
             ) {
                 Icon(
                     Icons.Rounded.Send,
                     contentDescription = "Gửi nội dung để phân tích",
-                    tint = if (draft.isNotBlank() && !busy) C.Ink else C.Bg,
+                    tint = if (draft.isNotBlank() && !busy) Color.White else ChatMuted,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
         Text(
             "Nội dung gửi sẽ được chuyển lên máy chủ để phân tích.",
-            color = C.Dim,
+            color = ChatMuted,
             fontSize = 10.sp,
             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
         )
@@ -294,7 +318,7 @@ private fun ChatBubble(line: ChatLine) {
         Column(
             Modifier.widthIn(max = 310.dp)
                 .background(
-                    if (line.fromUser) C.Gold.copy(alpha = 0.16f) else C.CardHi,
+                    if (line.fromUser) ChatBubbleUser else Color.White,
                     RoundedCornerShape(
                         topStart = 18.dp,
                         topEnd = 18.dp,
@@ -304,7 +328,7 @@ private fun ChatBubble(line: ChatLine) {
                 )
                 .border(
                     1.dp,
-                    if (line.fromUser) C.Gold.copy(alpha = 0.30f) else C.Stroke,
+                    ChatBorder,
                     RoundedCornerShape(18.dp)
                 )
                 .padding(horizontal = 12.dp, vertical = 10.dp)
@@ -314,14 +338,14 @@ private fun ChatBubble(line: ChatLine) {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Icon(Icons.Rounded.SmartToy, null, tint = C.Gold, modifier = Modifier.size(13.dp))
-                    Text("SCAMSHIELD AI", color = C.Gold, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.SmartToy, null, tint = ChatGreen, modifier = Modifier.size(13.dp))
+                    Text("SCAMSHIELD AI", color = ChatGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(4.dp))
             }
             Text(
                 line.text,
-                color = if (line.fromUser) Color.White else C.Sub,
+                color = ChatGreenDark,
                 fontSize = 12.5.sp,
                 lineHeight = 18.sp
             )
@@ -336,11 +360,11 @@ private fun ChatToolChip(label: String, onClick: () -> Unit) {
         label,
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(C.Bg.copy(alpha = 0.72f), RoundedCornerShape(12.dp))
-            .border(1.dp, C.Stroke, RoundedCornerShape(12.dp))
+            .background(ChatChip, RoundedCornerShape(12.dp))
+            .border(1.dp, ChatBorder, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
-        color = C.Sub,
+        color = ChatGreenDark,
         fontSize = 10.5.sp,
         fontWeight = FontWeight.SemiBold
     )
