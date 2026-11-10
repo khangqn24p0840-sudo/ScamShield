@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Restore ScamShield's floating chatbot in the packaged Android project."""
+"""Attach the new AI conversation panel to ScamShield's original FloatingBot."""
 from pathlib import Path
 import re
 import sys
@@ -8,51 +8,58 @@ if len(sys.argv) != 2:
     raise SystemExit("Usage: restore_chatbot.py <path-to-Screens.kt>")
 
 screens_path = Path(sys.argv[1])
-
-screens_path = Path(sys.argv[1])
 source = screens_path.read_text(encoding="utf-8")
-if "ChatbotLauncher(c, h)" not in source:
-    start = source.find("@Composable fun MainShell(")
-    if start < 0:
-        raise SystemExit("MainShell not found in Screens.kt.")
-    next_func = source.find("@Composable fun BottomBar(", start)
-    if next_func < 0:
-        raise SystemExit("BottomBar not found after MainShell in Screens.kt.")
 
-    region = source[start:next_func]
-    root = re.compile(
-        r"(?m)^([ \t]*)Column\(Modifier\.fillMaxSize\(\)\.statusBarsPadding\(\)\) \{$"
-    )
-    match = root.search(region)
-    if not match:
-        raise SystemExit("MainShell root Column not found; refusing to patch the wrong UI.")
+main_start = source.find("@Composable fun MainShell(")
+next_func = source.find("@Composable fun BottomBar(", main_start)
+if main_start < 0 or next_func < 0:
+    raise SystemExit("MainShell/BottomBar markers not found in packaged Screens.kt.")
 
-    indent = match.group(1)
-    region = root.sub(
-        indent + "Box(Modifier.fillMaxSize()) {\n" +
-        indent + "    Column(Modifier.fillMaxSize().statusBarsPadding()) {",
-        region,
-        count=1,
+main = source[main_start:next_func]
+
+# The older UI already has the purple FloatingBot. Reuse it and route its click
+# to the new conversation panel instead of adding a second floating robot.
+if "chatbotOpen" not in main:
+    state_anchor = "    var openPost by remember { mutableLongStateOf(0L) }"
+    if main.count(state_anchor) != 1:
+        raise SystemExit("Could not locate MainShell state insertion point.")
+    main = main.replace(
+        state_anchor,
+        state_anchor + "\n    var chatbotOpen by remember { mutableStateOf(false) }",
+        1,
     )
-    close = region.rfind("\n}")
-    if close < 0:
-        raise SystemExit("MainShell closing brace not found.")
-    region = (
-        region[:close] +
-        "\n        ChatbotLauncher(c)\n    }\n" +
-        region[close:]
-    )
-    source = source[:start] + region + source[next_func:]
-    screens_path.write_text(source, encoding="utf-8")
-    print("Floating chatbot launcher restored in Screens.kt.")
+
+floating_pattern = re.compile(
+    r"(?m)^(?P<indent>[ \\t]*)if \\(sub != \"ai\" && !hideBot\\) FloatingBot\\((?P<modifier>.*?)\\) \\{ sub = \"ai\" \\}$"
+)
+matches = list(floating_pattern.finditer(main))
+if len(matches) != 1:
+    if "ChatbotOverlay(c, h, visible = chatbotOpen" not in main:
+        raise SystemExit(
+            "Expected exactly one original FloatingBot callback in packaged Screens.kt; "
+            "refusing to add a duplicate."
+        )
 else:
-    print("Floating chatbot launcher already present.")
+    m = matches[0]
+    indent = m.group("indent")
+    replacement = (
+        f'{indent}if (sub != "ai" && !hideBot && !chatbotOpen) '
+        f'FloatingBot({m.group("modifier")}) {{ chatbotOpen = true }}'
+        f'\n{indent}ChatbotOverlay(c, h, visible = chatbotOpen, onClose = {{ chatbotOpen = false }})'
+    )
+    main = main[:m.start()] + replacement + main[m.end():]
+    source = source[:main_start] + main + source[next_func:]
+    screens_path.write_text(source, encoding="utf-8")
+    print("Kept the original purple FloatingBot and connected it to the AI conversation panel.")
 
-# Keep the chatbot APK installable as an update to the previous app version.
+# Never inject another floating launcher into the ZIP-based project.
+# This makes the original FloatingBot the only visible chatbot button.
+
+# Bump version for this UI update so the APK installs as an in-place update.
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub("versionCode[ \t]*=[ \t]*[0-9]+", "versionCode = 12", gradle, count=1)
-    gradle = re.sub('versionName[ \t]*=[ \t]*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
+    gradle = re.sub(r"versionCode\\s*=\\s*[0-9]+", "versionCode = 12", gradle, count=1)
+    gradle = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
-    print("App version set to 4.6 (versionCode 11).")
+    print("App version set to 4.7 (versionCode 12).")

@@ -45,72 +45,72 @@ private data class ChatLine(
     val pending: Boolean = false
 )
 
-/** Nút trợ lý AI nổi ở góc dưới bên phải. */
+/** One entry point for the AI assistant. The packaged project keeps its original FloatingBot button. */
 @Composable
 fun ChatbotLauncher(c: Context, h: Hooks) {
     var expanded by remember { mutableStateOf(false) }
-    BackHandler(enabled = expanded) { expanded = false }
-
     Box(Modifier.fillMaxSize()) {
-        AnimatedVisibility(
-            visible = expanded,
-            modifier = Modifier.fillMaxSize(),
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(120))
-        ) {
-            Box(Modifier.fillMaxSize()) {
-                Box(
-                    Modifier.fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.28f))
-                        .clickable { expanded = false }
-                )
-                ChatbotPanel(
-                    c = c,
-                    onPickImage = h.pickImage,
-                    onClose = { expanded = false },
-                    modifier = Modifier.align(Alignment.BottomEnd)
-                        .padding(end = 12.dp, bottom = 88.dp)
-                        .widthIn(max = 390.dp)
-                        .fillMaxWidth(0.94f)
-                        .heightIn(max = 520.dp)
-                        .fillMaxHeight(0.84f)
-                )
-            }
+        if (!expanded) {
+            FloatingChatbotButton(onClick = { expanded = true }, modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 18.dp, bottom = 88.dp))
         }
+        ChatbotOverlay(c, h, visible = expanded, onClose = { expanded = false })
+    }
+}
 
-        AnimatedVisibility(
-            visible = !expanded,
-            modifier = Modifier.align(Alignment.BottomEnd)
-                .padding(end = 18.dp, bottom = 88.dp),
-            enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.82f),
-            exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.82f)
-        ) {
+/** Conversation overlay opened by the existing purple FloatingBot in the packaged ZIP source. */
+@Composable
+fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) {
+    BackHandler(enabled = visible) { onClose() }
+    if (visible) {
+        Box(Modifier.fillMaxSize()) {
             Box(
-                Modifier.size(62.dp)
-                    .shadow(18.dp, CircleShape)
-                     .background(Color(0xFF776BFA), CircleShape)
-                    .border(3.dp, Color.White.copy(alpha = 0.96f), CircleShape)
-                    .clickable { expanded = true }
-                    .pulse(0.98f, 1.035f, 1700),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.SmartToy,
-                    contentDescription = "Mở trợ lý AI ScamShield",
-                    tint = Color.White,
-                    modifier = Modifier.size(32.dp)
-                )
-                Box(
-                    Modifier.align(Alignment.TopEnd)
-                        .offset(x = 2.dp, y = (-2).dp)
-                        .size(21.dp)
-                        .background(Color.White, CircleShape)
-                        .border(1.dp, Color(0xFFFFC86A), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFA51F), modifier = Modifier.size(13.dp))
-                }
-            }
+                Modifier.fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.28f))
+                    .clickable { onClose() }
+            )
+            ChatbotPanel(
+                c = c,
+                onPickImage = h.pickImage,
+                onClose = onClose,
+                modifier = Modifier.align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 88.dp)
+                    .widthIn(max = 390.dp)
+                    .fillMaxWidth(0.94f)
+                    .heightIn(max = 520.dp)
+                    .fillMaxHeight(0.84f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier.size(62.dp)
+            .shadow(18.dp, CircleShape)
+            .background(Color(0xFF776BFA), CircleShape)
+            .border(3.dp, Color.White.copy(alpha = 0.96f), CircleShape)
+            .clickable(onClick = onClick)
+            .pulse(0.98f, 1.035f, 1700),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            Icons.Rounded.SmartToy,
+            contentDescription = "Mở trợ lý AI ScamShield",
+            tint = Color.White,
+            modifier = Modifier.size(32.dp)
+        )
+        Box(
+            Modifier.align(Alignment.TopEnd)
+                .offset(x = 2.dp, y = (-2).dp)
+                .size(21.dp)
+                .background(Color.White, CircleShape)
+                .border(1.dp, Color(0xFFFFC86A), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFA51F), modifier = Modifier.size(13.dp))
         }
     }
 }
