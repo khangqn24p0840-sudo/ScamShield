@@ -148,7 +148,8 @@ fun displayName(c: Context): String {
     var openPost by remember { mutableLongStateOf(0L) }
     BackHandler(enabled = sub.isNotEmpty() || tab != 0) { if (sub.isNotEmpty()) sub = "" else tab = 0 }
     val open: (String) -> Unit = { sub = it }
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (sub.isNotEmpty()) SubScreen(c, h, sub, { sub = "" }, open)
             else Crossfade(tab, animationSpec = tween(230), label = "tabs") { t ->
@@ -160,10 +161,12 @@ fun displayName(c: Context): String {
                     else -> AccountTab(c, onLogin, open)
                 }
             }
-            ChatbotLauncher(c)
         }
         BottomBar(tab, sub.isNotEmpty()) { tab = it; sub = "" }
     }
+        ChatbotLauncher(c)
+    }
+
 }
 
 /** Thanh điều hướng nổi dạng pill: 2 mục | nút Kiểm tra ở giữa | 2 mục. Nhật ký đã chuyển vào Tài khoản. */

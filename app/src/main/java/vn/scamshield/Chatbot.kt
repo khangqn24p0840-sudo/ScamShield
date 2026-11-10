@@ -67,7 +67,7 @@ fun ChatbotLauncher(c: Context) {
                     c = c,
                     onClose = { expanded = false },
                     modifier = Modifier.align(Alignment.BottomEnd)
-                        .padding(end = 12.dp, bottom = 12.dp)
+                        .padding(end = 12.dp, bottom = 88.dp)
                         .widthIn(max = 390.dp)
                         .fillMaxWidth(0.94f)
                         .heightIn(max = 520.dp)
@@ -79,7 +79,7 @@ fun ChatbotLauncher(c: Context) {
         AnimatedVisibility(
             visible = !expanded,
             modifier = Modifier.align(Alignment.BottomEnd)
-                .padding(end = 18.dp, bottom = 12.dp),
+                .padding(end = 18.dp, bottom = 88.dp),
             enter = fadeIn(tween(160)) + scaleIn(initialScale = 0.82f),
             exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.82f)
         ) {
