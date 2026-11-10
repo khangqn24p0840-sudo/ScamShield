@@ -63,7 +63,7 @@ else:
     main = "\n".join(lines) + ("\n" if main.endswith("\n") else "")
     source = source[:main_start] + main + source[next_func:]
     screens_path.write_text(source, encoding="utf-8")
-    print("Kept original purple FloatingBot; connected it to the AI conversation panel.")
+    print("Kept the original FloatingBot; connected it to the AI conversation panel.")
 
 # Harmonize the package's home feature cards with the green theme and reduce oversized whitespace.
 theme_file = screens_path.parent / "Theme.kt"
@@ -89,15 +89,7 @@ if theme_file.exists():
     theme = theme.replace("Color(0x40403C9E)", "Color(0x40206F58)")
     theme = theme.replace("Color(0xFFE3E0FA)", "Color(0xFFD6E9DF)")
     theme = theme.replace('Text("Hỏi AI", color = C.Blue', 'Text("Hỏi AI", color = C.Primary')
-    theme_file.write_text(theme, encoding="utf-8")
     print("Feature cards compacted and unified to the green palette.")
-    source_lines = theme.splitlines()
-    for start, end in ((118, 146), (345, 362)):
-        print(f"--- Theme.kt lines {start+1}-{min(end, len(source_lines))} ---")
-        for i in range(start, min(end, len(source_lines))):
-            print(f"{i+1}: {source_lines[i]}")
-
-
     # Recolor only the floating AI robot badge, keeping its friendly white robot and sparkle.
     bot_start = theme.find("@Composable fun AiBotBadge(")
     if bot_start >= 0:
@@ -114,6 +106,8 @@ if theme_file.exists():
         theme = theme[:bot_start] + bot + theme[bot_end:]
     else:
         print("AiBotBadge not found; retained the existing robot component.")
+    theme_file.write_text(theme, encoding="utf-8")
+    print("Theme colors saved: unified green accents and compact feature cards.")
 # Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
 # remains the only floating robot. Its sparkle/tools now live inside the chat.
 
