@@ -79,6 +79,38 @@ else:
     screens_path.write_text(source, encoding="utf-8")
     print("Kept original purple FloatingBot; connected it to the AI conversation panel.")
 
+# Harmonize the package's home feature cards with the green theme and reduce oversized whitespace.
+theme_file = screens_path.parent / "Theme.kt"
+if theme_file.exists():
+    theme = theme_file.read_text(encoding="utf-8")
+    theme = theme.replace(
+        ".padding(horizontal = 14.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {",
+        ".padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {",
+        1,
+    )
+    theme = theme.replace(
+        "IconBadge(icon, tint, 40.dp, 21.dp)",
+        "IconBadge(icon, C.Primary, 36.dp, 19.dp)",
+        1,
+    )
+    # The recommendation rows use the same family of feature accents.
+    theme = theme.replace(
+        "IconBadge(icon, tint, 48.dp, 24.dp)",
+        "IconBadge(icon, C.Primary, 42.dp, 21.dp)",
+        1,
+    )
+    # Use the existing brand green for the floating assistant's label and shadow.
+    theme = theme.replace("Color(0x40403C9E)", "Color(0x40206F58)")
+    theme = theme.replace("Color(0xFFE3E0FA)", "Color(0xFFD6E9DF)")
+    theme = theme.replace('Text("Hỏi AI", color = C.Blue', 'Text("Hỏi AI", color = C.Primary')
+    theme_file.write_text(theme, encoding="utf-8")
+    print("Feature cards compacted and unified to the green palette.")
+    source_lines = theme.splitlines()
+    for start, end in ((118, 146), (345, 362)):
+        print(f"--- Theme.kt lines {start+1}-{min(end, len(source_lines))} ---")
+        for i in range(start, min(end, len(source_lines))):
+            print(f"{i+1}: {source_lines[i]}")
+
 # Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
 # remains the only floating robot. Its sparkle/tools now live inside the chat.
 
@@ -86,7 +118,7 @@ else:
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 12", gradle, count=1)
-    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
+    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 13", gradle, count=1)
+    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.8"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
     print("App version set to 4.7 (versionCode 12).")
