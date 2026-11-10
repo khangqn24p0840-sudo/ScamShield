@@ -17,8 +17,8 @@ if main_start < 0 or next_func < 0:
 
 main = source[main_start:next_func]
 
-# The older UI already has the purple FloatingBot. Reuse it and route its click
-# to the new conversation panel instead of adding a second floating robot.
+# The ZIP source already has a purple FloatingBot. Reuse it rather than adding
+# another floating button, and make its click open the new conversation panel.
 if "chatbotOpen" not in main:
     state_anchor = "    var openPost by remember { mutableLongStateOf(0L) }"
     if main.count(state_anchor) != 1:
@@ -29,10 +29,11 @@ if "chatbotOpen" not in main:
         1,
     )
 
-floating_pattern = re.compile(
-    r"(?m)^(?P<indent>[ \\t]*)if \\(sub != \"ai\" && !hideBot\\) FloatingBot\\((?P<modifier>.*?)\\) \\{ sub = \"ai\" \\}$"
-)
-matches = list(floating_pattern.finditer(main))
+lines = main.splitlines()
+matches = [
+    i for i, line in enumerate(lines)
+    if "FloatingBot(" in line and '{ sub = "ai" }' in line
+]
 if len(matches) != 1:
     if "ChatbotOverlay(c, h, visible = chatbotOpen" not in main:
         raise SystemExit(
@@ -40,26 +41,38 @@ if len(matches) != 1:
             "refusing to add a duplicate."
         )
 else:
-    m = matches[0]
-    indent = m.group("indent")
-    replacement = (
-        f'{indent}if (sub != "ai" && !hideBot && !chatbotOpen) '
-        f'FloatingBot({m.group("modifier")}) {{ chatbotOpen = true }}'
-        f'\n{indent}ChatbotOverlay(c, h, visible = chatbotOpen, onClose = {{ chatbotOpen = false }})'
+    i = matches[0]
+    line = lines[i]
+    expected_condition = 'if (sub != "ai" && !hideBot)'
+    expected_action = '{ sub = "ai" }'
+    if expected_condition not in line or expected_action not in line:
+        raise SystemExit("Original FloatingBot line changed; refusing an unsafe UI rewrite.")
+
+    lines[i] = line.replace(
+        expected_condition,
+        'if (sub != "ai" && !hideBot && !chatbotOpen)',
+        1,
+    ).replace(expected_action, '{ chatbotOpen = true }', 1)
+
+    indent = line[:len(line) - len(line.lstrip())]
+    lines.insert(
+        i + 1,
+        indent + "ChatbotOverlay(c, h, visible = chatbotOpen, onClose = { chatbotOpen = false })",
     )
-    main = main[:m.start()] + replacement + main[m.end():]
+
+    main = "\n".join(lines) + ("\n" if main.endswith("\n") else "")
     source = source[:main_start] + main + source[next_func:]
     screens_path.write_text(source, encoding="utf-8")
-    print("Kept the original purple FloatingBot and connected it to the AI conversation panel.")
+    print("Kept original purple FloatingBot; connected it to the AI conversation panel.")
 
-# Never inject another floating launcher into the ZIP-based project.
-# This makes the original FloatingBot the only visible chatbot button.
+# Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
+# remains the only floating robot. Its sparkle/tools now live inside the chat.
 
-# Bump version for this UI update so the APK installs as an in-place update.
+# Bump version so this build installs as an update to the previous app.
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub(r"versionCode\\s*=\\s*[0-9]+", "versionCode = 12", gradle, count=1)
-    gradle = re.sub(r'versionName\\s*=\\s*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
+    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 12", gradle, count=1)
+    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
     print("App version set to 4.7 (versionCode 12).")
