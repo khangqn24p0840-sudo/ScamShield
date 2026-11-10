@@ -27,6 +27,11 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: 8.9 }
+      - name: Khôi phục chatbot nổi trong bản APK
+        run: |
+          cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/Chatbot.kt" app/src/main/java/vn/scamshield/Chatbot.kt
+          python3 "$GITHUB_WORKSPACE/scripts/restore_chatbot.py" app/src/main/java/vn/scamshield/Screens.kt
+        working-directory: ${{ steps.find.outputs.dir }}
       - run: gradle assembleDebug --no-daemon
         working-directory: ${{ steps.find.outputs.dir }}
       - uses: actions/upload-artifact@v4

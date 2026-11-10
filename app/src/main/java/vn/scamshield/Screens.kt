@@ -160,6 +160,7 @@ fun displayName(c: Context): String {
                     else -> AccountTab(c, onLogin, open)
                 }
             }
+            ChatbotLauncher(c)
         }
         BottomBar(tab, sub.isNotEmpty()) { tab = it; sub = "" }
     }
