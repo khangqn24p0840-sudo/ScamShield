@@ -17,20 +17,6 @@ if main_start < 0 or next_func < 0:
 
 main = source[main_start:next_func]
 
-# Emit focused source context from the packaged ZIP so UI adjustments target its real components.
-theme_file = screens_path.parent / "Theme.kt"
-for target in (theme_file, screens_path):
-    if target.exists():
-        source_lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
-        print(f"===== SOURCE CONTEXT: {target.name} =====")
-        keys = ("FloatingBot", "FeatureTile", "FeatureCard", "CatTile", "TILE", "Thẻ tính năng", "Ô tính năng", "Danh mục")
-        selected = set()
-        for i, line in enumerate(source_lines):
-            if any(key.lower() in line.lower() for key in keys):
-                selected.update(range(max(0, i - 8), min(len(source_lines), i + 18)))
-        for i in sorted(selected):
-            print(f"{i+1}: {source_lines[i]}")
-
 # The ZIP source already has a purple FloatingBot. Reuse it rather than adding
 # another floating button, and make its click open the new conversation panel.
 if "chatbotOpen" not in main:
@@ -111,6 +97,23 @@ if theme_file.exists():
         for i in range(start, min(end, len(source_lines))):
             print(f"{i+1}: {source_lines[i]}")
 
+
+    # Recolor only the floating AI robot badge, keeping its friendly white robot and sparkle.
+    bot_start = theme.find("@Composable fun AiBotBadge(")
+    if bot_start >= 0:
+        bot_end = theme.find("\n}", bot_start)
+        if bot_end < 0:
+            raise SystemExit("AiBotBadge block is incomplete; refusing a partial palette edit.")
+        bot_end += 2
+        bot = theme[bot_start:bot_end]
+        bot = bot.replace("gradient tím-xanh", "gradient xanh-mint")
+        bot = bot.replace("Color(0xFF8B7CF6)", "Color(0xFF2FA77B)")
+        bot = bot.replace("Color(0xFF4F8DF7)", "Color(0xFF0D795B)")
+        bot = bot.replace("Color(0xFFFFE3A3)", "Color(0xFFCBEBDD)")
+        bot = bot.replace("Color(0xFFF2A91B)", "Color(0xFF168562)")
+        theme = theme[:bot_start] + bot + theme[bot_end:]
+    else:
+        print("AiBotBadge not found; retained the existing robot component.")
 # Never inject ChatbotLauncher into the ZIP-based project: the old FloatingBot
 # remains the only floating robot. Its sparkle/tools now live inside the chat.
 
@@ -118,7 +121,7 @@ if theme_file.exists():
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 13", gradle, count=1)
-    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.8"', gradle, count=1)
+    gradle = re.sub(r"versionCode\s*=\s*[0-9]+", "versionCode = 14", gradle, count=1)
+    gradle = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "4.9"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
-    print("App version set to 4.7 (versionCode 12).")
+    print("App version set to 4.9 (versionCode 14).")
