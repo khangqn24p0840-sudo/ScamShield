@@ -17,6 +17,20 @@ if main_start < 0 or next_func < 0:
 
 main = source[main_start:next_func]
 
+# Emit focused source context from the packaged ZIP so UI adjustments target its real components.
+theme_file = screens_path.parent / "Theme.kt"
+for target in (theme_file, screens_path):
+    if target.exists():
+        source_lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+        print(f"===== SOURCE CONTEXT: {target.name} =====")
+        keys = ("FloatingBot", "FeatureTile", "FeatureCard", "CatTile", "TILE", "Thẻ tính năng", "Ô tính năng", "Danh mục")
+        selected = set()
+        for i, line in enumerate(source_lines):
+            if any(key.lower() in line.lower() for key in keys):
+                selected.update(range(max(0, i - 8), min(len(source_lines), i + 18)))
+        for i in sorted(selected):
+            print(f"{i+1}: {source_lines[i]}")
+
 # The ZIP source already has a purple FloatingBot. Reuse it rather than adding
 # another floating button, and make its click open the new conversation panel.
 if "chatbotOpen" not in main:
