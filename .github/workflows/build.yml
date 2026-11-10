@@ -33,7 +33,11 @@ jobs:
         run: |
           cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/Chatbot.kt" app/src/main/java/vn/scamshield/Chatbot.kt
           cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/FamilyChat.kt" app/src/main/java/vn/scamshield/FamilyChat.kt
-          python3 "$GITHUB_WORKSPACE/scripts/restore_chatbot.py" app/src/main/java/vn/scamshield/Screens.kt
+          if grep -q "ChatbotLauncher" app/src/main/java/vn/scamshield/Screens.kt; then
+            echo "Screens.kt đã dùng ChatbotLauncher, bỏ qua restore_chatbot.py"
+          else
+            python3 "$GITHUB_WORKSPACE/scripts/restore_chatbot.py" app/src/main/java/vn/scamshield/Screens.kt
+          fi
         working-directory: ${{ steps.find.outputs.dir }}
       - name: Build APK
         run: gradle assembleDebug --no-daemon
