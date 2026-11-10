@@ -1,5 +1,7 @@
 name: Build APK
 on: [push, workflow_dispatch]
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,9 +35,36 @@ jobs:
           cp "$GITHUB_WORKSPACE/app/src/main/java/vn/scamshield/FamilyChat.kt" app/src/main/java/vn/scamshield/FamilyChat.kt
           python3 "$GITHUB_WORKSPACE/scripts/restore_chatbot.py" app/src/main/java/vn/scamshield/Screens.kt
         working-directory: ${{ steps.find.outputs.dir }}
-      - run: gradle assembleDebug --no-daemon
+      - name: Build APK
+        run: gradle assembleDebug --no-daemon
+        working-directory: ${{ steps.find.outputs.dir }}
+      - name: Prepare stable download file
+        id: package
+        run: |
+          set -euo pipefail
+          VERSION_NAME=$(python3 -c 'import re; from pathlib import Path; s=Path("app/build.gradle.kts").read_text(encoding="utf-8"); m=re.search(r"versionName\\s*=\\s*\"([^\"]+)\"", s); print(m.group(1) if m else "")')
+          if [ -z "$VERSION_NAME" ]; then echo "Could not read app versionName"; exit 1; fi
+          APK=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name "*.apk" | head -1)
+          if [ -z "$APK" ]; then echo "APK output not found"; exit 1; fi
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/ScamShield.apk"
+          echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
         working-directory: ${{ steps.find.outputs.dir }}
       - uses: actions/upload-artifact@v4
         with:
           name: ScamShield-debug-apk
-          path: src/**/app/build/outputs/apk/debug/*.apk
+          path: dist/ScamShield.apk
+      - name: Publish latest APK download
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v${{ steps.package.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: ScamShield v${{ steps.package.outputs.version }}
+          body: |
+            Bản cài đặt Android mới nhất của ScamShield.
+            Tải file ScamShield.apk hoặc quét mã QR tải ứng dụng.
+            Lưu ý: đây là APK cài đặt trực tiếp, Android sẽ yêu cầu người dùng xác nhận trước khi cài.
+          files: dist/ScamShield.apk
+          overwrite_files: true
+          fail_on_unmatched_files: true
+          make_latest: true
