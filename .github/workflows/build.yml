@@ -42,7 +42,7 @@ jobs:
         id: package
         run: |
           set -euo pipefail
-          VERSION_NAME=$(python3 -c 'import re; from pathlib import Path; s=Path("app/build.gradle.kts").read_text(encoding="utf-8"); m=re.search(r"versionName\\s*=\\s*\"([^\"]+)\"", s); print(m.group(1) if m else "")')
+          VERSION_NAME=$(grep -oE 'versionName[[:space:]]*=[[:space:]]*"[^"]+"' app/build.gradle.kts | head -1 | sed -E 's/.*"([^"]+)"/\1/')
           if [ -z "$VERSION_NAME" ]; then echo "Could not read app versionName"; exit 1; fi
           APK=$(find app/build/outputs/apk/debug -maxdepth 1 -type f -name "*.apk" | head -1)
           if [ -z "$APK" ]; then echo "APK output not found"; exit 1; fi
