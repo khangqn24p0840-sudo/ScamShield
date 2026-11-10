@@ -164,7 +164,7 @@ fun displayName(c: Context): String {
         }
         BottomBar(tab, sub.isNotEmpty()) { tab = it; sub = "" }
     }
-        ChatbotLauncher(c)
+        ChatbotLauncher(c, h)
     }
 
 }

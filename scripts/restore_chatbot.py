@@ -9,20 +9,9 @@ if len(sys.argv) != 2:
 
 screens_path = Path(sys.argv[1])
 
-# Temporary build diagnostics: identify any pre-existing floating robot/chat entry
-# in the ZIP source before adding the current launcher.
-source_root = screens_path.parent
-for candidate in source_root.glob("*.kt"):
-    lines = candidate.read_text(encoding="utf-8", errors="replace").splitlines()
-    matches = [(i, line.strip()) for i, line in enumerate(lines, 1)
-               if any(key in line.lower() for key in
-                      ("chatbot", "floatingactionbutton", "smarttoy", "robot", "alignment.bottomend"))]
-    if matches:
-        print(f"--- EXISTING FLOATING/CHAT MATCHES: {candidate.name} ---")
-        for number, line in matches[:30]:
-            print(f"{number}: {line[:240]}")
+screens_path = Path(sys.argv[1])
 source = screens_path.read_text(encoding="utf-8")
-if "ChatbotLauncher(c)" not in source:
+if "ChatbotLauncher(c, h)" not in source:
     start = source.find("@Composable fun MainShell(")
     if start < 0:
         raise SystemExit("MainShell not found in Screens.kt.")
@@ -63,7 +52,7 @@ else:
 build_file = Path("app/build.gradle.kts")
 if build_file.exists():
     gradle = build_file.read_text(encoding="utf-8")
-    gradle = re.sub("versionCode[ \t]*=[ \t]*[0-9]+", "versionCode = 11", gradle, count=1)
-    gradle = re.sub('versionName[ \t]*=[ \t]*"[^"]+"', 'versionName = "4.6"', gradle, count=1)
+    gradle = re.sub("versionCode[ \t]*=[ \t]*[0-9]+", "versionCode = 12", gradle, count=1)
+    gradle = re.sub('versionName[ \t]*=[ \t]*"[^"]+"', 'versionName = "4.7"', gradle, count=1)
     build_file.write_text(gradle, encoding="utf-8")
     print("App version set to 4.6 (versionCode 11).")

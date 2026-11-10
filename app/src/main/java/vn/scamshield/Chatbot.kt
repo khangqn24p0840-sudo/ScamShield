@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.SmartToy
@@ -46,7 +47,7 @@ private data class ChatLine(
 
 /** Nút trợ lý AI nổi ở góc dưới bên phải. */
 @Composable
-fun ChatbotLauncher(c: Context) {
+fun ChatbotLauncher(c: Context, h: Hooks) {
     var expanded by remember { mutableStateOf(false) }
     BackHandler(enabled = expanded) { expanded = false }
 
@@ -65,6 +66,7 @@ fun ChatbotLauncher(c: Context) {
                 )
                 ChatbotPanel(
                     c = c,
+                    onPickImage = h.pickImage,
                     onClose = { expanded = false },
                     modifier = Modifier.align(Alignment.BottomEnd)
                         .padding(end = 12.dp, bottom = 88.dp)
@@ -86,8 +88,8 @@ fun ChatbotLauncher(c: Context) {
             Box(
                 Modifier.size(62.dp)
                     .shadow(18.dp, CircleShape)
-                    .background(Brush.linearGradient(C.goldGrad), CircleShape)
-                    .border(2.dp, Color.White.copy(alpha = 0.88f), CircleShape)
+                     .background(Color(0xFF776BFA), CircleShape)
+                    .border(3.dp, Color.White.copy(alpha = 0.96f), CircleShape)
                     .clickable { expanded = true }
                     .pulse(0.98f, 1.035f, 1700),
                 contentAlignment = Alignment.Center
@@ -95,28 +97,32 @@ fun ChatbotLauncher(c: Context) {
                 Icon(
                     Icons.Rounded.SmartToy,
                     contentDescription = "Mở trợ lý AI ScamShield",
-                    tint = C.Ink,
+                    tint = Color.White,
                     modifier = Modifier.size(32.dp)
                 )
                 Box(
-                    Modifier.align(Alignment.BottomEnd)
-                        .padding(2.dp)
-                        .size(12.dp)
-                        .background(C.Mint, CircleShape)
-                        .border(2.dp, C.Bg, CircleShape)
-                )
+                    Modifier.align(Alignment.TopEnd)
+                        .offset(x = 2.dp, y = (-2).dp)
+                        .size(21.dp)
+                        .background(Color.White, CircleShape)
+                        .border(1.dp, Color(0xFFFFC86A), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFA51F), modifier = Modifier.size(13.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ChatbotPanel(c: Context, onClose: () -> Unit, modifier: Modifier = Modifier) {
+private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
     val welcome = "Chào bạn! Mình là trợ lý ScamShield. Hãy gửi nội dung tin nhắn, lời thoại hoặc đường link đáng ngờ để mình phân tích dấu hiệu lừa đảo và gợi ý cách xử lý.\n\nKhông gửi OTP, mật khẩu hoặc thông tin cá nhân nhé."
     val lines = remember { mutableStateListOf(ChatLine(fromUser = false, text = welcome)) }
     val listState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var showTools by remember { mutableStateOf(false) }
 
     fun sendMessage() {
         val message = draft.trim()
@@ -182,12 +188,49 @@ private fun ChatbotPanel(c: Context, onClose: () -> Unit, modifier: Modifier = M
                 Text("Trợ lý AI ScamShield", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("Hỗ trợ nhận diện lừa đảo", color = C.Mint, fontSize = 11.sp)
             }
+            IconButton(onClick = { showTools = !showTools }) {
+                Icon(Icons.Rounded.AutoAwesome, contentDescription = "Mở tính năng AI", tint = Color(0xFFFFC86A))
+            }
             IconButton(onClick = onClose) {
                 Icon(Icons.Rounded.Close, contentDescription = "Đóng chatbot", tint = C.Sub)
             }
         }
 
         Divider(color = C.Stroke)
+
+        if (showTools) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(C.CardHi)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFC86A), modifier = Modifier.size(16.dp))
+                    Text("TÍNH NĂNG AI", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    ChatToolChip("Phân tích tin nhắn") {
+                        draft = "Hãy phân tích tin nhắn sau và chỉ ra dấu hiệu lừa đảo: "
+                        showTools = false
+                    }
+                    ChatToolChip("Kiểm tra đường link") {
+                        draft = "Hãy đánh giá đường link sau có dấu hiệu lừa đảo hay không: "
+                        showTools = false
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    ChatToolChip("Dấu hiệu cuộc gọi") {
+                        draft = "Hãy giúp tôi nhận diện các dấu hiệu lừa đảo trong cuộc gọi có nội dung: "
+                        showTools = false
+                    }
+                    ChatToolChip("Kiểm tra ảnh") {
+                        showTools = false
+                        onPickImage()
+                    }
+                }
+            }
+        }
 
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth()
@@ -284,4 +327,21 @@ private fun ChatBubble(line: ChatLine) {
             )
         }
     }
+}
+
+
+@Composable
+private fun ChatToolChip(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(C.Bg.copy(alpha = 0.72f), RoundedCornerShape(12.dp))
+            .border(1.dp, C.Stroke, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        color = C.Sub,
+        fontSize = 10.5.sp,
+        fontWeight = FontWeight.SemiBold
+    )
 }
