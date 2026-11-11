@@ -42,7 +42,7 @@ import vn.scamshield.face.FaceBus
 class Hooks(
     val tick: () -> Int,
     val callOn: () -> Boolean, val smsOn: () -> Boolean,
-    val enableCalls: () -> Unit, val enableSms: () -> Unit,
+    val enableCalls: () -> Unit, val enableSms: () -> Unit, val enableProtection: () -> Unit,
     val toggleListen: () -> Unit,
     val pickImage: () -> Unit,
     val startFace: () -> Unit, val stopFace: () -> Unit,
@@ -413,6 +413,7 @@ object Protect {
     val protect = Protect.on(ctx)
     val callOn = h.callOn(); val smsOn = h.smsOn()
     val prot = protect && callOn && smsOn
+    var showPermissionInfo by remember { mutableStateOf(false) }
     val borderTint = if (prot) Color(0xFF78D7B0) else Color(0xFFB7D2F5)
     Column(Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(23.dp))
         .background(Brush.linearGradient(listOf(Color(0xFFF9FCFF), Color(0xFFDDEBFF))), RoundedCornerShape(23.dp))
@@ -442,10 +443,7 @@ object Protect {
             StatusChip2("Chặn cuộc gọi", protect && callOn, Modifier.weight(1f))
             StatusChip2("Cảnh báo SMS", protect && smsOn, Modifier.weight(1f))
         }
-        if (!protect) GoldButton("Bật bảo vệ") {
-            Protect.set(ctx, true)
-            if (!callOn) h.enableCalls() else if (!smsOn) h.enableSms()
-        }
+        if (!protect) GoldButton("Bật bảo vệ") { showPermissionInfo = true }
         AnimatedVisibility(visible = protect && (!callOn || !smsOn),
             enter = fadeIn(tween(220)) + expandVertically(tween(220)),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180))) {
@@ -454,7 +452,30 @@ object Protect {
                 if (!smsOn) GoldButton("Bật cảnh báo tin nhắn") { h.enableSms() }
             }
         }
-        if (prot) {
+        if (showPermissionInfo) {
+        AlertDialog(
+            onDismissRequest = { showPermissionInfo = false },
+            title = { Text("Cấp quyền cho ScamShield", color = Color(0xFF17345F), fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Để bảo vệ cuộc gọi và tin nhắn, ScamShield cần bạn cho phép nhận SMS và chọn ScamShield trong màn hình hệ thống về lọc cuộc gọi. Android sẽ lần lượt hiển thị các yêu cầu quyền. Bạn có thể từ chối và thay đổi lại trong Cài đặt.",
+                    color = Color(0xFF506B91), fontSize = 13.sp, lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermissionInfo = false
+                    Protect.set(ctx, true)
+                    h.enableProtection()
+                }) { Text("Tiếp tục", color = Color(0xFF236FE0), fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionInfo = false }) { Text("Để sau", color = Color(0xFF7186A5)) }
+            },
+            containerColor = Color.White
+        )
+    }
+    if (prot) {
             Box(Modifier.fillMaxWidth().background(Color(0xFFE5F5EF), RoundedCornerShape(13.dp))
                 .clickable { open("blocked") }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
                 Text("Xem nhật ký cảnh báo  →", color = Color(0xFF167A59), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
