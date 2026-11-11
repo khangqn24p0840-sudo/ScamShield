@@ -52,7 +52,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
             Text("Khảo sát nhanh (5 câu)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
         }
         qs.forEachIndexed { i, (q, opts) ->
-            Text(q, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text(q, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Text)
             opts.forEach { o -> Row(Modifier.fillMaxWidth().clickable { sel[i] = o }, verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(sel[i] == o, { sel[i] = o }); Text(o, fontSize = 14.sp, color = C.Sub) } }
         }
