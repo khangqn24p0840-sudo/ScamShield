@@ -481,9 +481,9 @@ fun openUrl(c: Context, url: String) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape).border(1.dp, C.Stroke, CircleShape)
                     .clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp))
                 }
-                Text("Chi tiết cảnh báo", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Chi tiết cảnh báo", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             if (msg.isNotEmpty()) Text(msg, color = C.Warn, fontSize = 13.sp)
             val p = post
@@ -499,11 +499,11 @@ fun openUrl(c: Context, url: String) {
                         }
                         Text(timeAgo(p.ts), color = C.Dim, fontSize = 12.sp)
                     }
-                    Text(p.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(p.body, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+                    Text(p.title, color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(p.body, color = C.Text, fontSize = 15.sp, lineHeight = 22.sp)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AuthorDot(p.author)
-                        Column { Text(p.author, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("Mức độ: ${sevLabel(p.severity)}", color = C.Dim, fontSize = 12.sp) }
+                        Column { Text(p.author, color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("Mức độ: ${sevLabel(p.severity)}", color = C.Dim, fontSize = 12.sp) }
                     }
                     Box(Modifier.fillMaxWidth().height(1.dp).background(FeedBorder))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -527,14 +527,14 @@ fun openUrl(c: Context, url: String) {
                         }
                     }
                 }
-                Text("Bình luận (${comments.size})", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Bình luận (${comments.size})", color = C.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (comments.isEmpty()) Text("Chưa có bình luận. Hãy là người đầu tiên!", color = C.Sub, fontSize = 13.sp)
                 comments.forEach { cm ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AuthorDot(cm.author)
                         Column(Modifier.weight(1f).background(FeedCard, RoundedCornerShape(14.dp)).border(BorderStroke(1.dp, FeedBorder), RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                                Text(cm.author + (if (cm.mine) " (bạn)" else ""), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(cm.author + (if (cm.mine) " (bạn)" else ""), color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 Text(timeAgo(cm.ts), color = C.Dim, fontSize = 11.sp)
                             }
                             Text(cm.body, color = C.Sub, fontSize = 14.sp, lineHeight = 20.sp)
