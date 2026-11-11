@@ -39,6 +39,13 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
 
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(3000)
+            refresh++
+        }
+    }
+
     val importPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
@@ -98,7 +105,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         ) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text("Quyền truy cập và giới hạn", color = C.Text, fontWeight = FontWeight.Bold)
-                Text("• SMS: chỉ nhập tin nhắn đến từ số bạn đã thêm, sau khi bạn cấp quyền đọc SMS. Tối đa 300 tin gần nhất mỗi lần nhập.",
+                Text("• SMS: nhập lịch sử tin nhắn đến của số bạn đã thêm, sau khi cấp quyền đọc SMS. Bộ theo dõi giữ tối đa 10.000 tin nhắn gần nhất trên thiết bị.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Zalo/Messenger: chỉ nhận nội dung thông báo mới sau khi bạn bật quyền Truy cập thông báo. Android không cung cấp cho ứng dụng này toàn bộ lịch sử chat cũ bên trong các ứng dụng đó.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
