@@ -13,6 +13,12 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +42,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
+import kotlinx.coroutines.delay
 import vn.scamshield.face.FaceBus
 
 /** Cầu nối giữa giao diện và các hành động cần Activity (xin quyền, mở cài đặt...). */
@@ -292,10 +299,38 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
         Cat(Icons.Rounded.BugReport, "Mã độc & Link", C.Rose, "malware"),
         Cat(Icons.Rounded.SmartToy, "Yêu cầu AI", C.Blue, "ai"),
         Cat(Icons.Rounded.FamilyRestroom, "Chat gia đình", C.Mint, "family"),
+        Cat(Icons.Rounded.TrackChanges, "Theo dõi tin nhắn", C.Blue, "monitor"),
         Cat(Icons.Rounded.MoreHoriz, "Khác", C.Dim, "other"))
     val featurePages = cats.chunked(6)
     val currentPage = featurePage.coerceIn(0, featurePages.lastIndex)
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    var featureVisible by remember { mutableStateOf(false) }
+    val screenHeightPx = with(LocalDensity.current) { LocalConfiguration.current.screenHeightDp.dp.toPx() }
+    LaunchedEffect(featureVisible, featurePages.size) {
+        while (featureVisible && featurePages.size > 1) {
+            delay(3600)
+            featurePage = (featurePage + 1) % featurePages.size
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInWindow()
+                featureVisible = bounds.bottom > 0f && bounds.top < screenHeightPx
+            }
+            .pointerInput(featurePages.size) {
+                var drag = 0f
+                detectHorizontalDragGestures(
+                    onHorizontalDrag = { change, amount -> drag += amount; change.consume() },
+                    onDragEnd = {
+                        if (drag < -45f) featurePage = (featurePage + 1) % featurePages.size
+                        else if (drag > 45f) featurePage = (featurePage - 1 + featurePages.size) % featurePages.size
+                        drag = 0f
+                    },
+                    onDragCancel = { drag = 0f }
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         featurePages[currentPage].chunked(3).forEach { row ->
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { ct -> HomeCategoryTile(Modifier.weight(1f), ct.icon, ct.label, ct.tint) { open(ct.key) } }
@@ -303,12 +338,8 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
             }
         }
         if (featurePages.size > 1) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                featurePages.indices.forEach { index ->
-                    Box(Modifier.padding(horizontal = 4.dp).size(if (index == currentPage) 8.dp else 6.dp)
-                        .background(if (index == currentPage) Color(0xFF3986F6) else C.Dim.copy(alpha = 0.45f), CircleShape)
-                        .clickable { featurePage = index })
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                Text("Vuốt ngang để xem thêm • Tự chuyển trang khi cuộn đến", color = C.Dim, fontSize = 10.sp)
             }
         }
     }
