@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
         tick++
         if (continueSetupAfterRole) {
             continueSetupAfterRole = false
-            requestSmsPermissions()
+            if (roleOn()) requestSmsPermissions()
         }
     }
     private val permL = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
