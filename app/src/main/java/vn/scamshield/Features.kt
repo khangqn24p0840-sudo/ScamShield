@@ -39,11 +39,11 @@ import java.util.Locale
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
         Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (onBack != null) Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape)
+            if (onBack != null) Box(Modifier.size(40.dp).background(C.CardHi, CircleShape)
                 .border(1.dp, C.Stroke, CircleShape).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp))
             }
-            Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = C.Text, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         content()
     }
