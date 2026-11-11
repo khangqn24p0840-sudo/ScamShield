@@ -39,6 +39,17 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
+    val receiveSmsPermission = remember(c, refresh) {
+        c.checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    val receivePermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        message = if (granted) "Đã cấp quyền nhận SMS mới từ số đang theo dõi."
+            else "Bạn chưa cấp quyền nhận SMS mới; lịch sử cũ vẫn có thể nhập riêng nếu có READ_SMS."
+        refresh++
+    }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -112,6 +123,17 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Nội dung theo dõi lưu trên thiết bị; không tự gửi lên máy chủ. Phân tích dưới đây chạy bằng bộ dò cục bộ.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
+                if (targets.any { it.channel == "sms" } && !receiveSmsPermission) {
+                    OutlinedButton(
+                        onClick = { receivePermission.launch(Manifest.permission.RECEIVE_SMS) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.Sms, null); Spacer(Modifier.width(7.dp))
+                        Text("Cho phép nhận SMS mới từ số đã chọn")
+                    }
+                } else if (targets.any { it.channel == "sms" }) {
+                    Text("Đã cấp quyền nhận SMS mới trên thiết bị.", color = C.Mint, fontSize = 11.sp)
+                }
                 if (!SocialListener.enabled(c)) {
                     OutlinedButton(onClick = openSocialSettings, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Rounded.NotificationsActive, null); Spacer(Modifier.width(7.dp))
