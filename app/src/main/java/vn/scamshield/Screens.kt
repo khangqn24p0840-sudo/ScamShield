@@ -240,7 +240,7 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
                     cursorColor = Color(0xFF236FE0)
                 )
             )
-            if (q.isNotBlank()) Box(Modifier.fillMaxWidth().background(Color(0xFF0E1B3B), RoundedCornerShape(20.dp)).padding(12.dp)) { SearchResults(c, q) } else HomeBody(c, h, open, onPost, onFeed)
+            if (q.isNotBlank()) Box(Modifier.fillMaxWidth().background(Color(0xFFF8FBFF), RoundedCornerShape(20.dp)).border(1.dp, Color(0xFFD5E2F4), RoundedCornerShape(20.dp)).padding(12.dp)) { SearchResults(c, q) } else HomeBody(c, h, open, onPost, onFeed)
         }
     }
 }
@@ -433,15 +433,18 @@ object Protect {
                     color = Color(0xFF17345F), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
                 Text(when {
                     prot -> "ScamShield đang lọc cuộc gọi và tin nhắn lừa đảo cho bạn."
-                    !protect -> "Bật bảo vệ để ScamShield hỗ trợ lọc cuộc gọi và tin nhắn."
-                    else -> "Cấp đủ quyền để các lớp bảo vệ hoạt động hiệu quả hơn."
+                    !protect -> "Bật bảo vệ để ScamShield xin quyền lọc cuộc gọi và nhận tin nhắn."
+                    !callOn && !smsOn -> "Chưa có quyền lọc cuộc gọi và nhận SMS. Hãy hoàn tất hai bước cấp quyền."
+                    !callOn -> "Chưa chọn ScamShield làm ứng dụng lọc cuộc gọi trên Android."
+                    !smsOn -> "Chưa cấp quyền nhận SMS nên ứng dụng chưa thể kiểm tra tin nhắn đến."
+                    else -> "Các lớp bảo vệ đang hoạt động."
                 }, color = Color(0xFF526B91), fontSize = 11.5.sp, lineHeight = 15.sp)
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = Color(0xFF5B78A3), modifier = Modifier.size(21.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StatusChip2("Chặn cuộc gọi", protect && callOn, Modifier.weight(1f))
-            StatusChip2("Cảnh báo SMS", protect && smsOn, Modifier.weight(1f))
+            StatusChip2("Chặn cuộc gọi", callOn, Modifier.weight(1f))
+            StatusChip2("Cảnh báo SMS", smsOn, Modifier.weight(1f))
         }
         if (!protect) GoldButton("Bật bảo vệ") { showPermissionInfo = true }
         AnimatedVisibility(visible = protect && (!callOn || !smsOn),
@@ -506,7 +509,7 @@ object Protect {
             SectionHeader("Số đã chặn (${nums.size})")
             CardX { nums.forEach { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.Block, null, tint = C.Bad, modifier = Modifier.size(16.dp))
-                Text(it, color = Color.White, fontSize = 14.sp) } } }
+                Text(it, color = C.Text, fontSize = 14.sp) } } }
         }
         if (hist.isNotEmpty()) {
             SectionHeader("Trong nhật ký (${hist.size})")
