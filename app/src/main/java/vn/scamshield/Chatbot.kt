@@ -3,6 +3,11 @@ package vn.scamshield
 import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,6 +29,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.SmartToy
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -35,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.json.JSONObject
@@ -46,15 +53,15 @@ private data class ChatLine(
     val pending: Boolean = false
 )
 
-private val ChatGreen = Color(0xFF118465)
-private val ChatGreenDeep = Color(0xFF0D6D53)
-private val ChatGreenDark = Color(0xFF174B3D)
-private val ChatMint = Color(0xFFEAF6F0)
-private val ChatCanvas = Color(0xFFF4FAF7)
-private val ChatBorder = Color(0xFFD6E9DF)
-private val ChatMuted = Color(0xFF698579)
-private val ChatBubbleUser = Color(0xFFDDF2E8)
-private val ChatChip = Color(0xFFE6F4ED)
+private val ChatGreen = Color(0xFF2679E7)
+private val ChatGreenDeep = Color(0xFF1756B8)
+private val ChatGreenDark = Color(0xFF1C3D70)
+private val ChatMint = Color(0xFFEBF4FF)
+private val ChatCanvas = Color(0xFFF4F8FF)
+private val ChatBorder = Color(0xFFD7E4F7)
+private val ChatMuted = Color(0xFF6780A5)
+private val ChatBubbleUser = Color(0xFFE2EEFF)
+private val ChatChip = Color(0xFFEBF3FF)
 
 
 /** One entry point for the AI assistant. The packaged project keeps its original FloatingBot button. */
@@ -97,32 +104,66 @@ fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) 
     }
 }
 
+/** Robot trợ lý dạng 3D cách điệu bằng Compose, chuyển động nhẹ nhàng tại chỗ. */
+@Composable
+fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
+    val motion = rememberInfiniteTransition(label = "mascot-idle")
+    val bob by motion.animateFloat(-2.2f, 2.2f,
+        infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-bob")
+    val tilt by motion.animateFloat(-1.5f, 1.5f,
+        infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-tilt")
+    Box(modifier.size(size * 1.28f).graphicsLayer { translationY = bob.dp.toPx() }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(size * 1.18f).background(
+            Brush.radialGradient(listOf(Color(0x667CC8FF), Color(0x1A5AA8FF), Color.Transparent)), CircleShape))
+        Box(Modifier.align(Alignment.TopCenter).offset(y = 3.dp).width(3.dp).height(size * 0.18f)
+            .background(Color(0xFF4C91E8), RoundedCornerShape(3.dp)))
+        Box(Modifier.align(Alignment.TopCenter).offset(y = 1.dp).size(size * 0.105f)
+            .background(Brush.linearGradient(listOf(Color(0xFFB9F1FF), Color(0xFF3194FF))), CircleShape)
+            .border(1.dp, Color.White, CircleShape))
+        Box(Modifier.align(Alignment.BottomCenter).offset(y = (-size * 0.035f))
+            .size(width = size * 0.68f, height = size * 0.42f)
+            .shadow(5.dp, RoundedCornerShape(size * 0.19f))
+            .background(Brush.linearGradient(listOf(Color.White, Color(0xFFBBD9FF))), RoundedCornerShape(size * 0.19f))
+            .border(1.2.dp, Color.White, RoundedCornerShape(size * 0.19f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.Shield, null, tint = Color(0xFF2679E7), modifier = Modifier.size(size * 0.22f))
+        }
+        Box(Modifier.align(Alignment.Center).offset(y = (-size * 0.095f)).graphicsLayer { rotationZ = tilt }
+            .size(width = size * 0.98f, height = size * 0.70f)
+            .shadow(8.dp, RoundedCornerShape(size * 0.27f))
+            .background(Brush.linearGradient(listOf(Color.White, Color(0xFFB8D9FF))), RoundedCornerShape(size * 0.27f))
+            .border(1.5.dp, Color.White, RoundedCornerShape(size * 0.27f)), contentAlignment = Alignment.Center) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = size * 0.055f),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                Box(Modifier.size(size * 0.15f, size * 0.31f)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))), RoundedCornerShape(8.dp)))
+                Box(Modifier.weight(1f).padding(horizontal = size * 0.035f)
+                    .size(width = size * 0.54f, height = size * 0.51f)
+                    .background(Brush.linearGradient(listOf(Color(0xFF102B62), Color(0xFF071A42))), RoundedCornerShape(size * 0.19f))
+                    .border(1.dp, Color(0xFF6ACBFF).copy(alpha = 0.55f), RoundedCornerShape(size * 0.19f)),
+                    contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(size * 0.045f)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(size * 0.19f), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(size * 0.11f, size * 0.17f).background(Color(0xFF69E5FF), RoundedCornerShape(50)))
+                            Box(Modifier.size(size * 0.11f, size * 0.17f).background(Color(0xFF69E5FF), RoundedCornerShape(50)))
+                        }
+                        Box(Modifier.size(size * 0.16f, size * 0.045f).background(Color(0xFF57DDF8), RoundedCornerShape(50)))
+                    }
+                }
+                Box(Modifier.size(size * 0.15f, size * 0.31f)
+                    .background(Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))), RoundedCornerShape(8.dp)))
+            }
+        }
+    }
+}
+
+/** Nút chatbot luôn ở góc màn hình, robot chỉ nhún và nghiêng rất nhẹ khi chờ. */
 @Composable
 private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        modifier.size(62.dp)
-            .shadow(18.dp, CircleShape)
-            .background(Color(0xFF776BFA), CircleShape)
-            .border(3.dp, Color.White.copy(alpha = 0.96f), CircleShape)
-            .clickable(onClick = onClick)
-            .pulse(0.98f, 1.035f, 1700),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Rounded.SmartToy,
-            contentDescription = "Mở trợ lý AI ScamShield",
-            tint = Color.White,
-            modifier = Modifier.size(32.dp)
-        )
-        Box(
-            Modifier.align(Alignment.TopEnd)
-                .offset(x = 2.dp, y = (-2).dp)
-                .size(21.dp)
-                .background(Color.White, CircleShape)
-                .border(1.dp, Color(0xFFFFC86A), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFFFA51F), modifier = Modifier.size(13.dp))
+    Box(modifier.size(88.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(84.dp).background(
+            Brush.radialGradient(listOf(Color(0x5574BFFF), Color(0x1174BFFF), Color.Transparent)), CircleShape))
+        Box(Modifier.size(78.dp).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+            RobotMascot(Modifier, size = 62.dp)
         }
     }
 }
@@ -196,15 +237,11 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            Box(
-                Modifier.size(42.dp)
-                    .background(Brush.linearGradient(listOf(ChatGreen, ChatGreenDeep)), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Rounded.SmartToy, null, tint = Color.White, modifier = Modifier.size(25.dp))
+            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+                RobotMascot(Modifier, size = 35.dp)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Trợ lý AI ScamShield", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Trợ lý ScamShield", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text("Hỗ trợ nhận diện lừa đảo", color = Color(0xFFD9F6E8), fontSize = 11.sp)
             }
             IconButton(onClick = { showTools = !showTools }) {
