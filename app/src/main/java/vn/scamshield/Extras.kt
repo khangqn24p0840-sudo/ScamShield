@@ -49,7 +49,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.FactCheck, C.Cyan)
-            Text("Khảo sát nhanh (5 câu)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("Khảo sát nhanh (5 câu)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
         }
         qs.forEachIndexed { i, (q, opts) ->
             Text(q, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
