@@ -17,6 +17,7 @@ object Store {
     fun str(c: Context, k: String) = p(c).getString(k, "") ?: ""
     fun putStr(c: Context, k: String, v: String) = p(c).edit().putString(k, v).apply()
     fun flag(c: Context, k: String) = p(c).getBoolean(k, false)
+    fun hasFlag(c: Context, k: String) = p(c).contains(k)
     fun putFlag(c: Context, k: String, v: Boolean) = p(c).edit().putBoolean(k, v).apply()
     fun inc(c: Context, k: String) = p(c).edit().putInt(k, count(c, k) + 1).apply()
     fun history(c: Context): List<List<String>> {
