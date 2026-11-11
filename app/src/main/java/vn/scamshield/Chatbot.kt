@@ -39,6 +39,10 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -163,7 +167,7 @@ private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modi
     Box(modifier.size(88.dp), contentAlignment = Alignment.Center) {
         Box(Modifier.size(84.dp).background(
             Brush.radialGradient(listOf(Color(0x5574BFFF), Color(0x1174BFFF), Color.Transparent)), CircleShape))
-        Box(Modifier.size(78.dp).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(78.dp).semantics { contentDescription = "Mở trợ lý AI ScamShield"; role = Role.Button }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
             RobotMascot(Modifier, size = 62.dp)
         }
     }
