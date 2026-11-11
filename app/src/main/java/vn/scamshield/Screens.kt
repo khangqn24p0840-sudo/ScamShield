@@ -435,8 +435,8 @@ object Protect {
                     prot -> "ScamShield đang lọc cuộc gọi và tin nhắn lừa đảo cho bạn."
                     !protect -> "Bật bảo vệ để ScamShield xin quyền lọc cuộc gọi và nhận tin nhắn."
                     !callOn && !smsOn -> "Chưa có quyền lọc cuộc gọi và nhận SMS. Hãy hoàn tất hai bước cấp quyền."
-                    !callOn -> "Chưa chọn ScamShield làm ứng dụng lọc cuộc gọi trên Android."
-                    !smsOn -> "Chưa cấp quyền nhận SMS nên ứng dụng chưa thể kiểm tra tin nhắn đến."
+                    !callOn -> "Chưa hoàn tất quyền lọc cuộc gọi trên Android."
+                    !smsOn -> "Chưa cấp quyền nhận SMS. Một số phiên bản Android giới hạn quyền này theo nguồn cài đặt."
                     else -> "Các lớp bảo vệ đang hoạt động."
                 }, color = Color(0xFF526B91), fontSize = 11.5.sp, lineHeight = 15.sp)
             }
@@ -461,7 +461,7 @@ object Protect {
             title = { Text("Cấp quyền cho ScamShield", color = Color(0xFF17345F), fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Để bảo vệ cuộc gọi và tin nhắn, ScamShield cần bạn cho phép nhận SMS và chọn ScamShield trong màn hình hệ thống về lọc cuộc gọi. Android sẽ lần lượt hiển thị các yêu cầu quyền. Bạn có thể từ chối và thay đổi lại trong Cài đặt.",
+                    "Để bảo vệ cuộc gọi và tin nhắn, ScamShield cần bạn cho phép nhận SMS và chọn ScamShield trong màn hình hệ thống về lọc cuộc gọi. Android sẽ lần lượt hiển thị các yêu cầu quyền. Quyền nhận SMS có thể bị giới hạn theo phiên bản Android và nguồn cài đặt. Bạn có thể từ chối và tiếp tục dùng các chức năng kiểm tra thủ công.",
                     color = Color(0xFF506B91), fontSize = 13.sp, lineHeight = 19.sp
                 )
             },
