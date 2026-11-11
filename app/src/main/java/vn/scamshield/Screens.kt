@@ -110,11 +110,11 @@ fun displayName(c: Context): String {
             horizontalAlignment = Alignment.CenterHorizontally) {
             ShieldBadge(C.Gold, 62.dp)
             Spacer(Modifier.height(16.dp))
-            Text("ScamShield VN", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Text("ScamShield VN", color = C.Text, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
             Text("Khiên chắn chống lừa đảo trong túi bạn", color = C.Sub, fontSize = 13.sp)
             Spacer(Modifier.height(22.dp))
-            Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
+            Column(Modifier.fillMaxWidth().background(C.Card, RoundedCornerShape(24.dp))
                 .border(1.dp, C.Stroke, RoundedCornerShape(24.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!hasDefault || showServer)
                     PillField(server, { server = it; Store.putStr(c, "server", it.trim()) }, "Máy chủ https://…", leading = Icons.Rounded.Language)
