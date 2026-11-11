@@ -384,7 +384,7 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
             Text("Xin chào! Mình là ScamShield 😊", color = Color(0xFF17396F), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             Text("Mình có thể giúp bạn kiểm tra nội dung đáng ngờ và chia sẻ mẹo an toàn.", color = Color(0xFF49658D), fontSize = 11.5.sp, lineHeight = 16.sp)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                HomeActionChip("Kiểm tra ngay", Icons.Rounded.Shield, Color(0xFF236FE0)) { open("all") }
+                HomeActionChip("Kiểm tra ngay", Icons.Rounded.Shield, Color(0xFF236FE0)) { open("msg") }
                 HomeActionChip("Mẹo an toàn", Icons.Rounded.Lightbulb, Color(0xFFCB8B12)) { open("other") }
             }
         }
@@ -404,12 +404,41 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
 
 object Protect {
     private var version by mutableIntStateOf(0)
-    fun on(c: Context): Boolean { val v = version; if (v < 0) return false; return Store.flag(c, "protect_on") }
-    fun set(c: Context, v: Boolean) { Store.putFlag(c, "protect_on", v); version++ }
+
+    private fun hasExistingAccess(c: Context): Boolean {
+        val sms = c.checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        val callRole = android.os.Build.VERSION.SDK_INT >= 29 &&
+            c.getSystemService(android.app.role.RoleManager::class.java)
+                ?.isRoleHeld(android.app.role.RoleManager.ROLE_CALL_SCREENING) == true
+        val legacyCall = android.os.Build.VERSION.SDK_INT < 29 &&
+            PhoneStateReceiver.perms().all {
+                c.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+        return sms || callRole || legacyCall
+    }
+
+    fun on(c: Context): Boolean {
+        val v = version
+        return if (Store.hasFlag(c, "protect_on")) Store.flag(c, "protect_on") else hasExistingAccess(c)
+    }
+
+    fun initialize(c: Context) {
+        if (!Store.hasFlag(c, "protect_on")) {
+            Store.putFlag(c, "protect_on", hasExistingAccess(c))
+            version++
+        }
+    }
+
+    fun set(c: Context, enabled: Boolean) {
+        Store.putFlag(c, "protect_on", enabled)
+        version++
+    }
 }
 
 @Composable private fun StatusCard(h: Hooks, open: (String) -> Unit) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
+    SideEffect { Protect.initialize(ctx) }
     val protect = Protect.on(ctx)
     val callOn = h.callOn(); val smsOn = h.smsOn()
     val prot = protect && callOn && smsOn
@@ -483,6 +512,8 @@ object Protect {
                 .clickable { open("blocked") }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
                 Text("Xem nhật ký cảnh báo  →", color = Color(0xFF167A59), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
             }
+        }
+        if (protect) {
             Text("Tắt bảo vệ", color = Color(0xFF6981A2), fontSize = 11.5.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().clickable { Protect.set(ctx, false) }.padding(vertical = 4.dp))
         }
