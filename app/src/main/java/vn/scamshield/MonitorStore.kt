@@ -146,8 +146,8 @@ object MonitorStore {
         c.contentResolver.query(
             Telephony.Sms.CONTENT_URI,
             projection,
-            "${Telephony.Sms.ADDRESS} LIKE ?",
-            arrayOf("%$digits%"),
+            "${Telephony.Sms.TYPE} = ? AND ${Telephony.Sms.ADDRESS} LIKE ?",
+            arrayOf(Telephony.Sms.MESSAGE_TYPE_INBOX.toString(), "%$digits%"),
             "${Telephony.Sms.DATE} DESC"
         )?.use { cursor ->
             val addressCol = cursor.getColumnIndex(Telephony.Sms.ADDRESS)
