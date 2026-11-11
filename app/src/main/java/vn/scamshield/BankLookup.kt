@@ -165,7 +165,7 @@ fun BankLookupScreen(c: Context, back: () -> Unit) {
             shape = RoundedCornerShape(17.dp)
         ) {
             Text(
-                "Lưu ý: Kết quả chỉ đối chiếu tên tài khoản do ngân hàng/VietQR trả về. Tên khớp KHÔNG chứng minh người nhận đáng tin cậy, không xác nhận tài khoản chưa từng bị dùng lừa đảo. Không chuyển tiền chỉ dựa trên kết quả này. Số tài khoản không được lưu trong ScamShield.",
+                "Khi bạn nhấn Tra tên chủ tài khoản, BIN và số tài khoản sẽ được gửi qua máy chủ ScamShield tới VietQR để tra cứu. ScamShield không lưu số tài khoản hoặc kết quả. Tên khớp chỉ giúp đối chiếu người nhận, KHÔNG chứng minh họ đáng tin cậy hay tài khoản chưa từng bị dùng lừa đảo. Không chuyển tiền chỉ dựa trên kết quả này.",
                 modifier = Modifier.padding(13.dp), color = C.Text, fontSize = 12.sp, lineHeight = 17.sp
             )
         }
