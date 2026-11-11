@@ -105,7 +105,7 @@ class MainActivity : ComponentActivity() {
 
     /** Yêu cầu vai trò lọc cuộc gọi hiện đại; Android tự hiện màn hình đồng ý hệ thống. */
     private fun requestCallPermission() {
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (roleAvailable()) {
             if (!roleOn()) roleL.launch(getSystemService(RoleManager::class.java)
                 .createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
             else tick++
@@ -114,7 +114,7 @@ class MainActivity : ComponentActivity() {
 
     /** Xin quyền cuộc gọi trước, sau đó mới xin quyền nhận SMS để không chồng hai hộp thoại. */
     private fun beginProtectionSetup() {
-        if (Build.VERSION.SDK_INT >= 29) {
+        if (roleAvailable()) {
             if (!roleOn()) {
                 continueSetupAfterRole = true
                 roleL.launch(getSystemService(RoleManager::class.java)
@@ -138,9 +138,11 @@ class MainActivity : ComponentActivity() {
         if (missing.isEmpty()) tick++ else permL.launch(missing.toTypedArray())
     }
 
-    private fun roleOn() = Build.VERSION.SDK_INT >= 29 &&
+    private fun roleAvailable() = Build.VERSION.SDK_INT >= 29 &&
+        getSystemService(RoleManager::class.java).isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
+    private fun roleOn() = roleAvailable() &&
         getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
     private fun permsOn() = PhoneStateReceiver.perms().all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
-    private fun callOn() = roleOn() || (Build.VERSION.SDK_INT < 29 && permsOn())
+    private fun callOn() = if (roleAvailable()) roleOn() else permsOn()
     private fun smsOn() = checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
 }
