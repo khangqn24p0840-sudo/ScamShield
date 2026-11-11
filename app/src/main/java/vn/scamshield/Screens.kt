@@ -224,7 +224,22 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
     Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFE7F1FF), Color(0xFFD7E7FF), Color(0xFFF0F6FF)))).verticalScroll(rememberScrollState())) {
         HomeBrandHeader(c, toAccount)
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            PillField(q, { q = it }, "Tìm cuộc gọi, tin nhắn, số điện thoại…", leading = Icons.Rounded.Search)
+            OutlinedTextField(
+                value = q,
+                onValueChange = { q = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(17.dp),
+                placeholder = { Text("Tìm cuộc gọi, tin nhắn, số điện thoại…", color = Color(0xFF8195B4), fontSize = 12.5.sp) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF397FD4)) },
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFF18365F), fontSize = 13.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color(0xFF18365F), unfocusedTextColor = Color(0xFF18365F),
+                    focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color(0xFF438CE8), unfocusedBorderColor = Color(0xFFBCD1EF),
+                    cursorColor = Color(0xFF236FE0)
+                )
+            )
             if (q.isNotBlank()) Box(Modifier.fillMaxWidth().background(Color(0xFF0E1B3B), RoundedCornerShape(20.dp)).padding(12.dp)) { SearchResults(c, q) } else HomeBody(c, h, open, onPost, onFeed)
         }
     }
