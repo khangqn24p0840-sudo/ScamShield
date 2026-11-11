@@ -1,7 +1,15 @@
 package vn.scamshield
 
 import android.content.Context
+import android.net.Uri
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -13,6 +21,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,11 +41,15 @@ import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
@@ -49,13 +62,17 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.Normalizer
 
 private data class ChatLine(
     val fromUser: Boolean,
     val text: String,
-    val pending: Boolean = false
+    val pending: Boolean = false,
+    val imageUri: Uri? = null
 )
 
 private val ChatGreen = Color(0xFF2679E7)
@@ -179,10 +196,57 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
     val lines = remember { mutableStateListOf(ChatLine(fromUser = false, text = welcome)) }
     val listState = rememberLazyListState()
     var draft by remember { mutableStateOf("") }
+    var selectedImage by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
     var showTools by remember { mutableStateOf(false) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        selectedImage = uri
+    }
+
+    fun sendImage() {
+        val uri = selectedImage ?: return
+        if (busy) return
+        lines.add(ChatLine(fromUser = true, text = draft.trim().ifBlank { "Đã gửi ảnh để kiểm tra" }, imageUri = uri))
+        draft = ""
+        selectedImage = null
+        if (Store.str(c, "token").isBlank()) {
+            lines.add(ChatLine(fromUser = false, text = "Bạn cần đăng nhập ScamShield để gửi ảnh cho AI phân tích. Ảnh chỉ được tải lên sau khi bạn nhấn Gửi."))
+            return
+        }
+        busy = true
+        lines.add(ChatLine(fromUser = false, text = "Mình đang xem ảnh…", pending = true))
+        Thread {
+            try {
+                val bytes = c.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    ?: throw IllegalStateException("Không đọc được ảnh")
+                if (bytes.size > 5_000_000) throw IllegalArgumentException("Ảnh quá lớn (tối đa 5MB)")
+                val mime = c.contentResolver.getType(uri) ?: "image/jpeg"
+                val payload = JSONObject().put("mime", mime)
+                    .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
+                Handler(Looper.getMainLooper()).post {
+                    Api.call(c, "POST", "/api/analyze/media", payload) { code, result ->
+                        val reply = if (code in 200..299 && result != null) fmtMedia(code, result)
+                            else "Mình chưa phân tích được ảnh. ${err(result)}"
+                        val pendingIndex = lines.indexOfLast { it.pending }
+                        if (pendingIndex >= 0) lines[pendingIndex] = ChatLine(fromUser = false, text = reply)
+                        else lines.add(ChatLine(fromUser = false, text = reply))
+                        busy = false
+                    }
+                }
+            } catch (e: Exception) {
+                val error = e.message ?: "Không thể đọc ảnh"
+                Handler(Looper.getMainLooper()).post {
+                    val pendingIndex = lines.indexOfLast { it.pending }
+                    if (pendingIndex >= 0) lines[pendingIndex] = ChatLine(fromUser = false, text = error)
+                    else lines.add(ChatLine(fromUser = false, text = error))
+                    busy = false
+                }
+            }
+        }.start()
+    }
 
     fun sendMessage() {
+        if (selectedImage != null) { sendImage(); return }
         val message = draft.trim()
         if (message.isEmpty() || busy) return
 
@@ -333,11 +397,18 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                 keyboardActions = KeyboardActions(onSend = { sendMessage() })
             )
             IconButton(
+                onClick = { imagePicker.launch("image/*") },
+                enabled = !busy,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(Icons.Rounded.AddPhotoAlternate, contentDescription = "Chọn ảnh", tint = ChatGreen)
+            }
+            IconButton(
                 onClick = { sendMessage() },
-                enabled = draft.isNotBlank() && !busy,
+                enabled = (draft.isNotBlank() || selectedImage != null) && !busy,
                 modifier = Modifier.size(46.dp)
                     .background(
-                        if (draft.isNotBlank() && !busy) Brush.linearGradient(listOf(ChatGreen, ChatGreenDeep))
+                        if ((draft.isNotBlank() || selectedImage != null) && !busy) Brush.linearGradient(listOf(ChatGreen, ChatGreenDeep))
                         else Brush.linearGradient(listOf(ChatBorder, ChatBorder)),
                         CircleShape
                     )
@@ -345,7 +416,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                 Icon(
                     Icons.Rounded.Send,
                     contentDescription = "Gửi nội dung để phân tích",
-                    tint = if (draft.isNotBlank() && !busy) Color.White else ChatMuted,
+                    tint = if ((draft.isNotBlank() || selectedImage != null) && !busy) Color.White else ChatMuted,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -355,6 +426,29 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
             color = ChatMuted,
             fontSize = 10.sp,
             modifier = Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 10.dp)
+        )
+    }
+}
+
+@Composable
+private fun ChatImage(uri: Uri) {
+    val context = LocalContext.current
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = uri) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val options = BitmapFactory.Options().apply { inSampleSize = 3 }
+                    BitmapFactory.decodeStream(input, null, options)
+                }
+            } catch (_: Exception) { null }
+        }
+    }
+    bitmap?.let {
+        Image(
+            bitmap = it.asImageBitmap(),
+            contentDescription = "Ảnh người dùng gửi",
+            modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp).clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Fit
         )
     }
 }
@@ -399,6 +493,7 @@ private fun ChatBubble(line: ChatLine) {
                 fontSize = 12.5.sp,
                 lineHeight = 18.sp
             )
+            line.imageUri?.let { ChatImage(it) }
         }
     }
 }
