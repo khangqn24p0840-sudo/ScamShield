@@ -199,7 +199,7 @@ fun openUrl(c: Context, url: String) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).background(C.CardHi, CircleShape).border(1.dp, C.Stroke, CircleShape)
                     .clickable(onClick = onClose), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                    Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp)) }
                 Text("Tin báo chí", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -358,7 +358,7 @@ fun openUrl(c: Context, url: String) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.LocalFireDepartment, null, tint = Color(0xFFFB923C), modifier = Modifier.size(24.dp))
-                Text(if (section == "news") "Tin Báo Chí" else "Cảnh Báo Cộng Đồng", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(if (section == "news") "Tin Báo Chí" else "Cảnh Báo Cộng Đồng", color = C.Text, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(Modifier.size(8.dp).background(if (msg.isEmpty()) C.Mint else C.Bad, CircleShape))
                     Text(if (msg.isEmpty()) "Trực tiếp" else "Mất kết nối", color = C.Dim, fontSize = 12.sp)
