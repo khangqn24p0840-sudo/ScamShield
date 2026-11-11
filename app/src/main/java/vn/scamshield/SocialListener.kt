@@ -27,6 +27,7 @@ class SocialListener : NotificationListenerService() {
             .joinToString(" ") + " " + (e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString(" ") ?: "")
         if (body.isBlank()) return
         val sender = e.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
+        MonitorStore.captureSocial(this, sender, body, sbn.packageName, sbn.postTime)
         val r = ScamDetector.analyze(body)
         val key = sbn.packageName + sender + body.hashCode()
         if (r.level < 1 || key == last) return

@@ -3,6 +3,8 @@ name: Build APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -10,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build current main source
+    name: Build app source (PR validation and release)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout latest source
@@ -61,6 +63,7 @@ jobs:
           retention-days: 30
 
       - name: Publish APK release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ steps.package.outputs.version }}

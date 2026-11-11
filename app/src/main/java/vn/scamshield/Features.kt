@@ -57,6 +57,8 @@ import java.util.Locale
         "blocklist" -> BlocklistScreen(c, back)
         "msg" -> MessageScreen(c, back, open)
         "social" -> SocialScreen(c, h, back)
+        "monitor" -> MessageMonitorScreen(c, h.openSocial, back)
+        "bank" -> BankLookupScreen(c, back)
         "malware", "link" -> MalwareScreen(c, back)
         "ai" -> Page("Yêu cầu AI", back) { AiPanel(c, h.aiMsg(), h.pickImage) { h.setAiMsg(it) } }
         "family" -> FamilyChatScreen(c, back)
