@@ -270,7 +270,7 @@ object C {
 /** Thanh điểm rủi ro có animation chạy tới giá trị. */
 @Composable fun ScoreBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
     val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(650))
-    Box(modifier.fillMaxWidth().height(8.dp).background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(4.dp))) {
+    Box(modifier.fillMaxWidth().height(8.dp).background(C.Stroke, RoundedCornerShape(4.dp))) {
         if (f > 0.005f) Box(Modifier.fillMaxHeight().fillMaxWidth(f)
             .background(Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.72f))), RoundedCornerShape(4.dp)))
     }
@@ -289,7 +289,7 @@ private fun shieldPath(cx: Float, cy: Float, w: Float, h: Float) = Path().apply 
     close()
 }
 
-/** Nền app: gradient navy + quầng sáng màu trôi chậm + lưới chấm mờ + hình khiên mờ. Lớp tĩnh và lớp động tách riêng cho nhẹ máy. */
+/** Nền app: gradient xanh-trắng + quầng sáng màu trôi chậm + lưới chấm mờ. Lớp tĩnh và lớp động tách riêng cho nhẹ máy. */
 @Composable fun AppBackground() {
     Box(Modifier.fillMaxSize()) {
         Canvas(Modifier.fillMaxSize()) {
