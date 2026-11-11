@@ -58,7 +58,7 @@ private val SEVERITIES = listOf("low" to "Thấp", "medium" to "Trung bình", "h
 private val FeedCyan = C.Cyan
 private val FeedCard = C.Card
 private val FeedBorder = C.Stroke
-private val FeedChipBg = Color.White.copy(alpha = 0.06f)
+private val FeedChipBg = C.CardHi
 
 fun topicLabel(k: String) = TOPICS.firstOrNull { it.first == k }?.second ?: "Khác"
 private fun sevLabel(k: String) = SEVERITIES.firstOrNull { it.first == k }?.second ?: "Trung bình"
@@ -142,7 +142,7 @@ fun openUrl(c: Context, url: String) {
     val news = p.kind == "news"
     val edge = if (news) Color(0xFFB8D7FA) else FeedBorder
     val surface = if (news) Color(0xFFF8FBFF) else FeedCard
-    val titleColor = if (news) Color(0xFF17345F) else Color.White
+    val titleColor = if (news) Color(0xFF17345F) else C.Text
     val bodyColor = if (news) Color(0xFF526B91) else C.Sub
     val metaColor = if (news) Color(0xFF6D83A4) else C.Dim
     val dividerColor = if (news) Color(0xFFDCE8F7) else FeedBorder
@@ -197,10 +197,10 @@ fun openUrl(c: Context, url: String) {
         Box(Modifier.fillMaxSize()) { AppBackground()
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape).border(1.dp, C.Stroke, CircleShape)
+                Box(Modifier.size(40.dp).background(C.CardHi, CircleShape).border(1.dp, C.Stroke, CircleShape)
                     .clickable(onClick = onClose), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-                Text("Tin báo chí", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Tin báo chí", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Column(Modifier.fillMaxWidth().background(FeedCard, RoundedCornerShape(20.dp)).border(BorderStroke(1.dp, FeedBorder), RoundedCornerShape(20.dp)).padding(18.dp),
@@ -212,7 +212,7 @@ fun openUrl(c: Context, url: String) {
                         }
                         Text(timeAgo(p.ts), color = C.Dim, fontSize = 12.sp)
                     }
-                    Text(p.title, color = Color.White, fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(p.title, color = C.Text, fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.ExtraBold)
                     Text("Nguồn: ${p.author}", color = FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Box(Modifier.fillMaxWidth().height(1.dp).background(FeedBorder))
                     val pts = p.body.split("\n").map { it.trim().removePrefix("•").trim() }.filter { it.isNotBlank() }
@@ -273,7 +273,7 @@ fun openUrl(c: Context, url: String) {
                 Icon(Icons.Rounded.ChevronRight, null, tint = Color(0xFF2778DC), modifier = Modifier.size(20.dp))
             }
         } else {
-            Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(18.dp))
+            Box(Modifier.fillMaxWidth().background(C.CardHi, RoundedCornerShape(18.dp))
                 .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(16.dp)) {
                 Text(if (offline) "Chưa tải được dữ liệu (mất kết nối máy chủ)." else "Chưa có cảnh báo nào từ cộng đồng. Hãy là người đầu tiên chia sẻ!",
                     color = C.Dim, fontSize = 13.sp)
