@@ -86,7 +86,7 @@ import java.util.Locale
         ScoreBar(r.score / 100f, col)
         r.reasons.forEach { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(4.dp).background(col, CircleShape))
-            Text(it, fontSize = 13.sp, color = Color.White) } }
+            Text(it, fontSize = 13.sp, color = C.Text) } }
         if (r.level == 0) Text("Chưa thấy dấu hiệu không có nghĩa là chắc chắn an toàn. Đừng đọc OTP hay chuyển tiền cho người lạ.",
             fontSize = 12.sp, color = C.Dim, lineHeight = 16.sp)
     }
