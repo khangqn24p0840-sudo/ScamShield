@@ -11,6 +11,7 @@ class SmsReceiver : BroadcastReceiver() {
         msgs.groupBy { it.originatingAddress ?: "?" }.forEach { (from, parts) ->
             val body = parts.joinToString("") { it.messageBody ?: "" }
             Habit.onText(c, body)
+            MonitorStore.captureSms(c, from, body, parts.maxOfOrNull { it.timestampMillis } ?: System.currentTimeMillis())
             if (Habit.senderBurst(c, from)) {
                 Store.log(c, 1, "Nhiều số lạ nhắn tin", "5 số lạ trong 1 giờ")
                 Notifier.show(c, "⚠️ Nhiều số lạ nhắn tin liên tiếp", "5 số lạ nhắn trong 1 giờ – dấu hiệu chiến dịch lừa đảo hàng loạt. Đừng bấm link.")
