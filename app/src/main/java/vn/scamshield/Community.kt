@@ -150,8 +150,8 @@ fun openUrl(c: Context, url: String) {
         .clickable(onClick = onClick).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (news) Tag("TIN BÁO", Color(0xFF38BDF8))
-                Tag(topicLabel(p.topic).uppercase(), topicColor(p.topic))
+                if (news) Tag("TIN BÁO", Color(0xFF1B5EAA))
+                Tag(topicLabel(p.topic).uppercase(), if (news) Color(0xFF496787) else topicColor(p.topic))
                 if (p.official) Tag("CHÍNH THỨC", FeedCyan)
             }
             Text(timeAgo(p.ts), color = metaColor, fontSize = 12.sp)
@@ -163,8 +163,8 @@ fun openUrl(c: Context, url: String) {
         if (news) Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Text("${p.author}", color = metaColor, fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Đọc tiếp", color = FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Rounded.ChevronRight, null, tint = FeedCyan, modifier = Modifier.size(16.dp))
+                Text("Đọc tiếp", color = if (news) Color(0xFF1759A6) else FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Rounded.ChevronRight, null, tint = if (news) Color(0xFF1759A6) else FeedCyan, modifier = Modifier.size(16.dp))
             }
         } else Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
