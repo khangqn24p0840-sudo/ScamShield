@@ -49,10 +49,10 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.FactCheck, C.Cyan)
-            Text("Khảo sát nhanh (5 câu)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("Khảo sát nhanh (5 câu)", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
         }
         qs.forEachIndexed { i, (q, opts) ->
-            Text(q, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text(q, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = C.Text)
             opts.forEach { o -> Row(Modifier.fillMaxWidth().clickable { sel[i] = o }, verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(sel[i] == o, { sel[i] = o }); Text(o, fontSize = 14.sp, color = C.Sub) } }
         }
@@ -69,7 +69,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.Psychology, C.Violet)
-            Text("Phân tích bằng AI", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("Phân tích bằng AI", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
         }
         Text("Cần đăng nhập. Chỉ nội dung bạn bấm phân tích mới được gửi lên máy chủ của bạn để AI đánh giá.", fontSize = 12.sp, color = C.Sub, lineHeight = 16.sp)
         OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), placeholder = { Text("Dán tin nhắn / lời thoại nghi ngờ…") }, minLines = 3)
@@ -77,7 +77,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
             onMsg("Đang phân tích…"); Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", text)) { code, j -> onMsg(fmtText(code, j)) }
         }
         GhostButton("Kiểm tra ảnh có bị làm giả (qua máy chủ)", leading = Icons.Rounded.Image, onClick = onPick)
-        if (aiMsg.isNotEmpty()) Text(aiMsg, fontSize = 14.sp, color = Color.White, lineHeight = 19.sp)
+        if (aiMsg.isNotEmpty()) Text(aiMsg, fontSize = 14.sp, color = C.Text, lineHeight = 19.sp)
     }
 }
 
@@ -87,7 +87,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.Videocam, C.Cyan)
             Column {
-                Text("Kiểm tra video call giả mạo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Kiểm tra video call giả mạo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
                 Text("Tính năng thử nghiệm", color = C.Dim, fontSize = 11.sp)
             }
         }

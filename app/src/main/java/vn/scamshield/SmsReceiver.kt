@@ -6,6 +6,7 @@ import android.provider.Telephony
 
 class SmsReceiver : BroadcastReceiver() {
     override fun onReceive(c: Context, i: Intent) {
+        if (!Protect.on(c)) return
         val msgs = Telephony.Sms.Intents.getMessagesFromIntent(i) ?: return
         msgs.groupBy { it.originatingAddress ?: "?" }.forEach { (from, parts) ->
             val body = parts.joinToString("") { it.messageBody ?: "" }

@@ -9,7 +9,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -21,7 +21,15 @@ import vn.scamshield.face.FaceBus
 
 class MainActivity : ComponentActivity() {
     private var tick by mutableIntStateOf(0)
-    private val roleL = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { tick++ }
+    private var continueSetupAfterRole = false
+    private var continueSetupAfterLegacyCallPerms = false
+    private val roleL = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        tick++
+        if (continueSetupAfterRole) {
+            continueSetupAfterRole = false
+            if (roleOn()) requestSmsPermissions()
+        }
+    }
     private val permL = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { tick++ }
 
     var aiMsg by mutableStateOf("")
@@ -44,8 +52,9 @@ class MainActivity : ComponentActivity() {
         Hooks(
             tick = { tick },
             callOn = { callOn() }, smsOn = { smsOn() },
-            enableCalls = { callPermL.launch(PhoneStateReceiver.perms()) },
-            enableSms = { permL.launch(arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.POST_NOTIFICATIONS)) },
+            enableCalls = { requestCallPermission() },
+            enableSms = { requestSmsPermissions() },
+            enableProtection = { beginProtectionSetup() },
             toggleListen = {
                 if (ListenService.running) { ListenService.running = false; stopService(Intent(this, ListenService::class.java)); tick++ }
                 else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startListen()
@@ -62,19 +71,21 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(b: Bundle?) {
         super.onCreate(b)
-        // Icon trạng thái màu sáng trên nền tối
-        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
+        // Giao diện sáng: icon hệ thống màu tối trên nền xanh-trắng.
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = true
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightNavigationBars = true
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(
+            MaterialTheme(colorScheme = lightColorScheme(
                 primary = C.Gold, onPrimary = C.Ink,
-                secondary = C.Mint, onSecondary = Color(0xFF022C22),
+                secondary = C.Mint, onSecondary = Color.White,
                 tertiary = C.Cyan,
-                background = C.Bg, onBackground = Color.White,
-                surface = C.Card, onSurface = Color.White,
+                background = C.Bg, onBackground = C.Text,
+                surface = C.Card, onSurface = C.Text,
                 surfaceVariant = C.CardHi, onSurfaceVariant = C.Sub,
-                outline = Color.White.copy(alpha = 0.16f),
-                outlineVariant = C.Stroke,
-                error = C.Bad, onError = Color(0xFF3B0A0A)
+                outline = C.Stroke, outlineVariant = C.Stroke,
+                error = C.Bad, onError = Color.White
             )) { ShieldApp(this@MainActivity, hooks) }
         }
     }
@@ -86,10 +97,52 @@ class MainActivity : ComponentActivity() {
     private fun startListen() { ListenService.running = true; androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, ListenService::class.java)); tick++ }
     private val callPermL = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         tick++
-        if (Build.VERSION.SDK_INT >= 29 && !roleOn()) roleL.launch(getSystemService(RoleManager::class.java).createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
+        if (continueSetupAfterLegacyCallPerms) {
+            continueSetupAfterLegacyCallPerms = false
+            requestSmsPermissions()
+        }
     }
-    private fun roleOn() = Build.VERSION.SDK_INT >= 29 && getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+
+    /** Yêu cầu vai trò lọc cuộc gọi hiện đại; Android tự hiện màn hình đồng ý hệ thống. */
+    private fun requestCallPermission() {
+        if (roleAvailable()) {
+            if (!roleOn()) roleL.launch(getSystemService(RoleManager::class.java)
+                .createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
+            else tick++
+        } else if (!permsOn()) callPermL.launch(PhoneStateReceiver.perms()) else tick++
+    }
+
+    /** Xin quyền cuộc gọi trước, sau đó mới xin quyền nhận SMS để không chồng hai hộp thoại. */
+    private fun beginProtectionSetup() {
+        if (roleAvailable()) {
+            if (!roleOn()) {
+                continueSetupAfterRole = true
+                roleL.launch(getSystemService(RoleManager::class.java)
+                    .createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING))
+            } else requestSmsPermissions()
+        } else if (!permsOn()) {
+            continueSetupAfterLegacyCallPerms = true
+            callPermL.launch(PhoneStateReceiver.perms())
+        } else requestSmsPermissions()
+    }
+
+    /** Chỉ xin các quyền còn thiếu; Android 13+ xin thêm quyền hiển thị thông báo. */
+    private fun requestSmsPermissions() {
+        val missing = mutableListOf<String>()
+        if (checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+            missing += Manifest.permission.RECEIVE_SMS
+        }
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            missing += Manifest.permission.POST_NOTIFICATIONS
+        }
+        if (missing.isEmpty()) tick++ else permL.launch(missing.toTypedArray())
+    }
+
+    private fun roleAvailable() = Build.VERSION.SDK_INT >= 29 &&
+        getSystemService(RoleManager::class.java).isRoleAvailable(RoleManager.ROLE_CALL_SCREENING)
+    private fun roleOn() = roleAvailable() &&
+        getSystemService(RoleManager::class.java).isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
     private fun permsOn() = PhoneStateReceiver.perms().all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
-    private fun callOn() = roleOn() || permsOn()
+    private fun callOn() = if (roleAvailable()) roleOn() else permsOn()
     private fun smsOn() = checkSelfPermission(Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
 }

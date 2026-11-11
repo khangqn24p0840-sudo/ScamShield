@@ -58,7 +58,7 @@ private val SEVERITIES = listOf("low" to "Thấp", "medium" to "Trung bình", "h
 private val FeedCyan = C.Cyan
 private val FeedCard = C.Card
 private val FeedBorder = C.Stroke
-private val FeedChipBg = Color.White.copy(alpha = 0.06f)
+private val FeedChipBg = C.CardHi
 
 fun topicLabel(k: String) = TOPICS.firstOrNull { it.first == k }?.second ?: "Khác"
 private fun sevLabel(k: String) = SEVERITIES.firstOrNull { it.first == k }?.second ?: "Trung bình"
@@ -140,26 +140,31 @@ fun openUrl(c: Context, url: String) {
 /** Thẻ cảnh báo: nhãn chủ đề, thời gian, tiêu đề, tóm tắt, mức độ, lượt thích, bình luận. */
 @Composable fun PostCard(p: Post, onClick: () -> Unit) {
     val news = p.kind == "news"
-    val edge = if (news) Color(0x5538BDF8) else FeedBorder   // tin báo chí: viền xanh dương để khác bài người dùng
-    Column(Modifier.fillMaxWidth().background(FeedCard, RoundedCornerShape(20.dp)).border(BorderStroke(1.dp, edge), RoundedCornerShape(20.dp))
+    val edge = if (news) Color(0xFFB8D7FA) else FeedBorder
+    val surface = if (news) Color(0xFFF8FBFF) else FeedCard
+    val titleColor = if (news) Color(0xFF17345F) else C.Text
+    val bodyColor = if (news) Color(0xFF526B91) else C.Sub
+    val metaColor = if (news) Color(0xFF6D83A4) else C.Dim
+    val dividerColor = if (news) Color(0xFFDCE8F7) else FeedBorder
+    Column(Modifier.fillMaxWidth().background(surface, RoundedCornerShape(20.dp)).border(BorderStroke(1.dp, edge), RoundedCornerShape(20.dp))
         .clickable(onClick = onClick).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (news) Tag("TIN BÁO", Color(0xFF38BDF8))
-                Tag(topicLabel(p.topic).uppercase(), topicColor(p.topic))
+                if (news) Tag("TIN BÁO", Color(0xFF1B5EAA))
+                Tag(topicLabel(p.topic).uppercase(), if (news) Color(0xFF496787) else topicColor(p.topic))
                 if (p.official) Tag("CHÍNH THỨC", FeedCyan)
             }
-            Text(timeAgo(p.ts), color = C.Dim, fontSize = 12.sp)
+            Text(timeAgo(p.ts), color = metaColor, fontSize = 12.sp)
         }
-        Text(p.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (p.body.isNotBlank()) Text(if (news) p.body.replace("•", "").replace("\n", " ").trim() else p.body, color = C.Sub, fontSize = 14.sp, lineHeight = 20.sp,
+        Text(p.title, color = titleColor, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (p.body.isNotBlank()) Text(if (news) p.body.replace("•", "").replace("\n", " ").trim() else p.body, color = bodyColor, fontSize = 14.sp, lineHeight = 20.sp,
             maxLines = if (news) 3 else 2, overflow = TextOverflow.Ellipsis)
-        Box(Modifier.fillMaxWidth().height(1.dp).background(FeedBorder))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(dividerColor))
         if (news) Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-            Text("${p.author}", color = C.Dim, fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
+            Text("${p.author}", color = metaColor, fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("Đọc tiếp", color = FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Rounded.ChevronRight, null, tint = FeedCyan, modifier = Modifier.size(16.dp))
+                Text("Đọc tiếp", color = if (news) Color(0xFF1759A6) else FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(Icons.Rounded.ChevronRight, null, tint = if (news) Color(0xFF1759A6) else FeedCyan, modifier = Modifier.size(16.dp))
             }
         } else Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -192,10 +197,10 @@ fun openUrl(c: Context, url: String) {
         Box(Modifier.fillMaxSize()) { AppBackground()
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape).border(1.dp, C.Stroke, CircleShape)
+                Box(Modifier.size(40.dp).background(C.CardHi, CircleShape).border(1.dp, C.Stroke, CircleShape)
                     .clickable(onClick = onClose), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-                Text("Tin báo chí", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp)) }
+                Text("Tin báo chí", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Column(Modifier.fillMaxWidth().background(FeedCard, RoundedCornerShape(20.dp)).border(BorderStroke(1.dp, FeedBorder), RoundedCornerShape(20.dp)).padding(18.dp),
@@ -207,7 +212,7 @@ fun openUrl(c: Context, url: String) {
                         }
                         Text(timeAgo(p.ts), color = C.Dim, fontSize = 12.sp)
                     }
-                    Text(p.title, color = Color.White, fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(p.title, color = C.Text, fontSize = 20.sp, lineHeight = 27.sp, fontWeight = FontWeight.ExtraBold)
                     Text("Nguồn: ${p.author}", color = FeedCyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Box(Modifier.fillMaxWidth().height(1.dp).background(FeedBorder))
                     val pts = p.body.split("\n").map { it.trim().removePrefix("•").trim() }.filter { it.isNotBlank() }
@@ -245,7 +250,7 @@ fun openUrl(c: Context, url: String) {
     LaunchedEffect(Store.str(c, "token").isNotEmpty(), kind) {
         rev = ""
         while (true) {
-            if (resumed()) Api.call(c, "GET", "/api/feed?limit=2&kind=$kind&rev=$rev", null) { code, j ->
+            if (resumed()) Api.call(c, "GET", "/api/feed?limit=3&kind=$kind&rev=$rev", null) { code, j ->
                 if (code in 200..299 && j != null) {
                     offline = false
                     if (!j.optBoolean("unchanged")) { posts = parsePosts(j); rev = j.optString("rev") }
@@ -255,10 +260,24 @@ fun openUrl(c: Context, url: String) {
         }
     }
     if (posts.isEmpty()) {
-        Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(18.dp))
-            .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(16.dp)) {
-            Text(if (offline) "Chưa tải được dữ liệu (mất kết nối máy chủ)." else if (kind == "news") "Chưa có tin nổi bật. Máy chủ sẽ tự tải tin mới định kỳ." else "Chưa có cảnh báo nào từ cộng đồng. Hãy là người đầu tiên chia sẻ!",
-                color = C.Dim, fontSize = 13.sp)
+        if (kind == "news") {
+            Row(Modifier.fillMaxWidth().background(Color(0xFFF8FBFF), RoundedCornerShape(18.dp))
+                .border(1.dp, Color(0xFFB8D7FA), RoundedCornerShape(18.dp)).clickable(onClick = onSeeAll).padding(15.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                Icon(Icons.Rounded.Article, null, tint = Color(0xFF2778DC), modifier = Modifier.size(28.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(if (offline) "Chưa kết nối được nguồn tin" else "Tin báo chí sẽ hiển thị tại đây",
+                        color = Color(0xFF17345F), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text("Mở mục Tin báo chí để xem danh sách và cập nhật mới nhất.", color = Color(0xFF5A7196), fontSize = 11.5.sp, lineHeight = 16.sp)
+                }
+                Icon(Icons.Rounded.ChevronRight, null, tint = Color(0xFF2778DC), modifier = Modifier.size(20.dp))
+            }
+        } else {
+            Box(Modifier.fillMaxWidth().background(C.CardHi, RoundedCornerShape(18.dp))
+                .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(16.dp)) {
+                Text(if (offline) "Chưa tải được dữ liệu (mất kết nối máy chủ)." else "Chưa có cảnh báo nào từ cộng đồng. Hãy là người đầu tiên chia sẻ!",
+                    color = C.Dim, fontSize = 13.sp)
+            }
         }
     } else {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -339,7 +358,7 @@ fun openUrl(c: Context, url: String) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp), Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.LocalFireDepartment, null, tint = Color(0xFFFB923C), modifier = Modifier.size(24.dp))
-                Text(if (section == "news") "Tin Báo Chí" else "Cảnh Báo Cộng Đồng", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(if (section == "news") "Tin Báo Chí" else "Cảnh Báo Cộng Đồng", color = C.Text, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Box(Modifier.size(8.dp).background(if (msg.isEmpty()) C.Mint else C.Bad, CircleShape))
                     Text(if (msg.isEmpty()) "Trực tiếp" else "Mất kết nối", color = C.Dim, fontSize = 12.sp)
@@ -462,9 +481,9 @@ fun openUrl(c: Context, url: String) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape).border(1.dp, C.Stroke, CircleShape)
                     .clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp))
                 }
-                Text("Chi tiết cảnh báo", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("Chi tiết cảnh báo", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
             if (msg.isNotEmpty()) Text(msg, color = C.Warn, fontSize = 13.sp)
             val p = post
@@ -480,11 +499,11 @@ fun openUrl(c: Context, url: String) {
                         }
                         Text(timeAgo(p.ts), color = C.Dim, fontSize = 12.sp)
                     }
-                    Text(p.title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    Text(p.body, color = Color.White, fontSize = 15.sp, lineHeight = 22.sp)
+                    Text(p.title, color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(p.body, color = C.Text, fontSize = 15.sp, lineHeight = 22.sp)
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         AuthorDot(p.author)
-                        Column { Text(p.author, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("Mức độ: ${sevLabel(p.severity)}", color = C.Dim, fontSize = 12.sp) }
+                        Column { Text(p.author, color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp); Text("Mức độ: ${sevLabel(p.severity)}", color = C.Dim, fontSize = 12.sp) }
                     }
                     Box(Modifier.fillMaxWidth().height(1.dp).background(FeedBorder))
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -508,14 +527,14 @@ fun openUrl(c: Context, url: String) {
                         }
                     }
                 }
-                Text("Bình luận (${comments.size})", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("Bình luận (${comments.size})", color = C.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 if (comments.isEmpty()) Text("Chưa có bình luận. Hãy là người đầu tiên!", color = C.Sub, fontSize = 13.sp)
                 comments.forEach { cm ->
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AuthorDot(cm.author)
                         Column(Modifier.weight(1f).background(FeedCard, RoundedCornerShape(14.dp)).border(BorderStroke(1.dp, FeedBorder), RoundedCornerShape(14.dp)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween) {
-                                Text(cm.author + (if (cm.mine) " (bạn)" else ""), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Text(cm.author + (if (cm.mine) " (bạn)" else ""), color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                                 Text(timeAgo(cm.ts), color = C.Dim, fontSize = 11.sp)
                             }
                             Text(cm.body, color = C.Sub, fontSize = 14.sp, lineHeight = 20.sp)

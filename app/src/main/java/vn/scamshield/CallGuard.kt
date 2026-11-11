@@ -18,6 +18,7 @@ object CallGuard {
 
     /** Trả về true nếu cần chặn cuộc gọi này. */
     fun handle(c: Context, num: String): Boolean {
+        if (!Protect.on(c)) return false
         if (Store.digits(num).length < 3) return false
         val foreign = num.startsWith("+") && !num.startsWith("+84")
         val block = Store.isBlocked(c, num) || (foreign && Store.blockForeign(c))

@@ -39,11 +39,11 @@ import java.util.Locale
     Column(Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
         Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (onBack != null) Box(Modifier.size(40.dp).background(Color.White.copy(alpha = 0.06f), CircleShape)
+            if (onBack != null) Box(Modifier.size(40.dp).background(C.CardHi, CircleShape)
                 .border(1.dp, C.Stroke, CircleShape).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.ArrowBack, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.ArrowBack, null, tint = C.Text, modifier = Modifier.size(20.dp))
             }
-            Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = C.Text, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
         content()
     }
@@ -86,7 +86,7 @@ import java.util.Locale
         ScoreBar(r.score / 100f, col)
         r.reasons.forEach { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(4.dp).background(col, CircleShape))
-            Text(it, fontSize = 13.sp, color = Color.White) } }
+            Text(it, fontSize = 13.sp, color = C.Text) } }
         if (r.level == 0) Text("Chưa thấy dấu hiệu không có nghĩa là chắc chắn an toàn. Đừng đọc OTP hay chuyển tiền cho người lạ.",
             fontSize = 12.sp, color = C.Dim, lineHeight = 16.sp)
     }
@@ -102,7 +102,7 @@ import java.util.Locale
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(col.copy(alpha = 0.85f), RoundedCornerShape(2.dp)))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(e[2], fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+            Text(e[2], fontWeight = FontWeight.Bold, fontSize = 14.sp, color = C.Text)
             Text(e[3], fontSize = 13.sp, maxLines = 3, color = C.Sub, lineHeight = 17.sp)
             Text(SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault()).format(Date(e[0].toLong())), fontSize = 11.sp, color = C.Dim)
         }
@@ -144,7 +144,7 @@ import java.util.Locale
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         IconBadge(icon, tint)
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Text(sub, color = C.Dim, fontSize = 11.5.sp, lineHeight = 15.sp)
         }
         StatusPill(on)
@@ -160,7 +160,7 @@ import java.util.Locale
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Security, C.Mint)
-                Text("Bảo vệ cơ bản", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Bảo vệ cơ bản", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             SettingRow(Icons.Rounded.Call, C.Mint, "Chặn cuộc gọi", "Tự động lọc số lừa đảo khi có cuộc gọi tới", callOn)
             SettingRow(Icons.Rounded.Sms, C.Warn, "Cảnh báo tin nhắn", "Quét SMS lừa đảo ngay trong máy", smsOn)
@@ -169,7 +169,7 @@ import java.util.Locale
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Tune, C.Cyan)
-                Text("Cảnh báo nâng cao", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Cảnh báo nâng cao", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             SettingRow(Icons.Rounded.CropFree, C.Violet,
                 "Viền cảnh báo màn hình", "Rung + viền vàng/đỏ phủ toàn màn hình khi phát hiện", ov)
@@ -179,14 +179,14 @@ import java.util.Locale
         CardX {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Chặn mọi số nước ngoài", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Chặn mọi số nước ngoài", color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Text("Tự động chặn đầu số khác +84", color = C.Dim, fontSize = 11.5.sp)
                 }
                 Switch(Store.blockForeign(c), { Store.setBlockForeign(c, it); rev++ })
             }
         }
         CardX {
-            Text("Thử cảnh báo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("Thử cảnh báo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GhostButton("Thử vàng", Modifier.weight(1f), leading = Icons.Rounded.Warning) { Alerter.fire(c, 1) }
                 GhostButton("Thử đỏ", Modifier.weight(1f), leading = Icons.Rounded.Error) { Alerter.fire(c, 2) }
@@ -234,7 +234,7 @@ import java.util.Locale
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.PhoneMissed, C.Bad)
-                Text("Danh sách chặn (${Store.blocklist(c).size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Danh sách chặn (${Store.blocklist(c).size})", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 PillField(num, { num = it }, "Số điện thoại", Modifier.weight(1f), leading = Icons.Rounded.Phone,
@@ -251,7 +251,7 @@ import java.util.Locale
                         Arrangement.SpaceBetween, Alignment.CenterVertically) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Rounded.Phone, null, tint = C.Dim, modifier = Modifier.size(15.dp))
-                            Text(n, color = Color.White, fontSize = 14.sp)
+                            Text(n, color = C.Text, fontSize = 14.sp)
                         }
                         TextButton({ Store.removeBlock(c, n); rev++ }) { Text("Bỏ chặn", color = C.Rose, fontSize = 12.sp) }
                     }
@@ -261,7 +261,7 @@ import java.util.Locale
         CardX {
             Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Chặn mọi số nước ngoài", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Chặn mọi số nước ngoài", color = C.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Text("Tự động chặn đầu số khác +84", color = C.Dim, fontSize = 11.5.sp)
                 }
                 Switch(Store.blockForeign(c), { Store.setBlockForeign(c, it); rev++ })
@@ -270,7 +270,7 @@ import java.util.Locale
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Group, C.Cyan)
-                Text("Danh sách cộng đồng", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Danh sách cộng đồng", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             Text("Tải các số lừa đảo do máy chủ của bạn tổng hợp (cần đăng nhập).", fontSize = 12.sp, color = C.Sub)
             GhostButton("Tải danh sách số lừa đảo cộng đồng", leading = Icons.Rounded.Download) { syncCommunity(c) { m -> msg = m; rev++ } }
@@ -288,7 +288,7 @@ import java.util.Locale
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Forum, C.Cyan)
-                Text("Quét thông báo mạng xã hội", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Quét thông báo mạng xã hội", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             Text("App đọc thông báo tin nhắn đến từ Zalo, Messenger… ngay trong máy, phát hiện nội dung lừa đảo và cảnh báo bạn. Không lưu và không gửi nội dung đi.",
                 fontSize = 13.sp, color = C.Sub, lineHeight = 18.sp)
@@ -298,7 +298,7 @@ import java.util.Locale
             if (!ov) GoldButton("Bật viền cảnh báo màn hình") { h.openOverlay() }
         }
         CardX {
-            Text("Thử cảnh báo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+            Text("Thử cảnh báo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GhostButton("Thử vàng", Modifier.weight(1f), leading = Icons.Rounded.Warning) { Alerter.fire(c, 1) }
                 GhostButton("Thử đỏ", Modifier.weight(1f), leading = Icons.Rounded.Error) { Alerter.fire(c, 2) }
@@ -362,7 +362,7 @@ fun linkCheck(u: String): Result {
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Link, C.Blue)
-                Text("Kiểm tra đường link", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Kiểm tra đường link", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             Text("Dán link nhận được qua tin nhắn/Zalo. App chỉ xem dấu hiệu bề ngoài, không mở link.", fontSize = 12.sp, color = C.Sub)
             OutlinedTextField(link, { link = it }, Modifier.fillMaxWidth(), placeholder = { Text("https://…") }, singleLine = true)
@@ -372,7 +372,7 @@ fun linkCheck(u: String): Result {
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.BugReport, C.Rose)
-                Text("Quét ứng dụng đáng ngờ", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Quét ứng dụng đáng ngờ", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             Text("Liệt kê các ứng dụng bạn đã cài có quyền hay bị mã độc lạm dụng (Trợ năng, đọc SMS, vẽ đè màn hình…). Đây chỉ là chỉ báo: app ngân hàng, ví điện tử, trình quản lý cũng có thể xin các quyền này.",
                 fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
@@ -391,7 +391,7 @@ fun linkCheck(u: String): Result {
                     val col = if (a.score >= 60) C.Bad else C.Warn
                     CardX {
                         Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                            Text(a.name, fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                            Text(a.name, fontWeight = FontWeight.Bold, color = C.Text, fontSize = 15.sp, modifier = Modifier.weight(1f))
                             Text("${a.score}/100", fontWeight = FontWeight.Bold, color = col, fontSize = 14.sp)
                         }
                         ScoreBar(a.score / 100f, col)
@@ -417,7 +417,7 @@ fun linkCheck(u: String): Result {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Mic, if (ListenService.running) C.Bad else C.Mint)
                 Column {
-                    Text("Nghe qua loa ngoài", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                    Text("Nghe qua loa ngoài", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
                     Text("Phân tích lời thoại khi bạn bắt máy bằng loa ngoài", color = C.Dim, fontSize = 11.5.sp)
                 }
             }
@@ -447,13 +447,13 @@ fun linkCheck(u: String): Result {
         val kinds = Store.history(c).groupingBy { Sync.kindOf(it[2]) }.eachCount()
         val names = mapOf("call" to "Cuộc gọi", "voice" to "Nghe qua loa ngoài", "sms" to "Tin nhắn SMS", "social" to "Zalo / Messenger", "face" to "Video call giả mạo", "habit" to "Giao dịch / nhiều số lạ")
         CardX {
-            Text("Theo loại (trong 100 mục gần nhất)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+            Text("Theo loại (trong 100 mục gần nhất)", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = C.Text)
             if (kinds.isEmpty()) Text("Chưa có dữ liệu.", color = C.Dim, fontSize = 13.sp)
             val mx = (kinds.values.maxOrNull() ?: 1).coerceAtLeast(1)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 kinds.entries.sortedByDescending { it.value }.forEach { (k, v) ->
                     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                        Text(names[k] ?: k, color = Color.White, fontSize = 13.sp)
+                        Text(names[k] ?: k, color = C.Text, fontSize = 13.sp)
                         Text("$v", color = C.Sub, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                     }
                     ScoreBar(v.toFloat() / mx, C.Mint)
@@ -471,7 +471,7 @@ fun linkCheck(u: String): Result {
         CardX {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconBadge(Icons.Rounded.Lightbulb, C.Gold)
-                Text("Mẹo an toàn", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
+                Text("Mẹo an toàn", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
             }
             listOf("Ngân hàng, công an không bao giờ yêu cầu OTP hay chuyển tiền qua điện thoại.",
                 "Không bấm link lạ, không cài app theo hướng dẫn của người lạ.",
@@ -503,7 +503,7 @@ fun linkCheck(u: String): Result {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Avatar(c) {}
                 Column(Modifier.weight(1f)) {
-                    Text(displayName(c), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+                    Text(displayName(c), color = C.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp)
                     Text(if (logged) Store.str(c, "email") else "Chưa đăng nhập", color = C.Sub, fontSize = 12.5.sp)
                 }
                 if (logged) IconBadge(Icons.Rounded.Verified, C.Mint, 34.dp, 17.dp)
@@ -513,7 +513,7 @@ fun linkCheck(u: String): Result {
             Row(Modifier.fillMaxWidth().clickable { open("all") }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 IconBadge(Icons.Rounded.History, C.Gold, 42.dp, 21.dp)
                 Column(Modifier.weight(1f)) {
-                    Text("Nhật ký", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Nhật ký", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     Text("Cuộc gọi, tin nhắn và cảnh báo đã xử lý", color = C.Sub, fontSize = 12.5.sp)
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = C.Dim)
@@ -524,7 +524,7 @@ fun linkCheck(u: String): Result {
                 fontSize = 13.sp, color = C.Sub, lineHeight = 18.sp)
             GoldButton("Đăng nhập / Đăng ký", leading = Icons.Rounded.Login) { onLogin() }
         } else CardX {
-            Text("Tên hiển thị trong Cộng đồng", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+            Text("Tên hiển thị trong Cộng đồng", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = C.Text)
             PillField(nameEdit, { nameEdit = it.take(24) }, "Tên hiển thị (2–24 ký tự)", leading = Icons.Rounded.Person)
             GhostButton("Lưu tên hiển thị", enabled = nameEdit.trim().length >= 2, leading = Icons.Rounded.Save) {
                 Api.call(c, "POST", "/api/profile", JSONObject().put("name", nameEdit.trim())) { code, j ->

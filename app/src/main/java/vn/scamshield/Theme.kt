@@ -48,33 +48,37 @@ import androidx.compose.ui.unit.sp
 
 /** Bảng màu "Navy tinh tế": nền navy sâu, thẻ slate viền mảnh, điểm nhấn vàng + xanh ngọc. */
 object C {
-    // Nền
-    val Bg = Color(0xFF0A1128)
-    val BgHi = Color(0xFF13203F)
-    val Bar = Color(0xFF0C1631)
-    // Thẻ
-    val Card = Color(0xFF16224A)
-    val CardHi = Color(0xFF1E2C5C)
-    val Field = Color(0xFF101A3A)
-    val Stroke = Color(0x26FFFFFF)              // viền trắng 15%
-    // Điểm nhấn
-    val Gold = Color(0xFFFFC93C)
-    val GoldDeep = Color(0xFFF59E0B)
-    val Ink = Color(0xFF241A00)                 // chữ trên nền vàng
-    val Mint = Color(0xFF34D399)
-    val Cyan = Color(0xFF22D3EE)
-    val Violet = Color(0xFFA78BFA)
-    val Blue = Color(0xFF60A5FA)
-    val Rose = Color(0xFFFB7185)
+    // Bảng màu sáng xanh-trắng dùng thống nhất cho toàn ứng dụng.
+    val Bg = Color(0xFFEAF2FF)
+    val BgHi = Color(0xFFDCEAFF)
+    val Bar = Color(0xFFF7FAFF)
+    val Card = Color(0xFFFFFFFF)
+    val CardHi = Color(0xFFEAF3FF)
+    val Field = Color(0xFFF7FAFF)
+    val Stroke = Color(0xFFD5E2F4)
+
+    // Màu nhấn
+    val Gold = Color(0xFF2879E6)       // tên cũ được giữ để không phải sửa toàn bộ luồng tính năng
+    val GoldDeep = Color(0xFF1559C2)
+    val Ink = Color(0xFFFFFFFF)       // chữ trên nút xanh
+    val Text = Color(0xFF17345F)
+    val Mint = Color(0xFF15966D)
+    val Cyan = Color(0xFF167CCB)
+    val Violet = Color(0xFF8060D8)
+    val Blue = Color(0xFF347FE0)
+    val Rose = Color(0xFFD95777)
+
     // Trạng thái
-    val Ok = Color(0xFF34D399)
-    val Warn = Color(0xFFFBBF24)
-    val Bad = Color(0xFFF87171)
-    // Chữ
-    val Sub = Color(0xFFB9C6E3)
-    val Dim = Color(0xFF8291B5)
-    val Faint = Color(0xFF5F6E92)
-    // Tương thích tên màu cũ (map sang màu mới)
+    val Ok = Color(0xFF15966D)
+    val Warn = Color(0xFFE0A126)
+    val Bad = Color(0xFFD94B5D)
+
+    // Chữ phụ
+    val Sub = Color(0xFF506B91)
+    val Dim = Color(0xFF7186A5)
+    val Faint = Color(0xFF93A4BC)
+
+    // Tương thích tên màu được dùng trong các màn hình cũ
     val Brown get() = Card
     val Tile get() = Mint
     val Label get() = Mint
@@ -107,7 +111,7 @@ object C {
         Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(tint.copy(alpha = 0.32f), Color.Transparent))))
         Box(Modifier.size(size).background(Brush.verticalGradient(listOf(tint, tint.copy(alpha = 0.72f))), CircleShape)
             .border(2.dp, Color.White.copy(alpha = 0.25f), CircleShape), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.Shield, null, tint = C.Bg, modifier = Modifier.size(size * 0.48f))
+            Icon(Icons.Rounded.Shield, null, tint = C.Ink, modifier = Modifier.size(size * 0.48f))
         }
     }
 }
@@ -142,7 +146,7 @@ object C {
 @Composable fun GhostButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, leading: ImageVector? = null, onClick: () -> Unit) =
     OutlinedButton(onClick, modifier.fillMaxWidth().height(48.dp), enabled = enabled, shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, if (enabled) C.Stroke else C.Stroke.copy(alpha = 0.5f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White, disabledContentColor = C.Dim)) {
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = C.Text, disabledContentColor = C.Dim)) {
         if (leading != null) { Icon(leading, null, Modifier.size(18.dp), tint = C.Gold); Spacer(Modifier.width(8.dp)) }
         Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
@@ -164,7 +168,7 @@ object C {
     val focused by itn.collectIsFocusedAsState()
     val shape = RoundedCornerShape(16.dp)
     BasicTextField(value, onChange, modifier, singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
+        textStyle = TextStyle(color = C.Text, fontSize = 15.sp),
         keyboardOptions = keyboardOptions,
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         cursorBrush = SolidColor(C.Gold),
@@ -185,17 +189,17 @@ object C {
 /** Tiêu đề khối + nút hành động "Xem tất cả". */
 @Composable fun SectionHeader(title: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) =
     Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-        Text(title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = C.Text, fontSize = 17.sp, fontWeight = FontWeight.Bold)
         if (actionLabel != null && onAction != null)
             Text(actionLabel, color = C.Cyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(onClick = onAction))
     }
 
 /** Chip lọc (Tất cả / Cảnh báo / Đã chặn…). */
 @Composable fun SelChip(label: String, on: Boolean, onClick: () -> Unit) =
-    Box(Modifier.background(if (on) C.Gold else Color.White.copy(alpha = 0.06f), RoundedCornerShape(20.dp))
+    Box(Modifier.background(if (on) C.Gold else C.CardHi, RoundedCornerShape(20.dp))
         .border(1.dp, if (on) Color.Transparent else C.Stroke, RoundedCornerShape(20.dp))
         .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp)) {
-        Text(label, color = if (on) C.Ink else C.Sub, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+        Text(label, color = if (on) C.Ink else C.Text, fontSize = 13.sp, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
     }
 
 /** Chip trạng thái Bật/Tắt. */
@@ -246,27 +250,27 @@ object C {
 
 /** Ô số liệu nhanh: icon + số đếm + nhãn. */
 @Composable fun StatCard(value: Int, label: String, icon: ImageVector, tint: Color, modifier: Modifier = Modifier) =
-    Column(modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(18.dp))
+    Column(modifier.fillMaxWidth().background(C.Card, RoundedCornerShape(18.dp))
         .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         IconBadge(icon, tint, 36.dp, 18.dp)
-        Text("$value", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text("$value", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Text(label, color = C.Dim, fontSize = 11.sp, maxLines = 1)
     }
 
 /** Banner mẹo an toàn viền vàng. */
 @Composable fun TipBanner(text: String) =
-    Row(Modifier.fillMaxWidth().background(C.Gold.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
-        .border(1.dp, C.Gold.copy(alpha = 0.25f), RoundedCornerShape(18.dp)).padding(14.dp),
+    Row(Modifier.fillMaxWidth().background(Color(0xFFFFF5DD), RoundedCornerShape(18.dp))
+        .border(1.dp, Color(0xFFFFE2A4), RoundedCornerShape(18.dp)).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        IconBadge(Icons.Rounded.Lightbulb, C.Gold, 38.dp, 19.dp)
-        Text(text, color = C.Sub, fontSize = 12.5.sp, lineHeight = 17.sp)
+        IconBadge(Icons.Rounded.Lightbulb, C.Warn, 38.dp, 19.dp)
+        Text(text, color = C.Text, fontSize = 12.5.sp, lineHeight = 17.sp)
     }
 
 /** Thanh điểm rủi ro có animation chạy tới giá trị. */
 @Composable fun ScoreBar(fraction: Float, color: Color, modifier: Modifier = Modifier) {
     val f by animateFloatAsState(fraction.coerceIn(0f, 1f), tween(650))
-    Box(modifier.fillMaxWidth().height(8.dp).background(Color.White.copy(alpha = 0.10f), RoundedCornerShape(4.dp))) {
+    Box(modifier.fillMaxWidth().height(8.dp).background(C.Stroke, RoundedCornerShape(4.dp))) {
         if (f > 0.005f) Box(Modifier.fillMaxHeight().fillMaxWidth(f)
             .background(Brush.horizontalGradient(listOf(color, color.copy(alpha = 0.72f))), RoundedCornerShape(4.dp)))
     }
@@ -285,34 +289,45 @@ private fun shieldPath(cx: Float, cy: Float, w: Float, h: Float) = Path().apply 
     close()
 }
 
-/** Nền app: gradient navy + quầng sáng màu trôi chậm + lưới chấm mờ + hình khiên mờ. Lớp tĩnh và lớp động tách riêng cho nhẹ máy. */
+/** Nền app: gradient xanh-trắng + quầng sáng màu trôi chậm + lưới chấm mờ. Lớp tĩnh và lớp động tách riêng cho nhẹ máy. */
 @Composable fun AppBackground() {
     Box(Modifier.fillMaxSize()) {
-        // Lớp tĩnh (chỉ vẽ một lần): gradient, lưới chấm, khiên
         Canvas(Modifier.fillMaxSize()) {
-            drawRect(Brush.verticalGradient(listOf(Color(0xFF15245A), C.Bg, Color(0xFF060B1C))))
-            val gap = 26.dp.toPx()
+            drawRect(Brush.verticalGradient(listOf(Color(0xFFF7FAFF), Color(0xFFEAF2FF), Color(0xFFDDEAFF))))
+            val gap = 30.dp.toPx()
             val pts = ArrayList<androidx.compose.ui.geometry.Offset>()
             var yy = gap / 2
-            while (yy < size.height) { var xx = gap / 2; while (xx < size.width) { pts.add(androidx.compose.ui.geometry.Offset(xx, yy)); xx += gap }; yy += gap }
-            drawPoints(pts, androidx.compose.ui.graphics.PointMode.Points, Color.White.copy(alpha = 0.07f), strokeWidth = 2.4.dp.toPx(), cap = StrokeCap.Round)
-            val line = Stroke(width = 1.6.dp.toPx())
-            drawPath(shieldPath(size.width * 0.86f, size.height * 0.20f, 190.dp.toPx(), 230.dp.toPx()), Color.White.copy(alpha = 0.06f), style = line)
-            drawPath(shieldPath(size.width * 0.86f, size.height * 0.20f, 140.dp.toPx(), 170.dp.toPx()), C.Gold.copy(alpha = 0.07f), style = line)
-            drawPath(shieldPath(size.width * 0.06f, size.height * 0.70f, 240.dp.toPx(), 290.dp.toPx()), Color.White.copy(alpha = 0.045f), style = line)
-            drawPath(shieldPath(size.width * 0.06f, size.height * 0.70f, 170.dp.toPx(), 205.dp.toPx()), C.Mint.copy(alpha = 0.06f), style = line)
+            while (yy < size.height) {
+                var xx = gap / 2
+                while (xx < size.width) {
+                    pts.add(androidx.compose.ui.geometry.Offset(xx, yy))
+                    xx += gap
+                }
+                yy += gap
+            }
+            drawPoints(pts, androidx.compose.ui.graphics.PointMode.Points, Color(0xFF8CB6E8).copy(alpha = 0.10f),
+                strokeWidth = 1.5.dp.toPx(), cap = StrokeCap.Round)
+            val line = Stroke(width = 1.4.dp.toPx())
+            drawPath(shieldPath(size.width * 0.86f, size.height * 0.20f, 190.dp.toPx(), 230.dp.toPx()),
+                Color(0xFF83B5F0).copy(alpha = 0.10f), style = line)
+            drawPath(shieldPath(size.width * 0.86f, size.height * 0.20f, 140.dp.toPx(), 170.dp.toPx()),
+                Color(0xFF83B5F0).copy(alpha = 0.08f), style = line)
+            drawPath(shieldPath(size.width * 0.06f, size.height * 0.70f, 240.dp.toPx(), 290.dp.toPx()),
+                Color(0xFF83B5F0).copy(alpha = 0.08f), style = line)
         }
-        // Lớp động: 3 quầng sáng màu trôi rất chậm
-        val tr = rememberInfiniteTransition(label = "bg")
-        val p by tr.animateFloat(0f, 1f, infiniteRepeatable(tween(20000, easing = LinearEasing), RepeatMode.Reverse), label = "drift")
+        val tr = rememberInfiniteTransition(label = "light-bg")
+        val p by tr.animateFloat(0f, 1f,
+            infiniteRepeatable(tween(24000, easing = LinearEasing), RepeatMode.Reverse), label = "light-drift")
         Canvas(Modifier.fillMaxSize()) {
             fun glow(col: Color, a: Float, cx: Float, cy: Float, r: Float) = drawCircle(
-                Brush.radialGradient(listOf(col.copy(alpha = a), Color.Transparent), androidx.compose.ui.geometry.Offset(cx, cy), r),
+                Brush.radialGradient(listOf(col.copy(alpha = a), Color.Transparent),
+                    androidx.compose.ui.geometry.Offset(cx, cy), r),
                 r, androidx.compose.ui.geometry.Offset(cx, cy))
-            val w = size.width; val h = size.height
-            glow(Color(0xFF7C5CFF), 0.26f, w * (0.85f - 0.25f * p), h * (0.08f + 0.06f * p), 340.dp.toPx())
-            glow(C.Mint, 0.17f, w * (0.05f + 0.20f * p), h * (0.45f - 0.08f * p), 300.dp.toPx())
-            glow(C.Gold, 0.11f, w * (0.80f - 0.18f * p), h * (0.92f - 0.06f * p), 320.dp.toPx())
+            val w = size.width
+            val h = size.height
+            glow(Color(0xFF79B5FF), 0.13f, w * (0.82f - 0.18f * p), h * (0.08f + 0.05f * p), 310.dp.toPx())
+            glow(Color(0xFF9DDFC9), 0.09f, w * (0.08f + 0.17f * p), h * (0.48f - 0.06f * p), 280.dp.toPx())
+            glow(Color(0xFFFFD78A), 0.08f, w * (0.82f - 0.15f * p), h * (0.91f - 0.05f * p), 300.dp.toPx())
         }
     }
 }

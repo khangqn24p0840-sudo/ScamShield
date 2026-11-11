@@ -42,7 +42,7 @@ import vn.scamshield.face.FaceBus
 class Hooks(
     val tick: () -> Int,
     val callOn: () -> Boolean, val smsOn: () -> Boolean,
-    val enableCalls: () -> Unit, val enableSms: () -> Unit,
+    val enableCalls: () -> Unit, val enableSms: () -> Unit, val enableProtection: () -> Unit,
     val toggleListen: () -> Unit,
     val pickImage: () -> Unit,
     val startFace: () -> Unit, val stopFace: () -> Unit,
@@ -110,11 +110,11 @@ fun displayName(c: Context): String {
             horizontalAlignment = Alignment.CenterHorizontally) {
             ShieldBadge(C.Gold, 62.dp)
             Spacer(Modifier.height(16.dp))
-            Text("ScamShield VN", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+            Text("ScamShield VN", color = C.Text, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
             Text("Khiên chắn chống lừa đảo trong túi bạn", color = C.Sub, fontSize = 13.sp)
             Spacer(Modifier.height(22.dp))
-            Column(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
+            Column(Modifier.fillMaxWidth().background(C.Card, RoundedCornerShape(24.dp))
                 .border(1.dp, C.Stroke, RoundedCornerShape(24.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!hasDefault || showServer)
                     PillField(server, { server = it; Store.putStr(c, "server", it.trim()) }, "Máy chủ https://…", leading = Icons.Rounded.Language)
@@ -177,13 +177,13 @@ fun displayName(c: Context): String {
         Triple(4, Icons.Rounded.Forum, "Cộng đồng"), Triple(5, Icons.Rounded.Person, "Tài khoản"))
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp)) {
         Row(Modifier.fillMaxWidth().height(66.dp).shadow(18.dp, RoundedCornerShape(33.dp))
-            .background(Brush.verticalGradient(listOf(C.CardHi, C.Bar)), RoundedCornerShape(33.dp))
-            .border(1.dp, C.Stroke, RoundedCornerShape(33.dp)), verticalAlignment = Alignment.CenterVertically) {
+            .background(Brush.verticalGradient(listOf(Color(0xFFF9FCFF), Color(0xFFE4EEFC))), RoundedCornerShape(33.dp))
+            .border(1.dp, Color.White, RoundedCornerShape(33.dp)), verticalAlignment = Alignment.CenterVertically) {
             items.forEach { it ->
                 if (it == null) Spacer(Modifier.width(84.dp))
                 else {
                     val sel = !inSub && tab == it.first
-                    val tint by animateColorAsState(if (sel) C.Gold else C.Dim, tween(220))
+                    val tint by animateColorAsState(if (sel) Color(0xFF236FE0) else Color(0xFF687A98), tween(220))
                     Column(Modifier.weight(1f).clickable { onTab(it.first) }.padding(vertical = 9.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(it.second, null, tint = tint, modifier = Modifier.size(22.dp))
                         Spacer(Modifier.height(3.dp))
@@ -192,19 +192,18 @@ fun displayName(c: Context): String {
                 }
             }
         }
-        val selF = !inSub && tab == 2
         Column(Modifier.align(Alignment.TopCenter).offset(y = (-8).dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(64.dp)
                 // quầng sáng vàng vẽ tay thay cho shadow màu (shadow màu hay bị vẽ thành khối vuông trên một số máy)
                 .drawBehind { drawCircle(Brush.radialGradient(listOf(C.Gold.copy(alpha = 0.45f), Color.Transparent), center, size.minDimension * 0.85f), size.minDimension * 0.85f) },
                 contentAlignment = Alignment.Center) {
-                Box(Modifier.size(54.dp).background(Brush.linearGradient(C.goldGrad), CircleShape)
-                    .border(3.dp, if (selF) Color.White.copy(alpha = 0.9f) else C.Bg, CircleShape)
+                Box(Modifier.size(54.dp).background(Brush.linearGradient(listOf(Color(0xFF398BFF), Color(0xFF1459C8))), CircleShape)
+                    .border(3.dp, Color.White, CircleShape)
                     .clickable { onTab(2) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Shield, null, tint = C.Ink, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Rounded.Shield, null, tint = Color.White, modifier = Modifier.size(26.dp))
                 }
             }
-            Text("Kiểm tra", color = C.Gold, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 1.dp))
+            Text("Kiểm tra", color = Color(0xFF236FE0), fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 1.dp))
         }
     }
 }
@@ -222,55 +221,84 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
 
 @Composable fun HomeTab(c: Context, h: Hooks, open: (String) -> Unit, onPost: (Long) -> Unit, onFeed: () -> Unit, toAccount: () -> Unit) {
     var q by remember { mutableStateOf("") }
-    val callOn = h.callOn(); val smsOn = h.smsOn()
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        Column(Modifier.fillMaxWidth()
-            .background(Brush.verticalGradient(listOf(C.CardHi.copy(alpha = 0.85f), Color.Transparent)),
-                RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp))
-            .padding(horizontal = 18.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Xin chào, ${displayName(c)}", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                    Spacer(Modifier.height(3.dp))
-                    Text(if (callOn && smsOn) "Tất cả tầng bảo vệ đang bật" else "Bảo vệ chưa đầy đủ — kiểm tra ngay",
-                        color = if (callOn && smsOn) C.Mint else C.Warn, fontSize = 12.sp)
-                }
-                Spacer(Modifier.width(10.dp))
-                Avatar(c, toAccount)
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFE7F1FF), Color(0xFFD7E7FF), Color(0xFFF0F6FF)))).verticalScroll(rememberScrollState())) {
+        HomeBrandHeader(c, toAccount)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedTextField(
+                value = q,
+                onValueChange = { q = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(17.dp),
+                placeholder = { Text("Tìm cuộc gọi, tin nhắn, số điện thoại…", color = Color(0xFF8195B4), fontSize = 12.5.sp) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color(0xFF397FD4)) },
+                textStyle = androidx.compose.ui.text.TextStyle(color = Color(0xFF18365F), fontSize = 13.sp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = Color(0xFF18365F), unfocusedTextColor = Color(0xFF18365F),
+                    focusedContainerColor = Color.White, unfocusedContainerColor = Color.White,
+                    focusedBorderColor = Color(0xFF438CE8), unfocusedBorderColor = Color(0xFFBCD1EF),
+                    cursorColor = Color(0xFF236FE0)
+                )
+            )
+            if (q.isNotBlank()) Box(Modifier.fillMaxWidth().background(Color(0xFFF8FBFF), RoundedCornerShape(20.dp)).border(1.dp, Color(0xFFD5E2F4), RoundedCornerShape(20.dp)).padding(12.dp)) { SearchResults(c, q) } else HomeBody(c, h, open, onPost, onFeed)
+        }
+    }
+}
+
+@Composable private fun HomeBrandHeader(c: Context, toAccount: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(Brush.linearGradient(listOf(Color(0xFFEAF4FF), Color(0xFFBBD8FF), Color(0xFFDCEBFF))),
+                RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+            Box(Modifier.size(46.dp).background(Brush.linearGradient(listOf(Color(0xFF2F8BFF), Color(0xFF1454C5))), RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Shield, null, tint = Color.White, modifier = Modifier.size(29.dp))
             }
-            PillField(q, { q = it }, "Tìm cuộc gọi, tin nhắn, số điện thoại…", leading = Icons.Rounded.Search)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text("ScamShield", color = Color(0xFF102A58), fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Cùng bạn nhận diện và phòng tránh lừa đảo", color = Color(0xFF45618E), fontSize = 11.5.sp)
+            }
+            Box(Modifier.size(42.dp).background(Color.White.copy(alpha = 0.82f), CircleShape)
+                .border(1.dp, Color.White, CircleShape).clickable(onClick = toAccount), contentAlignment = Alignment.Center) {
+                Text(displayName(c).take(1).uppercase(), color = Color(0xFF1558C8), fontWeight = FontWeight.Bold, fontSize = 17.sp)
+            }
         }
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            if (q.isNotBlank()) SearchResults(c, q) else HomeBody(c, h, open, onPost, onFeed)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Xin chào, " + displayName(c) + "!", color = Color(0xFF163466), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text("👋", fontSize = 17.sp)
         }
+        Text("Hôm nay bạn muốn kiểm tra điều gì?", color = Color(0xFF45618E), fontSize = 12.5.sp)
     }
 }
 
 @Composable private fun HomeBody(c: Context, h: Hooks, open: (String) -> Unit, onPost: (Long) -> Unit, onFeed: () -> Unit) {
     var featurePage by remember { mutableIntStateOf(0) }
     StatusCard(h, open)
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCard(Store.count(c, "blocked"), "Đã chặn", Icons.Rounded.Block, C.Bad, Modifier.weight(1f))
-        StatCard(Store.count(c, "warned"), "Đã cảnh báo", Icons.Rounded.Campaign, C.Warn, Modifier.weight(1f))
-        StatCard(Store.blocklist(c).size, "Số bị chặn", Icons.Rounded.PhoneMissed, C.Mint, Modifier.weight(1f))
+    Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+        HomeStatCard(Store.count(c, "blocked"), "Đã chặn", Icons.Rounded.Block, Color(0xFFE35D67), Modifier.weight(1f))
+        HomeStatCard(Store.count(c, "warned"), "Đã cảnh báo", Icons.Rounded.Campaign, Color(0xFFE1A129), Modifier.weight(1f))
+        HomeStatCard(Store.blocklist(c).size, "Số bị chặn", Icons.Rounded.PhoneMissed, Color(0xFF299B83), Modifier.weight(1f))
     }
-    SectionHeader("Danh mục")
+    HomeSectionHeader("Tính năng nổi bật")
     val cats = listOf(
-        Cat(Icons.Rounded.Shield, "Tất cả", C.Mint, "all"),
+        Cat(Icons.Rounded.Shield, "Tất cả kiểm tra", Color(0xFF2477E8), "all"),
         Cat(Icons.Rounded.Videocam, "Video Deepfake", C.Violet, "video"),
-        Cat(Icons.Rounded.PhoneMissed, "SĐT Lừa Đảo", C.Bad, "blocklist"),
-        Cat(Icons.Rounded.Sms, "Tin Nhắn", C.Warn, "msg"),
+        Cat(Icons.Rounded.PhoneMissed, "SĐT lừa đảo", C.Bad, "blocklist"),
+        Cat(Icons.Rounded.Sms, "Tin nhắn", C.Warn, "msg"),
         Cat(Icons.Rounded.Forum, "Zalo, Messenger", C.Cyan, "social"),
-        Cat(Icons.Rounded.BugReport, "Mã Độc & Link", C.Rose, "malware"),
-        Cat(Icons.Rounded.SmartToy, "Yêu Cầu AI", C.Blue, "ai"),
+        Cat(Icons.Rounded.BugReport, "Mã độc & Link", C.Rose, "malware"),
+        Cat(Icons.Rounded.SmartToy, "Yêu cầu AI", C.Blue, "ai"),
         Cat(Icons.Rounded.FamilyRestroom, "Chat gia đình", C.Mint, "family"),
         Cat(Icons.Rounded.MoreHoriz, "Khác", C.Dim, "other"))
     val featurePages = cats.chunked(6)
     val currentPage = featurePage.coerceIn(0, featurePages.lastIndex)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         featurePages[currentPage].chunked(3).forEach { row ->
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEach { ct -> CatTile(Modifier.weight(1f), ct.icon, ct.label, ct.tint) { open(ct.key) } }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { ct -> HomeCategoryTile(Modifier.weight(1f), ct.icon, ct.label, ct.tint) { open(ct.key) } }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -278,48 +306,177 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                 featurePages.indices.forEach { index ->
                     Box(Modifier.padding(horizontal = 4.dp).size(if (index == currentPage) 8.dp else 6.dp)
-                        .background(if (index == currentPage) C.Mint else C.Dim.copy(alpha = 0.35f), CircleShape)
+                        .background(if (index == currentPage) Color(0xFF3986F6) else C.Dim.copy(alpha = 0.45f), CircleShape)
                         .clickable { featurePage = index })
                 }
             }
         }
     }
-    SectionHeader("Tin nổi bật", "Xem thêm") { feedStartSection = "news"; onFeed() }
-    FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
+    AssistantWelcomeCard(open)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        HomeSectionHeader("Tin tức & Báo chí", "Xem tất cả") { feedStartSection = "news"; onFeed() }
+        Text("Các tin cảnh báo và thông tin phòng tránh được cập nhật từ nguồn báo chí.", color = Color(0xFF5A7196), fontSize = 11.5.sp, lineHeight = 16.sp)
+        FeedPreview(c, "news", { feedStartSection = "news"; onFeed() }, onPost)
+    }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader("Cảnh báo từ cộng đồng", "Xem tất cả") { feedStartSection = "post"; onFeed() }
+        HomeSectionHeader("Cảnh báo từ cộng đồng", "Xem tất cả") { feedStartSection = "post"; onFeed() }
         FeedPreview(c, "post", { feedStartSection = "post"; onFeed() }, onPost)
     }
-    TipBanner("Ngân hàng, công an không bao giờ yêu cầu OTP hay chuyển tiền qua điện thoại.")
+    HomeTipBanner("Ngân hàng, công an không bao giờ yêu cầu OTP hay chuyển tiền qua điện thoại.")
 }
 
-/** Thẻ trạng thái bảo vệ: gradient đổi màu theo mức độ + khiên nhấp nháy. */
-@Composable private fun StatusCard(h: Hooks, open: (String) -> Unit) {
-    val callOn = h.callOn(); val smsOn = h.smsOn(); val prot = callOn && smsOn
-    val grad = when {
-        prot -> listOf(Color(0xFF0E8A66), Color(0xFF0A4A3A))
-        callOn || smsOn -> listOf(Color(0xFFB45309), Color(0xFF7C2D12))
-        else -> listOf(Color(0xFF9F1239), Color(0xFF4C0519))
+@Composable private fun HomeSectionHeader(title: String, actionLabel: String? = null, onAction: (() -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = Color(0xFF18365F), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+        if (actionLabel != null && onAction != null) Text(actionLabel, color = Color(0xFF236FE0), fontSize = 12.5.sp,
+            fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onAction))
     }
-    Column(Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(24.dp))
-        .background(Brush.verticalGradient(grad), RoundedCornerShape(24.dp))
-        .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(24.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            ShieldBadge(if (prot) C.Mint else C.Warn, 56.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(if (prot) "Bạn đang được bảo vệ" else "Bảo vệ chưa đầy đủ",
-                    color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Text(if (prot) "ScamShield đang lọc cuộc gọi và tin nhắn lừa đảo cho bạn."
-                    else "Bật đủ 2 tầng để khiên hoạt động hiệu quả nhất.",
-                    color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp, lineHeight = 16.sp)
+}
+
+@Composable private fun HomeStatCard(value: Int, label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, modifier: Modifier) {
+    Column(modifier.height(96.dp).background(Color.White.copy(alpha = 0.92f), RoundedCornerShape(17.dp))
+        .border(1.dp, Color.White, RoundedCornerShape(17.dp)).padding(horizontal = 5.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Box(Modifier.size(31.dp).background(tint.copy(alpha = 0.12f), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(17.dp))
+        }
+        Text(value.toString(), color = Color(0xFF18365F), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = Color(0xFF647B9E), fontSize = 9.5.sp, maxLines = 1)
+    }
+}
+
+@Composable private fun HomeTipBanner(text: String) {
+    Row(Modifier.fillMaxWidth().background(Color(0xFFFFF6DF), RoundedCornerShape(17.dp))
+        .border(1.dp, Color(0xFFFFE3A6), RoundedCornerShape(17.dp)).padding(13.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Icon(Icons.Rounded.Lightbulb, null, tint = Color(0xFFC58A18), modifier = Modifier.size(25.dp))
+        Text(text, color = Color(0xFF77571B), fontSize = 11.5.sp, lineHeight = 16.sp)
+    }
+}
+
+@Composable private fun HomeCategoryTile(modifier: Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, tint: Color, onClick: () -> Unit) {
+    Pressable(onClick, modifier) {
+        Column(
+            Modifier.fillMaxWidth().height(105.dp)
+                .background(Brush.verticalGradient(listOf(Color(0xFFF8FBFF), Color(0xFFDDEBFF))), RoundedCornerShape(19.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.92f), RoundedCornerShape(19.dp))
+                .padding(horizontal = 5.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            Box(Modifier.size(42.dp).background(tint.copy(alpha = 0.13f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = tint, modifier = Modifier.size(23.dp))
             }
+            Text(label, color = Color(0xFF233B62), fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center, maxLines = 2, lineHeight = 13.sp)
+        }
+    }
+}
+
+@Composable private fun AssistantWelcomeCard(open: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFFEAF4FF), Color(0xFFD3E5FF))), RoundedCornerShape(22.dp))
+            .border(1.dp, Color.White, RoundedCornerShape(22.dp)).padding(horizontal = 13.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text("Xin chào! Mình là ScamShield 😊", color = Color(0xFF17396F), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Mình có thể giúp bạn kiểm tra nội dung đáng ngờ và chia sẻ mẹo an toàn.", color = Color(0xFF49658D), fontSize = 11.5.sp, lineHeight = 16.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                HomeActionChip("Kiểm tra ngay", Icons.Rounded.Shield, Color(0xFF236FE0)) { open("msg") }
+                HomeActionChip("Mẹo an toàn", Icons.Rounded.Lightbulb, Color(0xFFCB8B12)) { open("other") }
+            }
+        }
+        RobotMascot(Modifier.width(82.dp).height(96.dp), size = 72.dp)
+    }
+}
+
+@Composable private fun HomeActionChip(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, onClick: () -> Unit) {
+    Row(Modifier.background(Color.White.copy(alpha = 0.84f), RoundedCornerShape(13.dp))
+        .border(1.dp, Color.White, RoundedCornerShape(13.dp)).clickable(onClick = onClick)
+        .padding(horizontal = 8.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
+        Text(label, color = Color(0xFF254875), fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+object Protect {
+    private var version by mutableIntStateOf(0)
+
+    private fun hasExistingAccess(c: Context): Boolean {
+        val sms = c.checkSelfPermission(android.Manifest.permission.RECEIVE_SMS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        val callRole = android.os.Build.VERSION.SDK_INT >= 29 &&
+            c.getSystemService(android.app.role.RoleManager::class.java)
+                ?.isRoleHeld(android.app.role.RoleManager.ROLE_CALL_SCREENING) == true
+        val legacyCall = android.os.Build.VERSION.SDK_INT < 29 &&
+            PhoneStateReceiver.perms().all {
+                c.checkSelfPermission(it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            }
+        return sms || callRole || legacyCall
+    }
+
+    fun on(c: Context): Boolean {
+        val v = version
+        return if (Store.hasFlag(c, "protect_on")) Store.flag(c, "protect_on") else hasExistingAccess(c)
+    }
+
+    fun initialize(c: Context) {
+        if (!Store.hasFlag(c, "protect_on")) {
+            Store.putFlag(c, "protect_on", hasExistingAccess(c))
+            version++
+        }
+    }
+
+    fun set(c: Context, enabled: Boolean) {
+        Store.putFlag(c, "protect_on", enabled)
+        version++
+    }
+}
+
+@Composable private fun StatusCard(h: Hooks, open: (String) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    SideEffect { Protect.initialize(ctx) }
+    val protect = Protect.on(ctx)
+    val callOn = h.callOn(); val smsOn = h.smsOn()
+    val prot = protect && callOn && smsOn
+    var showPermissionInfo by remember { mutableStateOf(false) }
+    val borderTint = if (prot) Color(0xFF78D7B0) else Color(0xFFB7D2F5)
+    Column(Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(23.dp))
+        .background(Brush.linearGradient(listOf(Color(0xFFF9FCFF), Color(0xFFDDEBFF))), RoundedCornerShape(23.dp))
+        .border(1.dp, borderTint, RoundedCornerShape(23.dp)).padding(15.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(58.dp).background(Brush.radialGradient(listOf(Color(0xFF8BC8FF), Color(0xFF2E78E4))), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Shield, null, tint = Color.White, modifier = Modifier.size(36.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Box(Modifier.size(8.dp).background(if (prot) Color(0xFF16A36B) else Color(0xFFE2A126), CircleShape))
+                    Text(if (prot) "ĐANG AN TOÀN" else if (!protect) "CHƯA BẬT BẢO VỆ" else "CẦN HOÀN TẤT CÀI ĐẶT",
+                        color = if (prot) Color(0xFF138257) else Color(0xFF9B6712), fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.7.sp)
+                }
+                Text(when { prot -> "Bạn đang được bảo vệ"; !protect -> "Bảo vệ đang tắt"; else -> "Bảo vệ chưa đầy đủ" },
+                    color = Color(0xFF17345F), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+                Text(when {
+                    prot -> "ScamShield đang lọc cuộc gọi và tin nhắn lừa đảo cho bạn."
+                    !protect -> "Bật bảo vệ để ScamShield xin quyền lọc cuộc gọi và nhận tin nhắn."
+                    !callOn && !smsOn -> "Chưa có quyền lọc cuộc gọi và nhận SMS. Hãy hoàn tất hai bước cấp quyền."
+                    !callOn -> "Chưa hoàn tất quyền lọc cuộc gọi trên Android."
+                    !smsOn -> "Chưa cấp quyền nhận SMS. Một số phiên bản Android giới hạn quyền này theo nguồn cài đặt."
+                    else -> "Các lớp bảo vệ đang hoạt động."
+                }, color = Color(0xFF526B91), fontSize = 11.5.sp, lineHeight = 15.sp)
+            }
+            Icon(Icons.Rounded.ChevronRight, null, tint = Color(0xFF5B78A3), modifier = Modifier.size(21.dp))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             StatusChip2("Chặn cuộc gọi", callOn, Modifier.weight(1f))
             StatusChip2("Cảnh báo SMS", smsOn, Modifier.weight(1f))
         }
-        AnimatedVisibility(visible = !callOn || !smsOn,
+        if (!protect) GoldButton("Bật bảo vệ") { showPermissionInfo = true }
+        AnimatedVisibility(visible = protect && (!callOn || !smsOn),
             enter = fadeIn(tween(220)) + expandVertically(tween(220)),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180))) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -327,19 +484,49 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
                 if (!smsOn) GoldButton("Bật cảnh báo tin nhắn") { h.enableSms() }
             }
         }
-        if (prot) Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
-            .clickable { open("blocked") }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-            Text("Xem nhật ký cảnh báo  →", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        if (showPermissionInfo) {
+        AlertDialog(
+            onDismissRequest = { showPermissionInfo = false },
+            title = { Text("Cấp quyền cho ScamShield", color = Color(0xFF17345F), fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "Để bảo vệ cuộc gọi và tin nhắn, ScamShield cần bạn cho phép nhận SMS và chọn ScamShield trong màn hình hệ thống về lọc cuộc gọi. Android sẽ lần lượt hiển thị các yêu cầu quyền. Quyền nhận SMS có thể bị giới hạn theo phiên bản Android và nguồn cài đặt. Bạn có thể từ chối và tiếp tục dùng các chức năng kiểm tra thủ công.",
+                    color = Color(0xFF506B91), fontSize = 13.sp, lineHeight = 19.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showPermissionInfo = false
+                    Protect.set(ctx, true)
+                    h.enableProtection()
+                }) { Text("Tiếp tục", color = Color(0xFF236FE0), fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionInfo = false }) { Text("Để sau", color = Color(0xFF7186A5)) }
+            },
+            containerColor = Color.White
+        )
+    }
+    if (prot) {
+            Box(Modifier.fillMaxWidth().background(Color(0xFFE5F5EF), RoundedCornerShape(13.dp))
+                .clickable { open("blocked") }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                Text("Xem nhật ký cảnh báo  →", color = Color(0xFF167A59), fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (protect) {
+            Text("Tắt bảo vệ", color = Color(0xFF6981A2), fontSize = 11.5.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clickable { Protect.set(ctx, false) }.padding(vertical = 4.dp))
         }
     }
 }
 
 @Composable private fun StatusChip2(label: String, on: Boolean, modifier: Modifier = Modifier) =
-    Row(modifier.background(Color.White.copy(alpha = 0.13f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+    Row(modifier.background(if (on) Color(0xFFE2F6EC) else Color(0xFFFFF2D9), RoundedCornerShape(13.dp))
+        .padding(horizontal = 9.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.Warning, null,
-            tint = if (on) C.Mint else C.Warn, modifier = Modifier.size(15.dp))
-        Text(label, color = Color.White, fontSize = 12.sp, maxLines = 1)
+            tint = if (on) Color(0xFF159768) else Color(0xFFCB8B19), modifier = Modifier.size(14.dp))
+        Text(label, color = Color(0xFF385578), fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
 
 @Composable private fun SearchResults(c: Context, q: String) {
@@ -353,7 +540,7 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
             SectionHeader("Số đã chặn (${nums.size})")
             CardX { nums.forEach { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Icon(Icons.Rounded.Block, null, tint = C.Bad, modifier = Modifier.size(16.dp))
-                Text(it, color = Color.White, fontSize = 14.sp) } } }
+                Text(it, color = C.Text, fontSize = 14.sp) } } }
         }
         if (hist.isNotEmpty()) {
             SectionHeader("Trong nhật ký (${hist.size})")
