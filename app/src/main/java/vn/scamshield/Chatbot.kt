@@ -349,7 +349,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                     }
                     ChatToolChip("Kiểm tra ảnh") {
                         showTools = false
-                        onPickImage()
+                        imagePicker.launch("image/*")
                     }
                 }
             }
