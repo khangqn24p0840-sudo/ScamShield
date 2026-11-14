@@ -284,8 +284,9 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 text = {
                     Text(
                         "Để theo dõi tin nhắn mới từ ứng dụng bạn chọn, ScamShield cần quyền Truy cập thông báo của Android. " +
-                            "Android cảnh báo quyền này có thể cho phép dịch vụ nhận nội dung thông báo từ nhiều ứng dụng. " +
-                            "ScamShield chỉ lưu cục bộ tin nhắn khớp với ứng dụng và tên người gửi bạn đã chọn. Bạn có thể tắt quyền này bất cứ lúc nào trong Cài đặt."
+                            "Đây là quyền ở cấp dịch vụ và có thể cho phép ScamShield nhận thông báo từ nhiều ứng dụng. " +
+                            "Hồ sơ theo dõi chỉ lưu tin nhắn khớp với ứng dụng và tên người gửi bạn chọn; tính năng cảnh báo lừa đảo riêng có thể phân tích thông báo từ các ứng dụng xã hội được hỗ trợ để cảnh báo ngay trên máy. " +
+                            "Nội dung không tự gửi lên máy chủ. Bạn có thể tắt quyền này bất cứ lúc nào trong Cài đặt."
                     )
                 },
                 confirmButton = {
