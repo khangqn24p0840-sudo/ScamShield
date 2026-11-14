@@ -26,6 +26,7 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () -> Unit) {
     var channel by remember { mutableStateOf("sms") }
     var identifier by remember { mutableStateOf("") }
