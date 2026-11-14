@@ -13,7 +13,8 @@ data class MonitoredTarget(
     val id: String,
     val channel: String,
     val identifier: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val appPackage: String = ""
 )
 
 data class MonitoredMessage(
@@ -31,14 +32,15 @@ object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 1) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 2) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
                     id TEXT PRIMARY KEY NOT NULL,
                     channel TEXT NOT NULL,
                     identifier TEXT NOT NULL,
-                    created_at INTEGER NOT NULL
+                    created_at INTEGER NOT NULL,
+                    app_package TEXT NOT NULL DEFAULT ''
                 )"""
             )
             db.execSQL(
@@ -56,7 +58,11 @@ object MonitorStore {
             db.execSQL("CREATE INDEX idx_monitor_time ON messages(timestamp)")
         }
 
-        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            if (oldVersion < 2) {
+                db.execSQL("ALTER TABLE targets ADD COLUMN app_package TEXT NOT NULL DEFAULT ''")
+            }
+        }
     }
 
     @Volatile private var database: MonitorDb? = null
@@ -68,13 +74,13 @@ object MonitorStore {
     fun targets(c: Context): List<MonitoredTarget> {
         val result = mutableListOf<MonitoredTarget>()
         db(c).rawQuery(
-            "SELECT id, channel, identifier, created_at FROM targets ORDER BY created_at DESC",
+            "SELECT id, channel, identifier, created_at, app_package FROM targets ORDER BY created_at DESC",
             null
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 result += MonitoredTarget(
                     cursor.getString(0), cursor.getString(1),
-                    cursor.getString(2), cursor.getLong(3)
+                    cursor.getString(2), cursor.getLong(3), cursor.getString(4)
                 )
             }
         }
@@ -82,23 +88,27 @@ object MonitorStore {
     }
 
     @Synchronized
-    fun addTarget(c: Context, channel: String, identifier: String): Boolean {
+    fun addTarget(c: Context, channel: String, identifier: String, appPackage: String = ""): Boolean {
         val value = identifier.trim()
         if (value.isBlank() || channel !in setOf("sms", "social")) return false
+        if (channel == "social" && appPackage.isNotBlank() && appPackage !in SocialListener.apps) return false
         val normalized = if (channel == "sms") Store.digits(value) else value.lowercase()
         if (normalized.isBlank()) return false
         if (targets(c).any {
                 it.channel == channel &&
                     (if (channel == "sms") Store.digits(it.identifier) == normalized
-                     else it.identifier.equals(value, ignoreCase = true))
+                     else it.identifier.equals(value, ignoreCase = true) &&
+                         (it.appPackage == appPackage || it.appPackage.isBlank() || appPackage.isBlank()))
             }) return false
 
-        val id = channel + "_" + sha256(normalized).take(24)
+        val identity = if (channel == "social") "$normalized|$appPackage" else normalized
+        val id = channel + "_" + sha256(identity).take(24)
         val values = ContentValues().apply {
             put("id", id)
             put("channel", channel)
             put("identifier", value)
             put("created_at", System.currentTimeMillis())
+            put("app_package", if (channel == "social") appPackage else "")
         }
         return db(c).insertWithOnConflict("targets", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
     }
@@ -183,10 +193,12 @@ object MonitorStore {
         val s = sender.trim().lowercase()
         if (s.isBlank()) return
         val target = targets(c).firstOrNull {
-            it.channel == "social" && (
-                s == it.identifier.trim().lowercase() ||
-                (it.identifier.trim().length >= 3 && s.contains(it.identifier.trim().lowercase()))
-            )
+            it.channel == "social" &&
+                (it.appPackage.isBlank() || it.appPackage == packageName) &&
+                (
+                    s == it.identifier.trim().lowercase() ||
+                    (it.identifier.trim().length >= 3 && s.contains(it.identifier.trim().lowercase()))
+                )
         } ?: return
         saveMessage(c, MonitoredMessage("", target.id, "social", sender, body, timestamp, packageName))
     }
