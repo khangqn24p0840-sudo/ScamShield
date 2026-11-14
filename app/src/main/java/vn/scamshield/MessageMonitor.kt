@@ -33,6 +33,23 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var message by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<Pair<String, Result>?>(null) }
     var importTargetId by remember { mutableStateOf("") }
+    var socialAppPackage by remember { mutableStateOf("") }
+    var appExpanded by remember { mutableStateOf(false) }
+    var askNotificationAccess by remember { mutableStateOf(false) }
+
+    val installedSocialApps = remember(c) {
+        SocialListener.apps.entries.mapNotNull { (pkg, _) ->
+            runCatching {
+                val info = c.packageManager.getApplicationInfo(pkg, 0)
+                pkg to c.packageManager.getApplicationLabel(info).toString()
+            }.getOrNull()
+        }.distinctBy { it.first }.sortedBy { it.second.lowercase() }
+    }
+    LaunchedEffect(installedSocialApps) {
+        if (socialAppPackage.isBlank() || installedSocialApps.none { it.first == socialAppPackage }) {
+            socialAppPackage = installedSocialApps.firstOrNull()?.first.orEmpty()
+        }
+    }
 
     val targets = remember(refresh) { MonitorStore.targets(c) }
     val messages = remember(refresh) { MonitorStore.messages(c) }
@@ -86,25 +103,62 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = channel == "sms", onClick = { channel = "sms" }, label = { Text("SMS") },
                         leadingIcon = { Icon(Icons.Rounded.Sms, null) })
-                    FilterChip(selected = channel == "social", onClick = { channel = "social" }, label = { Text("Mạng xã hội") },
+                    FilterChip(selected = channel == "social", onClick = {
+                        channel = "social"
+                        if (!SocialListener.enabled(c)) askNotificationAccess = true
+                    }, label = { Text("Mạng xã hội") },
                         leadingIcon = { Icon(Icons.Rounded.Forum, null) })
+                }
+                if (channel == "social") {
+                    Text("Chọn ứng dụng", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    ExposedDropdownMenuBox(expanded = appExpanded, onExpandedChange = { appExpanded = it }) {
+                        OutlinedTextField(
+                            value = installedSocialApps.firstOrNull { it.first == socialAppPackage }?.second
+                                ?: if (installedSocialApps.isEmpty()) "Không tìm thấy ứng dụng hỗ trợ" else "Chọn ứng dụng",
+                            onValueChange = {},
+                            readOnly = true,
+                            modifier = Modifier.fillMaxWidth().menuAnchor(),
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = appExpanded) },
+                            enabled = installedSocialApps.isNotEmpty(),
+                            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                        )
+                        ExposedDropdownMenu(expanded = appExpanded, onDismissRequest = { appExpanded = false }) {
+                            installedSocialApps.forEach { (pkg, label) ->
+                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                                    socialAppPackage = pkg
+                                    appExpanded = false
+                                })
+                            }
+                        }
+                    }
+                    Text(
+                        "Chọn ứng dụng đã cài trên điện thoại. Tin nhắn chỉ được ghép với hồ sơ của ứng dụng này.",
+                        color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
+                    )
                 }
                 OutlinedTextField(
                     value = identifier, onValueChange = { identifier = it },
                     modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(if (channel == "sms") "Số điện thoại người gửi" else "Tên người gửi / tài khoản hiển thị") },
+                    label = { Text(if (channel == "sms") "Số điện thoại người gửi" else "Tên người gửi hiển thị trong thông báo") },
                     placeholder = { Text(if (channel == "sms") "Ví dụ: 09xxxxxxxx" else "Ví dụ: Nguyen Van A") }
                 )
+                if (channel == "social") {
+                    Text(
+                        "Nhập đúng tên người gửi đang hiện trên thông báo. Android không cung cấp danh sách tài khoản đăng nhập bên trong Zalo/Messenger.",
+                        color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
+                    )
+                }
                 Button(
                     onClick = {
-                        val ok = MonitorStore.addTarget(c, channel, identifier)
+                        val ok = MonitorStore.addTarget(c, channel, identifier, if (channel == "social") socialAppPackage else "")
                         message = if (ok) "Đã thêm đối tượng theo dõi. Dữ liệu mới sẽ được lưu cục bộ trên máy."
                             else "Không thêm được: hãy kiểm tra nội dung hoặc đối tượng đã tồn tại."
                         identifier = ""
                         analysis = null
                         refresh++
                     },
-                    enabled = identifier.trim().isNotEmpty(),
+                    enabled = identifier.trim().isNotEmpty() &&
+                        (channel != "social" || socialAppPackage.isNotBlank()),
                     modifier = Modifier.fillMaxWidth()
                 ) { Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(7.dp)); Text("Thêm đối tượng theo dõi") }
             }
@@ -119,7 +173,9 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 Text("Quyền truy cập và giới hạn", color = C.Text, fontWeight = FontWeight.Bold)
                 Text("• SMS: nhập lịch sử tin nhắn đến của số bạn đã thêm, sau khi cấp quyền đọc SMS. Bộ theo dõi giữ tối đa 10.000 tin nhắn gần nhất trên thiết bị.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
-                Text("• Zalo/Messenger: chỉ nhận nội dung thông báo mới sau khi bạn bật quyền Truy cập thông báo. Android không cung cấp cho ứng dụng này toàn bộ lịch sử chat cũ bên trong các ứng dụng đó.",
+                Text("• Mạng xã hội: chỉ đọc nội dung được hiển thị trong thông báo mới sau khi bạn tự bật quyền Truy cập thông báo. Android không cho ScamShield xem danh sách tài khoản đăng nhập hoặc toàn bộ lịch sử chat cũ trong Zalo/Messenger.",
+                    color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
+                Text("• Bạn chọn ứng dụng và nhập tên người gửi hiển thị trên thông báo. Chỉ tin nhắn khớp cả ứng dụng và tên người gửi mới được lưu vào hồ sơ theo dõi.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Nội dung theo dõi lưu trên thiết bị; không tự gửi lên máy chủ. Phân tích dưới đây chạy bằng bộ dò cục bộ.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
@@ -137,7 +193,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 if (!SocialListener.enabled(c)) {
                     OutlinedButton(onClick = openSocialSettings, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Rounded.NotificationsActive, null); Spacer(Modifier.width(7.dp))
-                        Text("Mở cài đặt quyền thông báo")
+                        Text("Cấp quyền truy cập thông báo")
                     }
                 }
             }
@@ -159,8 +215,11 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         Spacer(Modifier.width(8.dp))
                         Column(Modifier.weight(1f)) {
                             Text(target.identifier, color = C.Text, fontWeight = FontWeight.Bold)
-                            Text(if (target.channel == "sms") "SMS" else "Thông báo mạng xã hội",
-                                color = C.Sub, fontSize = 11.sp)
+                            Text(
+                                if (target.channel == "sms") "SMS"
+                                else "Ứng dụng: " + (SocialListener.apps[target.appPackage] ?: "Mạng xã hội"),
+                                color = C.Sub, fontSize = 11.sp
+                            )
                         }
                         Text("${targetMessages.size} tin", color = C.Blue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
@@ -216,5 +275,28 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         }
 
         if (message.isNotBlank()) Text(message, color = C.Blue, fontSize = 12.sp, lineHeight = 17.sp)
+
+        if (askNotificationAccess) {
+            AlertDialog(
+                onDismissRequest = { askNotificationAccess = false },
+                title = { Text("Cho phép ScamShield đọc thông báo?") },
+                text = {
+                    Text(
+                        "Để theo dõi tin nhắn mới từ ứng dụng bạn chọn, ScamShield cần quyền Truy cập thông báo của Android. " +
+                            "Android cảnh báo quyền này có thể cho phép dịch vụ nhận nội dung thông báo từ nhiều ứng dụng. " +
+                            "ScamShield chỉ lưu cục bộ tin nhắn khớp với ứng dụng và tên người gửi bạn đã chọn. Bạn có thể tắt quyền này bất cứ lúc nào trong Cài đặt."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        askNotificationAccess = false
+                        openSocialSettings()
+                    }) { Text("Mở cài đặt") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { askNotificationAccess = false }) { Text("Để sau") }
+                }
+            )
+        }
     }
 }
