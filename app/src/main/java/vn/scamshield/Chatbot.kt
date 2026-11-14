@@ -11,6 +11,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -63,6 +64,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.text.Normalizer
@@ -83,6 +85,23 @@ private val ChatBorder = Color(0xFFD7E4F7)
 private val ChatMuted = Color(0xFF6780A5)
 private val ChatBubbleUser = Color(0xFFE2EEFF)
 private val ChatChip = Color(0xFFEBF3FF)
+
+private data class RobotFaceExpression(
+    val eyes: String,
+    val mouth: String,
+    val accent: String,
+    val accentColor: Color,
+    val description: String
+)
+
+private val RobotFaceExpressions = listOf(
+    RobotFaceExpression("◕  ◕", "ᴗ", "˶  ˶", Color(0xFFFF8FA8), "vui vẻ"),
+    RobotFaceExpression("•  •", "︵", "﹀", Color(0xFF72C9F5), "buồn"),
+    RobotFaceExpression("¬  ¬", "з", "///", Color(0xFFFF91A9), "dỗi yêu"),
+    RobotFaceExpression("✧  ✧", "ω", "♡  ♡", Color(0xFFFF8FB8), "dễ thương"),
+    RobotFaceExpression("ಥ  ಥ", "﹏", "💧  💧", Color(0xFF65CFFF), "đang khóc"),
+    RobotFaceExpression("⊙  ⊙", "o", "✨", Color(0xFFFFD36E), "ngạc nhiên")
+)
 
 
 /** One entry point for the AI assistant. The packaged project keeps its original FloatingBot button. */
@@ -128,6 +147,14 @@ fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) 
 /** Robot trợ lý dạng 3D cách điệu bằng Compose, chuyển động nhẹ nhàng tại chỗ. */
 @Composable
 fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
+    var expressionIndex by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(15_000L)
+            expressionIndex = (expressionIndex + 1) % RobotFaceExpressions.size
+        }
+    }
+    val expression = RobotFaceExpressions[expressionIndex]
     val motion = rememberInfiniteTransition(label = "mascot-idle")
     val bob by motion.animateFloat(-2.2f, 2.2f,
         infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-bob")
@@ -162,12 +189,40 @@ fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
                     .background(Brush.linearGradient(listOf(Color(0xFF102B62), Color(0xFF071A42))), RoundedCornerShape(size * 0.19f))
                     .border(1.dp, Color(0xFF6ACBFF).copy(alpha = 0.55f), RoundedCornerShape(size * 0.19f)),
                     contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(size * 0.045f)) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(size * 0.19f), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(size * 0.11f, size * 0.17f).background(Color(0xFF69E5FF), RoundedCornerShape(50)))
-                            Box(Modifier.size(size * 0.11f, size * 0.17f).background(Color(0xFF69E5FF), RoundedCornerShape(50)))
+                    Crossfade(
+                        targetState = expression,
+                        animationSpec = tween(420, easing = FastOutSlowInEasing),
+                        label = "robot-expression"
+                    ) { face ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(size * 0.005f),
+                            modifier = Modifier.semantics {
+                                contentDescription = "Robot đang biểu cảm " + face.description
+                            }
+                        ) {
+                            Text(
+                                face.eyes,
+                                color = Color(0xFF79E8FF),
+                                fontSize = (size.value * 0.18f).sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = (size.value * 0.19f).sp
+                            )
+                            Text(
+                                face.mouth,
+                                color = Color(0xFF62E4FF),
+                                fontSize = (size.value * 0.23f).sp,
+                                fontWeight = FontWeight.Bold,
+                                lineHeight = (size.value * 0.22f).sp
+                            )
+                            Text(
+                                face.accent,
+                                color = face.accentColor,
+                                fontSize = (size.value * 0.10f).sp,
+                                fontWeight = FontWeight.SemiBold,
+                                lineHeight = (size.value * 0.10f).sp
+                            )
                         }
-                        Box(Modifier.size(size * 0.16f, size * 0.045f).background(Color(0xFF57DDF8), RoundedCornerShape(50)))
                     }
                 }
                 Box(Modifier.size(size * 0.15f, size * 0.31f)
