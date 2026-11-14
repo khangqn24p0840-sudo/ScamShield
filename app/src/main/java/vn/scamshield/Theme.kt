@@ -4,6 +4,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -29,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
@@ -116,10 +118,20 @@ object C {
     }
 }
 
-/** Thẻ nội dung chuẩn: nền slate, viền mảnh, bo 22dp. */
-@Composable fun CardX(modifier: Modifier = Modifier, bg: Color = C.Card, content: @Composable ColumnScope.() -> Unit) =
-    Column(modifier.fillMaxWidth().background(bg, RoundedCornerShape(22.dp)).border(1.dp, C.Stroke, RoundedCornerShape(22.dp)).padding(16.dp),
+/** Magic Card: viền sáng chuyển động rất nhẹ, lấy cảm hứng từ Border Beam của Magic UI. */
+@Composable fun CardX(modifier: Modifier = Modifier, bg: Color = C.Card, content: @Composable ColumnScope.() -> Unit) {
+    val motion = rememberInfiniteTransition(label = "magic-card-border")
+    val phase by motion.animateFloat(0f, 1f,
+        infiniteRepeatable(tween(4200, easing = LinearEasing), RepeatMode.Restart), label = "magic-card-phase")
+    val shape = RoundedCornerShape(22.dp)
+    val beam = Brush.linearGradient(
+        colors = listOf(C.Stroke, C.Blue.copy(alpha = 0.62f), C.Cyan.copy(alpha = 0.34f), C.Stroke),
+        start = Offset(-260f + phase * 520f, 0f),
+        end = Offset(80f + phase * 520f, 320f)
+    )
+    Column(modifier.fillMaxWidth().background(bg, shape).border(BorderStroke(1.dp, beam), shape).padding(16.dp),
         Arrangement.spacedBy(10.dp), content = content)
+}
 
 /** Biểu tượng tròn nền màu nhạt — dùng làm đầu đề mục, hàng cài đặt. */
 @Composable fun IconBadge(icon: ImageVector, tint: Color, size: Dp = 42.dp, iconSize: Dp = 21.dp) =
@@ -127,13 +139,22 @@ object C {
         Icon(icon, null, tint = tint, modifier = Modifier.size(iconSize))
     }
 
-/** Nút chính vàng gradient. */
+/** Shimmer Button: nút xanh hiện tại với vệt sáng lướt chậm, không đổi hành vi bấm. */
 @Composable fun GoldButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, leading: ImageVector? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
+    val motion = rememberInfiniteTransition(label = "magic-button-shimmer")
+    val phase by motion.animateFloat(0f, 1f,
+        infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart), label = "magic-button-phase")
+    val shimmer = Brush.linearGradient(
+        colors = listOf(Color.Transparent, Color.White.copy(alpha = 0.24f), Color.Transparent),
+        start = Offset(-180f + phase * 560f, 0f),
+        end = Offset(-40f + phase * 560f, 150f)
+    )
     Button(onClick, modifier.fillMaxWidth().height(52.dp), enabled = enabled, shape = shape, contentPadding = PaddingValues(0.dp),
         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent, contentColor = C.Ink,
             disabledContainerColor = Color.Transparent, disabledContentColor = C.Ink.copy(alpha = 0.55f))) {
         Box(Modifier.fillMaxSize().alpha(if (enabled) 1f else 0.45f).background(Brush.horizontalGradient(C.goldGrad), shape), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().background(shimmer, shape))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (leading != null) Icon(leading, null, modifier = Modifier.size(20.dp))
                 Text(text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
@@ -248,15 +269,17 @@ object C {
     }
 }
 
-/** Ô số liệu nhanh: icon + số đếm + nhãn. */
-@Composable fun StatCard(value: Int, label: String, icon: ImageVector, tint: Color, modifier: Modifier = Modifier) =
+/** Number Ticker: số liệu đếm chuyển mượt khi dữ liệu thay đổi. */
+@Composable fun StatCard(value: Int, label: String, icon: ImageVector, tint: Color, modifier: Modifier = Modifier) {
+    val animatedValue by animateIntAsState(targetValue = value, animationSpec = tween(700), label = "magic-number-ticker")
     Column(modifier.fillMaxWidth().background(C.Card, RoundedCornerShape(18.dp))
         .border(1.dp, C.Stroke, RoundedCornerShape(18.dp)).padding(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         IconBadge(icon, tint, 36.dp, 18.dp)
-        Text("$value", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+        Text("$animatedValue", color = C.Text, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
         Text(label, color = C.Dim, fontSize = 11.sp, maxLines = 1)
     }
+}
 
 /** Banner mẹo an toàn viền vàng. */
 @Composable fun TipBanner(text: String) =
