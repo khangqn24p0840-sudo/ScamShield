@@ -50,7 +50,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -216,352 +222,311 @@ private fun ComposeRobotMascot(
     size: Dp,
     mood: RobotMood
 ) {
-    val face = mood.fallbackFace()
-    val motion = rememberInfiniteTransition(label = "scamshield-robot-motion")
+    // Khi ở trạng thái chờ, robot luân phiên các biểu cảm sau mỗi 15 giây.
+    var idleExpression by remember { mutableIntStateOf(0) }
+    LaunchedEffect(mood) {
+        if (mood == RobotMood.IDLE) {
+            while (true) {
+                delay(15_000L)
+                idleExpression = (idleExpression + 1) % 6
+            }
+        } else {
+            idleExpression = 0
+        }
+    }
+
+    val expression = when (mood) {
+        RobotMood.IDLE -> idleExpression
+        RobotMood.GREETING -> 0
+        RobotMood.ANALYZING -> 6
+        RobotMood.WARNING -> 5
+        RobotMood.SAD -> 1
+        RobotMood.CUTE -> 3
+    }
+
+    val motion = rememberInfiniteTransition(label = "scamshield-toy-robot")
     val bob by motion.animateFloat(
-        -1.8f, 1.8f,
+        -1.2f, 1.2f,
         infiniteRepeatable(tween(2100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "robot-bob"
     )
-    val armWave by motion.animateFloat(
-        -8f, 8f,
-        infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "robot-arm-wave"
-    )
-    val scan by motion.animateFloat(
-        -2.5f, 2.5f,
-        infiniteRepeatable(tween(1100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "robot-eye-scan"
+    val wave by motion.animateFloat(
+        -5.5f, 5.5f,
+        infiniteRepeatable(tween(1450, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-wave"
     )
     val blink by motion.animateFloat(
         1f, 1f,
         infiniteRepeatable(
             animation = androidx.compose.animation.core.keyframes {
-                durationMillis = 3300
+                durationMillis = 3900
                 1f at 0
-                0.08f at 70
-                1f at 145
-                1f at 2760
-                0.08f at 2830
-                1f at 2905
+                0.08f at 75
+                1f at 155
+                1f at 3300
+                0.08f at 3375
+                1f at 3455
             }
         ),
-        label = "robot-eye-blink"
+        label = "robot-blink"
+    )
+    val scan by motion.animateFloat(
+        -1.4f, 1.4f,
+        infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-scan"
     )
 
-    val torsoShape = remember {
-        GenericShape { sz, _ ->
-            val w = sz.width
-            val h = sz.height
-            moveTo(w * 0.19f, h * 0.025f)
-            cubicTo(w * 0.02f, h * 0.11f, w * 0.13f, h * 0.78f, w * 0.50f, h)
-            cubicTo(w * 0.87f, h * 0.78f, w * 0.98f, h * 0.11f, w * 0.81f, h * 0.025f)
-            cubicTo(w * 0.64f, -h * 0.02f, w * 0.36f, -h * 0.02f, w * 0.19f, h * 0.025f)
-            close()
-        }
-    }
-    val armShape = remember {
-        GenericShape { sz, _ ->
-            val w = sz.width
-            val h = sz.height
-            moveTo(w * 0.50f, 0f)
-            cubicTo(w * 0.10f, h * 0.10f, w * 0.12f, h * 0.86f, w * 0.50f, h)
-            cubicTo(w * 0.88f, h * 0.86f, w * 0.90f, h * 0.10f, w * 0.50f, 0f)
-            close()
-        }
-    }
-    val containerModifier = modifier
-        .size(width = size * 1.72f, height = size * 2.02f)
-        .graphicsLayer { translationY = bob.dp.toPx() }
-
-    Box(containerModifier, contentAlignment = Alignment.Center) {
-        // Soft icy-blue aura behind the mascot.
-        Box(
-            Modifier.size(width = size * 1.62f, height = size * 1.52f)
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color(0x5578C8FF), Color(0x2278C8FF), Color.Transparent)
-                    ),
-                    CircleShape
-                )
-        )
-
-        // Tapered arms sit behind the torso, with rounded mitten-like tips.
-        Box(
-            Modifier.align(Alignment.CenterStart)
-                .offset(x = size * 0.07f, y = size * 0.30f)
-                .size(width = size * 0.31f, height = size * 0.76f)
-                .graphicsLayer { rotationZ = 13f + armWave }
-                .shadow(3.dp, armShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFFFFFFF), Color(0xFFDCEEFF), Color(0xFF9CC8EF))
-                    ),
-                    armShape
-                )
-                .border(1.dp, Color(0xFFD6EDFF), armShape)
-        )
-        Box(
-            Modifier.align(Alignment.CenterEnd)
-                .offset(x = -(size * 0.07f), y = size * 0.30f)
-                .size(width = size * 0.31f, height = size * 0.76f)
-                .graphicsLayer { rotationZ = -13f - armWave }
-                .shadow(3.dp, armShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFFFFFFF), Color(0xFFDCEEFF), Color(0xFF9CC8EF))
-                    ),
-                    armShape
-                )
-                .border(1.dp, Color(0xFFD6EDFF), armShape)
-        )
-
-        // Rounded mitten hands make the arms read as friendly robot limbs, not thin rods.
-        Box(
-            Modifier.align(Alignment.CenterStart)
-                .offset(x = size * 0.035f, y = size * 0.66f)
-                .size(size * 0.34f)
-                .shadow(4.dp, CircleShape)
-                .background(
-                    Brush.radialGradient(listOf(Color.White, Color(0xFFE6F4FF), Color(0xFF9CC8EF))),
-                    CircleShape
-                )
-                .border(1.dp, Color(0xFFD1E9FF), CircleShape)
-        )
-        Box(
-            Modifier.align(Alignment.CenterEnd)
-                .offset(x = -(size * 0.035f), y = size * 0.66f)
-                .size(size * 0.34f)
-                .shadow(4.dp, CircleShape)
-                .background(
-                    Brush.radialGradient(listOf(Color.White, Color(0xFFE6F4FF), Color(0xFF9CC8EF))),
-                    CircleShape
-                )
-                .border(1.dp, Color(0xFFD1E9FF), CircleShape)
-        )
-
-        // Pear-shaped white body, with a raised blue ScamShield emblem.
-        Box(
-            Modifier.align(Alignment.BottomCenter)
-                .offset(y = -(size * 0.12f))
-                .size(width = size * 1.04f, height = size * 1.18f)
-                .shadow(7.dp, torsoShape)
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color.White, Color(0xFFF6FBFF), Color(0xFFC8DFF6))
-                    ),
-                    torsoShape
-                )
-                .border(1.dp, Color.White.copy(alpha = 0.92f), torsoShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                Modifier.align(Alignment.TopCenter)
-                    .offset(y = size * 0.24f)
-                    .size(size * 0.36f)
-                    .shadow(3.dp, RoundedCornerShape(size * 0.10f))
-                    .background(
-                        Brush.linearGradient(listOf(Color(0xFFB9E7FF), Color(0xFF4C9FE7))),
-                        RoundedCornerShape(size * 0.10f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    Icons.Rounded.Shield,
-                    contentDescription = "Biểu tượng ScamShield",
-                    tint = Color(0xFF2679D8),
-                    modifier = Modifier.size(size * 0.30f)
-                )
+    Box(
+        modifier = modifier
+            .width(size * 1.28f)
+            .height(size * 1.40f)
+            .graphicsLayer { translationY = bob.dp.toPx() },
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(
+            Modifier.fillMaxSize().semantics {
+                contentDescription = when (expression) {
+                    1 -> "Robot ScamShield đang buồn"
+                    2 -> "Robot ScamShield đang dỗi"
+                    3 -> "Robot ScamShield đang vui"
+                    4 -> "Robot ScamShield đang khóc"
+                    5 -> "Robot ScamShield ngạc nhiên"
+                    6 -> "Robot ScamShield đang phân tích"
+                    else -> "Robot ScamShield đang mỉm cười"
+                }
             }
-        }
-
-        // Side ear modules are partly tucked behind the large head shell.
-        Box(
-            Modifier.align(Alignment.CenterStart)
-                .offset(x = size * 0.015f, y = -(size * 0.28f))
-                .size(width = size * 0.31f, height = size * 0.57f)
-                .shadow(4.dp, RoundedCornerShape(size * 0.15f))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF4D8EC8), Color(0xFF9EDAFF), Color(0xFF5C9ED7))
-                    ),
-                    RoundedCornerShape(size * 0.15f)
-                )
-                .border(1.dp, Color(0xFFB8E7FF), RoundedCornerShape(size * 0.15f))
-        )
-        Box(
-            Modifier.align(Alignment.CenterEnd)
-                .offset(x = -(size * 0.015f), y = -(size * 0.28f))
-                .size(width = size * 0.31f, height = size * 0.57f)
-                .shadow(4.dp, RoundedCornerShape(size * 0.15f))
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFF5C9ED7), Color(0xFF9EDAFF), Color(0xFF4D8EC8))
-                    ),
-                    RoundedCornerShape(size * 0.15f)
-                )
-                .border(1.dp, Color(0xFFB8E7FF), RoundedCornerShape(size * 0.15f))
-        )
-
-        // Antenna.
-        Box(
-            Modifier.align(Alignment.TopCenter)
-                .offset(y = size * 0.015f)
-                .width(size * 0.065f).height(size * 0.24f)
-                .background(
-                    Brush.verticalGradient(listOf(Color(0xFF8BCBFA), Color(0xFF4C91D1))),
-                    RoundedCornerShape(size * 0.05f)
-                )
-        )
-        Box(
-            Modifier.align(Alignment.TopCenter)
-                .offset(y = size * 0.015f)
-                .size(size * 0.20f)
-                .shadow(3.dp, CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color.White, Color(0xFF8CEBFF), Color(0xFF3F9DE8))
-                    ),
-                    CircleShape
-                )
-                .border(1.dp, Color.White, CircleShape)
-        )
-
-        // Oversized pearl-white head shell.
-        Box(
-            Modifier.align(Alignment.Center)
-                .offset(y = -(size * 0.32f))
-                .size(width = size * 1.40f, height = size * 0.90f)
-                .shadow(8.dp, RoundedCornerShape(size * 0.32f))
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color.White, Color(0xFFF8FCFF), Color(0xFFC5DDF4))
-                    ),
-                    RoundedCornerShape(size * 0.32f)
-                )
-                .border(1.4.dp, Color.White, RoundedCornerShape(size * 0.32f)),
-            contentAlignment = Alignment.Center
         ) {
-            // Dark navy rounded glass panel with a very thin icy-blue rim.
-            Box(
-                Modifier.fillMaxWidth(0.84f).fillMaxHeight(0.70f)
-                    .shadow(4.dp, RoundedCornerShape(size * 0.25f))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(Color(0xFF102B60), Color(0xFF071A3D), Color(0xFF102B60))
-                        ),
-                        RoundedCornerShape(size * 0.25f)
-                    )
-                    .border(
-                        1.dp, Color(0xFF77C8F5).copy(alpha = 0.80f),
-                        RoundedCornerShape(size * 0.25f)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(vertical = size * 0.09f),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    val eyeSize = size * (if (mood == RobotMood.WARNING) 0.25f else 0.225f)
-                    Row(
-                        Modifier.fillMaxWidth(0.66f),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RobotEye(
-                            size = eyeSize,
-                            blink = if (mood == RobotMood.IDLE || mood == RobotMood.GREETING) blink else 1f,
-                            look = if (mood == RobotMood.ANALYZING) scan else 0f
-                        )
-                        RobotEye(
-                            size = eyeSize,
-                            blink = if (mood == RobotMood.IDLE || mood == RobotMood.GREETING) blink else 1f,
-                            look = if (mood == RobotMood.ANALYZING) scan else 0f
-                        )
-                    }
+            val sx = size.width / 100f
+            val sy = size.height / 120f
+            fun pt(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * sx, y * sy)
+            fun box(x: Float, y: Float, w: Float, h: Float) =
+                androidx.compose.ui.geometry.Size(w * sx, h * sy)
 
-                    Canvas(
-                        Modifier.width(size * 0.38f).height(size * 0.19f)
-                            .semantics {
-                                contentDescription = "Robot đang biểu cảm " + face.description
-                            }
-                    ) {
-                        val w = this.size.width
-                        val h = this.size.height
-                        val cyan = Color(0xFF8AF2FF)
-                        when (mood) {
-                            RobotMood.WARNING -> drawOval(cyan)
-                            RobotMood.SAD -> {
-                                val frown = Path().apply {
-                                    moveTo(w * 0.05f, h * 0.90f)
-                                    cubicTo(w * 0.28f, h * 0.10f, w * 0.72f, h * 0.10f, w * 0.95f, h * 0.90f)
-                                }
-                                drawPath(
-                                    frown,
-                                    color = cyan,
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = h * 0.16f)
-                                )
-                            }
-                            RobotMood.ANALYZING -> {
-                                drawRoundRect(
-                                    color = cyan,
-                                    topLeft = androidx.compose.ui.geometry.Offset(w * 0.36f, h * 0.38f),
-                                    size = androidx.compose.ui.geometry.Size(w * 0.28f, h * 0.24f),
-                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(h * 0.12f)
-                                )
-                            }
-                            else -> {
-                                val smile = Path().apply {
-                                    moveTo(w * 0.04f, h * 0.12f)
-                                    cubicTo(w * 0.22f, h * 0.92f, w * 0.78f, h * 0.92f, w * 0.96f, h * 0.12f)
-                                    cubicTo(w * 0.82f, h * 0.70f, w * 0.18f, h * 0.70f, w * 0.04f, h * 0.12f)
-                                    close()
-                                }
-                                drawPath(smile, color = cyan)
-                            }
-                        }
-                    }
+            val shell = Brush.linearGradient(
+                colors = listOf(Color.White, Color(0xFFF4FBFE), Color(0xFFBFDDEB)),
+                start = pt(14f, 18f), end = pt(88f, 115f)
+            )
+            val blue = Brush.linearGradient(
+                colors = listOf(Color(0xFFDDF7FF), Color(0xFF9ADDF2), Color(0xFF65BFE0)),
+                start = pt(30f, 63f), end = pt(70f, 108f)
+            )
+
+            // Bóng đổ mờ, không dùng viền trắng dày quanh toàn bộ robot.
+            drawOval(
+                brush = Brush.radialGradient(
+                    listOf(Color(0x332E82A8), Color(0x142E82A8), Color.Transparent),
+                    center = pt(50f, 114f), radius = 33f * sx
+                ),
+                topLeft = pt(17f, 108f), size = box(66f, 10f)
+            )
+
+            // Ăng-ten nhỏ và đèn cyan.
+            drawLine(Color(0xFF83C9DE), pt(50f, 13f), pt(50f, 20f), 2.2f * sx,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawRoundRect(
+                Brush.linearGradient(listOf(Color(0xFFE8FBFF), Color(0xFF8CCCE3))),
+                topLeft = pt(44f, 17f), size = box(12f, 4f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f * sx)
+            )
+            drawCircle(
+                Brush.radialGradient(listOf(Color(0xFFE6FFFF), Color(0xFF80F0F0), Color(0xFF55C5E2))),
+                radius = 4.2f * sx, center = pt(50f, 10f)
+            )
+            drawCircle(Color.White.copy(alpha = 0.85f), 1.2f * sx, pt(48.7f, 8.8f))
+
+            // Tai hai bên đầu, lộ nhẹ sau lớp vỏ.
+            drawRoundRect(
+                Brush.linearGradient(listOf(Color(0xFFC7F0FA), Color(0xFF76C3DF))),
+                topLeft = pt(8f, 36f), size = box(11f, 15f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * sx)
+            )
+            drawRoundRect(
+                Brush.linearGradient(listOf(Color(0xFF76C3DF), Color(0xFFC7F0FA))),
+                topLeft = pt(81f, 36f), size = box(11f, 15f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * sx)
+            )
+
+            // Tay trái giơ lên chào; xoay rất nhẹ ở khớp vai.
+            val leftArm = androidx.compose.ui.graphics.Path().apply {
+                moveTo(30f * sx, 71f * sy)
+                cubicTo(25f * sx, 68f * sy, 22f * sx, 65f * sy, 18f * sx, 65f * sy)
+                cubicTo(12f * sx, 64f * sy, 8f * sx, 69f * sy, 10f * sx, 74f * sy)
+                cubicTo(12f * sx, 80f * sy, 19f * sx, 83f * sy, 24f * sx, 81f * sy)
+                cubicTo(28f * sx, 80f * sy, 31f * sx, 76f * sy, 30f * sx, 71f * sy)
+                close()
+            }
+            androidx.compose.ui.graphics.drawscope.withTransform({
+                rotate(wave, pivot = pt(29f, 74f))
+            }) {
+                drawPath(leftArm, shell)
+                drawPath(leftArm, Color(0xFFDDEEF4),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
+                drawCircle(Color(0xFFFFFFFF), 2.1f * sx, pt(9.5f, 68f))
+                drawCircle(Color(0xFFEAF7FC), 1.9f * sx, pt(14f, 65.8f))
+                drawCircle(Color(0xFFFFFFFF), 1.8f * sx, pt(18.5f, 68f))
+            }
+
+            // Tay phải buông xuống, bàn tay dạng găng tròn.
+            val rightArm = androidx.compose.ui.graphics.Path().apply {
+                moveTo(71f * sx, 70f * sy)
+                cubicTo(77f * sx, 73f * sy, 80f * sx, 82f * sy, 83f * sx, 90f * sy)
+                lineTo(88f * sx, 101f * sy)
+                cubicTo(89f * sx, 105f * sy, 85f * sx, 107f * sy, 82f * sx, 103f * sy)
+                cubicTo(77f * sx, 98f * sy, 73f * sx, 88f * sy, 70f * sx, 80f * sy)
+                close()
+            }
+            drawPath(rightArm, shell)
+            drawPath(rightArm, Color(0xFFDDEEF4),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
+            drawCircle(Color(0xFF9DD9EA), 2.7f * sx, pt(84f, 100f))
+            drawCircle(Color.White, 1.4f * sx, pt(84f, 100f))
+            drawRoundRect(shell, topLeft = pt(83f, 101f), size = box(5f, 7f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.5f * sx))
+
+            // Thân trắng bo tròn, hơi thuôn ở phần đáy.
+            val torso = androidx.compose.ui.graphics.Path().apply {
+                moveTo(31f * sx, 64f * sy)
+                cubicTo(35f * sx, 61f * sy, 65f * sx, 61f * sy, 69f * sx, 64f * sy)
+                cubicTo(76f * sx, 71f * sy, 73f * sx, 90f * sy, 68f * sx, 104f * sy)
+                cubicTo(65f * sx, 112f * sy, 60f * sx, 115f * sy, 50f * sx, 115f * sy)
+                cubicTo(40f * sx, 115f * sy, 35f * sx, 112f * sy, 32f * sx, 104f * sy)
+                cubicTo(27f * sx, 90f * sy, 24f * sx, 71f * sy, 31f * sx, 64f * sy)
+                close()
+            }
+            drawPath(torso, shell)
+            drawPath(torso, Color(0xFFD9EBF2),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.9f * sx))
+
+            // Tấm ngực xanh pastel đặc trưng của robot mẫu.
+            val chest = androidx.compose.ui.graphics.Path().apply {
+                moveTo(34f * sx, 69f * sy)
+                cubicTo(40f * sx, 72f * sy, 60f * sx, 72f * sy, 66f * sx, 69f * sy)
+                cubicTo(64f * sx, 80f * sy, 63f * sx, 92f * sy, 60f * sx, 101f * sy)
+                cubicTo(58f * sx, 106f * sy, 42f * sx, 106f * sy, 40f * sx, 101f * sy)
+                cubicTo(37f * sx, 92f * sy, 36f * sx, 80f * sy, 34f * sx, 69f * sy)
+                close()
+            }
+            drawPath(chest, blue)
+            drawPath(chest, Color(0xFFB9E4F3),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.7f * sx))
+
+            // Khớp vai và viền đế xanh nhạt.
+            drawCircle(Brush.linearGradient(listOf(Color(0xFFD5F5FC), Color(0xFF78C6E2))),
+                5.2f * sx, pt(29f, 73f))
+            drawCircle(Brush.linearGradient(listOf(Color(0xFFD5F5FC), Color(0xFF78C6E2))),
+                5.2f * sx, pt(71f, 73f))
+            drawCircle(Color.White.copy(alpha = 0.62f), 1.4f * sx, pt(27.5f, 71.5f))
+            drawCircle(Color.White.copy(alpha = 0.62f), 1.4f * sx, pt(69.5f, 71.5f))
+            drawRoundRect(
+                Brush.verticalGradient(listOf(Color(0xFFC3EFF9), Color(0xFF86CDE5))),
+                topLeft = pt(38f, 110f), size = box(24f, 5f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f * sx)
+            )
+
+            // Đầu lớn, vỏ nhựa trắng ngọc trai và mặt kính navy.
+            drawRoundRect(
+                brush = shell, topLeft = pt(12f, 18f), size = box(76f, 47f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f * sx)
+            )
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.72f), topLeft = pt(12f, 18f), size = box(76f, 47f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f * sx),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.8f * sx)
+            )
+            drawRoundRect(
+                brush = Brush.linearGradient(
+                    listOf(Color(0xFF263A66), Color(0xFF111D40), Color(0xFF07142F)),
+                    start = pt(23f, 22f), end = pt(78f, 62f)
+                ),
+                topLeft = pt(18f, 23f), size = box(64f, 37f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * sx)
+            )
+            drawRoundRect(
+                color = Color(0xFF87CFE9).copy(alpha = 0.24f),
+                topLeft = pt(18f, 23f), size = box(64f, 37f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * sx),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.7f * sx)
+            )
+
+            // Ánh phản chiếu mờ trên mặt kính, tạo cảm giác sâu hơn.
+            val reflection = androidx.compose.ui.graphics.Path().apply {
+                moveTo(23f * sx, 28f * sy)
+                cubicTo(36f * sx, 23f * sy, 56f * sx, 23f * sy, 76f * sx, 28f * sy)
+                cubicTo(58f * sx, 25f * sy, 39f * sx, 26f * sy, 23f * sx, 31f * sy)
+                close()
+            }
+            drawPath(reflection, Color.White.copy(alpha = 0.06f))
+
+            // Mắt xanh cyan có quầng sáng và nhịp chớp tự nhiên.
+            val eyeY = 40f * sy
+            val eyeHeight = if (blink < 0.2f) 1.25f * sy
+                else if (expression == 5) 7.4f * sy else 6.3f * sy
+            val eyeWidth = if (expression == 5) 5.4f * sx else 4.5f * sx
+            val lookOffset = if (expression == 6) scan * sx else 0f
+            for (eyeX in listOf(39.5f, 60.5f)) {
+                val center = pt(eyeX, 40f)
+                drawCircle(Color(0xFF55F5F5).copy(alpha = 0.18f), 7.3f * sx, center)
+                if (blink < 0.2f) {
+                    drawLine(Color(0xFF67F4F2),
+                        androidx.compose.ui.geometry.Offset(center.x - 3.2f * sx, center.y),
+                        androidx.compose.ui.geometry.Offset(center.x + 3.2f * sx, center.y),
+                        1.5f * sx, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                } else {
+                    drawOval(
+                        Brush.verticalGradient(listOf(Color(0xFFB4FFFF), Color(0xFF4AE6EC), Color(0xFF20BFD5))),
+                        topLeft = androidx.compose.ui.geometry.Offset(center.x - eyeWidth / 2f + lookOffset, center.y - eyeHeight / 2f),
+                        size = androidx.compose.ui.geometry.Size(eyeWidth, eyeHeight)
+                    )
+                    drawCircle(Color.White.copy(alpha = 0.7f), 0.75f * sx,
+                        androidx.compose.ui.geometry.Offset(center.x - 0.8f * sx + lookOffset, center.y - 1.35f * sy))
                 }
             }
 
-            // A small specular highlight makes the shell feel like glossy molded plastic.
-            Box(
-                Modifier.align(Alignment.TopStart)
-                    .padding(start = size * 0.20f, top = size * 0.09f)
-                    .width(size * 0.33f).height(size * 0.055f)
-                    .background(Color.White.copy(alpha = 0.75f), CircleShape)
+            // Miệng vẽ trực tiếp, đổi hình theo cảm xúc thay vì ký tự.
+            val mouth = androidx.compose.ui.graphics.Path().apply {
+                when (expression) {
+                    1, 4 -> {
+                        moveTo(43f * sx, 49f * sy)
+                        cubicTo(46f * sx, 45f * sy, 54f * sx, 45f * sy, 57f * sx, 49f * sy)
+                    }
+                    2 -> {
+                        moveTo(44f * sx, 48f * sy)
+                        cubicTo(48f * sx, 49.2f * sy, 52f * sx, 49.2f * sy, 56f * sx, 48f * sy)
+                    }
+                    5 -> {
+                        moveTo(47f * sx, 46f * sy)
+                        cubicTo(47f * sx, 44f * sy, 53f * sx, 44f * sy, 53f * sx, 46f * sy)
+                        cubicTo(53f * sx, 51f * sy, 47f * sx, 51f * sy, 47f * sx, 46f * sy)
+                        close()
+                    }
+                    6 -> {
+                        moveTo(47f * sx, 49f * sy)
+                        cubicTo(49f * sx, 47f * sy, 51f * sx, 47f * sy, 53f * sx, 49f * sy)
+                    }
+                    else -> {
+                        moveTo(42f * sx, 46.5f * sy)
+                        cubicTo(46f * sx, 51f * sy, 54f * sx, 51f * sy, 58f * sx, 46.5f * sy)
+                    }
+                }
+            }
+            drawPath(
+                mouth,
+                color = Color(0xFF73F7F0),
+                style = if (expression == 5) androidx.compose.ui.graphics.drawscope.Fill
+                    else androidx.compose.ui.graphics.drawscope.Stroke(1.7f * sx,
+                        cap = androidx.compose.ui.graphics.StrokeCap.Round)
             )
-        }
-    }
-}
 
-@Composable
-private fun RobotEye(size: Dp, blink: Float, look: Float) {
-    Box(
-        Modifier.size(size * 1.42f)
-            .background(
-                Brush.radialGradient(
-                    listOf(Color(0xAA7DEEFF), Color(0x5578DFFF), Color.Transparent)
-                ),
-                CircleShape
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Box(
-            Modifier.size(size).graphicsLayer { scaleY = blink; translationX = look.dp.toPx() }
-                .background(
-                    Brush.radialGradient(
-                        listOf(Color.White, Color(0xFF9AF5FF), Color(0xFF53D8F5))
-                    ),
-                    CircleShape
-                )
-        )
-        Box(
-            Modifier.align(Alignment.TopStart).padding(start = size * 0.24f, top = size * 0.18f)
-                .size(size * 0.22f)
-                .background(Color.White.copy(alpha = 0.90f), CircleShape)
-        )
+            // Má hồng nhẹ khi vui/dễ thương và giọt nước khi buồn.
+            if (expression == 3 || expression == 0) {
+                drawCircle(Color(0xFFFF9EB8).copy(alpha = 0.30f), 2.0f * sx, pt(29f, 47f))
+                drawCircle(Color(0xFFFF9EB8).copy(alpha = 0.30f), 2.0f * sx, pt(71f, 47f))
+            }
+            if (expression == 4) {
+                drawCircle(Color(0xFF6BDDF4), 1.2f * sx, pt(33f, 47f))
+                drawCircle(Color(0xFF6BDDF4), 1.2f * sx, pt(67f, 47f))
+            }
+        }
     }
 }
 
