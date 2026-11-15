@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "vn.scamshield"
     compileSdk = 36
-    defaultConfig { applicationId = "vn.scamshield"; minSdk = 24; targetSdk = 34; versionCode = 19; versionName = "4.14" }
+    defaultConfig { applicationId = "vn.scamshield"; minSdk = 24; targetSdk = 34; versionCode = 20; versionName = "4.15" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
