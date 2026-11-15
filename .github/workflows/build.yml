@@ -27,7 +27,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "8.13"
 
       - name: Verify Android project files
         run: |
@@ -36,6 +36,7 @@ jobs:
           test -f app/src/main/java/vn/scamshield/MainActivity.kt
           test -f app/src/main/java/vn/scamshield/Screens.kt
           test -f app/src/main/java/vn/scamshield/Theme.kt
+          test -f design/rive/scamshield_robot/scene.rml
           grep -q "lightColorScheme" app/src/main/java/vn/scamshield/MainActivity.kt
           grep -q "beginProtectionSetup" app/src/main/java/vn/scamshield/MainActivity.kt
 
