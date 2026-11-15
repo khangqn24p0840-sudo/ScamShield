@@ -187,7 +187,7 @@ fun RobotMascot(
 
     if (riveResId != 0) {
         AndroidView(
-            modifier = modifier.size(width = size * 1.66f, height = size * 1.96f),
+            modifier = modifier.size(width = size * 1.72f, height = size * 2.02f),
             factory = { viewContext ->
                 RiveAnimationView(viewContext).also { view ->
                     view.setRiveResource(
@@ -271,7 +271,7 @@ private fun ComposeRobotMascot(
         }
     }
     val containerModifier = modifier
-        .size(width = size * 1.66f, height = size * 1.96f)
+        .size(width = size * 1.72f, height = size * 2.02f)
         .graphicsLayer { translationY = bob.dp.toPx() }
 
     Box(containerModifier, contentAlignment = Alignment.Center) {
@@ -289,8 +289,8 @@ private fun ComposeRobotMascot(
         // Tapered arms sit behind the torso, with rounded mitten-like tips.
         Box(
             Modifier.align(Alignment.CenterStart)
-                .offset(x = size * 0.12f, y = size * 0.40f)
-                .size(width = size * 0.23f, height = size * 0.88f)
+                .offset(x = size * 0.07f, y = size * 0.30f)
+                .size(width = size * 0.31f, height = size * 0.76f)
                 .graphicsLayer { rotationZ = 13f + armWave }
                 .shadow(3.dp, armShape)
                 .background(
@@ -303,8 +303,8 @@ private fun ComposeRobotMascot(
         )
         Box(
             Modifier.align(Alignment.CenterEnd)
-                .offset(x = -(size * 0.12f), y = size * 0.40f)
-                .size(width = size * 0.23f, height = size * 0.88f)
+                .offset(x = -(size * 0.07f), y = size * 0.30f)
+                .size(width = size * 0.31f, height = size * 0.76f)
                 .graphicsLayer { rotationZ = -13f - armWave }
                 .shadow(3.dp, armShape)
                 .background(
@@ -316,11 +316,35 @@ private fun ComposeRobotMascot(
                 .border(1.dp, Color(0xFFD6EDFF), armShape)
         )
 
+        // Rounded mitten hands make the arms read as friendly robot limbs, not thin rods.
+        Box(
+            Modifier.align(Alignment.CenterStart)
+                .offset(x = size * 0.035f, y = size * 0.66f)
+                .size(size * 0.34f)
+                .shadow(4.dp, CircleShape)
+                .background(
+                    Brush.radialGradient(listOf(Color.White, Color(0xFFE6F4FF), Color(0xFF9CC8EF))),
+                    CircleShape
+                )
+                .border(1.dp, Color(0xFFD1E9FF), CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.CenterEnd)
+                .offset(x = -(size * 0.035f), y = size * 0.66f)
+                .size(size * 0.34f)
+                .shadow(4.dp, CircleShape)
+                .background(
+                    Brush.radialGradient(listOf(Color.White, Color(0xFFE6F4FF), Color(0xFF9CC8EF))),
+                    CircleShape
+                )
+                .border(1.dp, Color(0xFFD1E9FF), CircleShape)
+        )
+
         // Pear-shaped white body, with a raised blue ScamShield emblem.
         Box(
             Modifier.align(Alignment.BottomCenter)
-                .offset(y = -(size * 0.015f))
-                .size(width = size * 0.98f, height = size * 1.05f)
+                .offset(y = -(size * 0.12f))
+                .size(width = size * 1.04f, height = size * 1.18f)
                 .shadow(7.dp, torsoShape)
                 .background(
                     Brush.linearGradient(
@@ -406,8 +430,8 @@ private fun ComposeRobotMascot(
         // Oversized pearl-white head shell.
         Box(
             Modifier.align(Alignment.Center)
-                .offset(y = -(size * 0.27f))
-                .size(width = size * 1.50f, height = size * 0.96f)
+                .offset(y = -(size * 0.32f))
+                .size(width = size * 1.40f, height = size * 0.90f)
                 .shadow(8.dp, RoundedCornerShape(size * 0.32f))
                 .background(
                     Brush.linearGradient(
@@ -439,7 +463,7 @@ private fun ComposeRobotMascot(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    val eyeSize = size * (if (mood == RobotMood.WARNING) 0.235f else 0.205f)
+                    val eyeSize = size * (if (mood == RobotMood.WARNING) 0.25f else 0.225f)
                     Row(
                         Modifier.fillMaxWidth(0.66f),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -544,11 +568,11 @@ private fun RobotEye(size: Dp, blink: Float, look: Float) {
 /** Nút chatbot luôn ở góc màn hình, robot chỉ nhún và nghiêng rất nhẹ khi chờ. */
 @Composable
 private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.size(width = 98.dp, height = 112.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.size(96.dp).background(
+    Box(modifier.size(width = 124.dp, height = 148.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(120.dp).background(
             Brush.radialGradient(listOf(Color(0x5574BFFF), Color(0x1174BFFF), Color.Transparent)), CircleShape))
-        Box(Modifier.size(width = 94.dp, height = 108.dp).semantics { contentDescription = "Mở trợ lý AI ScamShield"; role = Role.Button }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-            RobotMascot(Modifier, size = 55.dp, mood = RobotMood.IDLE)
+        Box(Modifier.size(width = 120.dp, height = 144.dp).semantics { contentDescription = "Mở trợ lý AI ScamShield"; role = Role.Button }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+            RobotMascot(Modifier, size = 70.dp, mood = RobotMood.IDLE)
         }
     }
 }
