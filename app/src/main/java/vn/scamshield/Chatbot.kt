@@ -50,6 +50,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -438,18 +439,19 @@ private fun ComposeRobotMascot(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
+                    val eyeSize = size * (if (mood == RobotMood.WARNING) 0.235f else 0.205f)
                     Row(
                         Modifier.fillMaxWidth(0.66f),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RobotEye(
-                            size = size * if (mood == RobotMood.WARNING) 0.235f else 0.205f,
+                            size = eyeSize,
                             blink = if (mood == RobotMood.IDLE || mood == RobotMood.GREETING) blink else 1f,
                             look = if (mood == RobotMood.ANALYZING) scan else 0f
                         )
                         RobotEye(
-                            size = size * if (mood == RobotMood.WARNING) 0.235f else 0.205f,
+                            size = eyeSize,
                             blink = if (mood == RobotMood.IDLE || mood == RobotMood.GREETING) blink else 1f,
                             look = if (mood == RobotMood.ANALYZING) scan else 0f
                         )
