@@ -81,7 +81,7 @@
         </Shape>
         <Shape x="180" y="241" name="ShieldCore" id="0:19">
             <Triangle width="20" height="22" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValueFFFFFFFF name="Color"/></Fill>
+            <Fill name="Fill"><SolidColor colorValue="FFFFFFFF" name="Color"/></Fill>
         </Shape>
 
         <!-- Idle: gentle bob, eye movement and relaxed arm wave -->
