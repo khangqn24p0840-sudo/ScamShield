@@ -223,7 +223,7 @@ private fun ComposeRobotMascot(
     mood: RobotMood
 ) {
     // Khi ở trạng thái chờ, robot luân phiên các biểu cảm sau mỗi 15 giây.
-    var idleExpression by remember { mutableIntStateOf(0) }
+    var idleExpression by remember { mutableStateOf(0) }
     LaunchedEffect(mood) {
         if (mood == RobotMood.IDLE) {
             while (true) {
@@ -296,8 +296,8 @@ private fun ComposeRobotMascot(
                 }
             }
         ) {
-            val sx = size.width / 100f
-            val sy = size.height / 120f
+            val sx = this.size.width / 100f
+            val sy = this.size.height / 120f
             fun pt(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * sx, y * sy)
             fun box(x: Float, y: Float, w: Float, h: Float) =
                 androidx.compose.ui.geometry.Size(w * sx, h * sy)
