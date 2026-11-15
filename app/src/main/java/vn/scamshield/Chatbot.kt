@@ -16,6 +16,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -55,12 +56,15 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -71,8 +75,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import app.rive.runtime.kotlin.RiveAnimationView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -96,30 +98,18 @@ private val ChatMuted = Color(0xFF6780A5)
 private val ChatBubbleUser = Color(0xFFE2EEFF)
 private val ChatChip = Color(0xFFEBF3FF)
 
-enum class RobotMood(val animationName: String) {
-    IDLE("Idle"),
-    GREETING("Greeting"),
-    ANALYZING("Analyzing"),
-    WARNING("Warning"),
-    SAD("Sad"),
-    CUTE("Cute")
-}
-
-private data class RobotFaceExpression(
-    val eyes: String,
-    val mouth: String,
-    val accent: String,
-    val accentColor: Color,
-    val description: String
-)
-
-private fun RobotMood.fallbackFace() = when (this) {
-    RobotMood.IDLE -> RobotFaceExpression("◕  ◕", "ᴗ", "˶  ˶", Color(0xFF8ADFFF), "đang chờ")
-    RobotMood.GREETING -> RobotFaceExpression("◕  ◕", "ᴗ", "✦  ✦", Color(0xFFFFA0BC), "vui vẻ chào bạn")
-    RobotMood.ANALYZING -> RobotFaceExpression("⌕  ⌕", "…", "·  ·", Color(0xFF73DFFF), "đang phân tích")
-    RobotMood.WARNING -> RobotFaceExpression("⊙  ⊙", "o", "!!", Color(0xFFFFC66D), "phát hiện dấu hiệu đáng ngờ")
-    RobotMood.SAD -> RobotFaceExpression("•  •", "︵", "﹀", Color(0xFF73C9F5), "đang buồn")
-    RobotMood.CUTE -> RobotFaceExpression("✧  ✧", "ω", "♡  ♡", Color(0xFFFF8FB8), "dễ thương")
+enum class RobotMood {
+    IDLE,
+    GREETING,
+    SAD,
+    DOI,
+    CUTE,
+    CRY,
+    WARNING,
+    ANALYZING,
+    JUMPING,
+    SITTING,
+    THINKING
 }
 
 private fun robotMoodFromReply(reply: String): RobotMood {
@@ -129,7 +119,17 @@ private fun robotMoodFromReply(reply: String): RobotMood {
             RobotMood.WARNING
         listOf("không thể phân tích", "chưa phân tích được", "đã xảy ra lỗi", "gặp sự cố", "không kết nối").any(text::contains) ->
             RobotMood.SAD
-        listOf("không có gì", "rất vui được giúp", "cảm ơn").any(text::contains) ->
+        listOf("dỗi", "hờn").any(text::contains) ->
+            RobotMood.DOI
+        listOf("khóc", "nức nở").any(text::contains) ->
+            RobotMood.CRY
+        listOf("nhảy", "tưng tưng").any(text::contains) ->
+            RobotMood.JUMPING
+        listOf("ngồi nghỉ", "ngồi xuống").any(text::contains) ->
+            RobotMood.SITTING
+        listOf("suy nghĩ", "ngẫm").any(text::contains) ->
+            RobotMood.THINKING
+        listOf("không có gì", "rất vui được giúp", "cảm ơn", "dễ thương").any(text::contains) ->
             RobotMood.CUTE
         else -> RobotMood.GREETING
     }
@@ -176,8 +176,10 @@ fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) 
 }
 
 /**
- * Mascot renderer. The Rive asset is preferred; Compose draws a polished matching robot
- * until the signed .riv file is exported from the Rive Editor/CLI and packaged.
+ * Official ScamShield mascot: native Compose port of
+ * khangqn24p0840-sudo/M-u/src/components/RobotMascot.tsx.
+ * Keeps the M-u shape, colors, visor, chubby arms and ten expression/pose states.
+ * Does not need Rive, a .riv file, account or WebView.
  */
 @Composable
 fun RobotMascot(
@@ -185,33 +187,62 @@ fun RobotMascot(
     size: Dp = 72.dp,
     mood: RobotMood = RobotMood.IDLE
 ) {
-    val context = LocalContext.current
-    val riveResId = remember(context) {
-        context.resources.getIdentifier("scamshield_robot", "raw", context.packageName)
-    }
+    ComposeRobotMascot(modifier = modifier, size = size, mood = mood)
+}
 
-    if (riveResId != 0) {
-        AndroidView(
-            modifier = modifier.size(width = size * 1.72f, height = size * 2.02f),
-            factory = { viewContext ->
-                RiveAnimationView(viewContext).also { view ->
-                    view.setRiveResource(
-                        resId = riveResId,
-                        animationName = mood.animationName,
-                        autoplay = true
-                    )
-                    view.tag = mood.name
-                }
-            },
-            update = { view ->
-                if (view.tag != mood.name) {
-                    view.play(mood.animationName)
-                    view.tag = mood.name
-                }
-            }
+/** Vẽ cánh tay chibi tròn trịa kèm bàn tay găng mềm mại (thay thế tay que). */
+private fun DrawScope.drawChubbyArm(
+    px: (Float) -> Float,
+    py: (Float) -> Float,
+    s: Float,
+    shoulderX: Float,
+    shoulderY: Float,
+    angleDeg: Float,
+    side: Int, // -1 = tay trái, +1 = tay phải
+    length: Float,
+    shellBrush: Brush,
+    edgeColor: Color,
+    purpleColor: Color
+) {
+    val pivot = Offset(px(shoulderX), py(shoulderY))
+    rotate(degrees = angleDeg, pivot = pivot) {
+        drawCircle(Color(0xFF2A244D), 3.6f * s, pivot)
+        drawCircle(Color.White.copy(alpha = 0.4f), 1.1f * s, Offset(pivot.x - 1f * s, pivot.y - 1f * s))
+
+        drawRoundRect(
+            brush = shellBrush,
+            topLeft = Offset(px(shoulderX - 4.3f), py(shoulderY + 0.8f)),
+            size = Size(8.6f * s, length * s),
+            cornerRadius = CornerRadius(4.3f * s)
         )
-    } else {
-        ComposeRobotMascot(modifier = modifier, size = size, mood = mood)
+        drawRoundRect(
+            color = edgeColor,
+            topLeft = Offset(px(shoulderX - 4.3f), py(shoulderY + 0.8f)),
+            size = Size(8.6f * s, length * s),
+            cornerRadius = CornerRadius(4.3f * s),
+            style = Stroke(0.9f * s)
+        )
+
+        drawRoundRect(
+            color = purpleColor,
+            topLeft = Offset(px(shoulderX - 4.4f), py(shoulderY + length - 6.8f)),
+            size = Size(8.8f * s, 3.2f * s),
+            cornerRadius = CornerRadius(1.6f * s)
+        )
+
+        val pawCenter = Offset(px(shoulderX), py(shoulderY + length + 1.5f))
+        drawCircle(Color.White, 5.2f * s, pawCenter)
+        drawCircle(edgeColor, 5.2f * s, pawCenter, style = Stroke(0.9f * s))
+
+        val thumbCenter = Offset(px(shoulderX - side * 4.3f), py(shoulderY + length - 0.8f))
+        drawCircle(Color(0xFFF5F2FC), 2.4f * s, thumbCenter)
+        drawCircle(edgeColor, 2.4f * s, thumbCenter, style = Stroke(0.85f * s))
+
+        drawOval(
+            Color.White.copy(alpha = 0.9f),
+            topLeft = Offset(px(shoulderX - 2.9f), py(shoulderY + length - 0.8f)),
+            size = Size(3.2f * s, 2.2f * s)
+        )
     }
 }
 
@@ -221,43 +252,81 @@ private fun ComposeRobotMascot(
     size: Dp,
     mood: RobotMood
 ) {
-    // Khi ở trạng thái chờ, robot luân phiên các biểu cảm sau mỗi 15 giây.
-    var idleExpression by remember { mutableStateOf(0) }
+    val idleSequence = remember { listOf(0, 3, 9, 8, 7, 0) }
+    var idleStep by remember { mutableStateOf(0) }
     LaunchedEffect(mood) {
         if (mood == RobotMood.IDLE) {
             while (true) {
-                delay(15_000L)
-                idleExpression = (idleExpression + 1) % 6
+                delay(12_000L)
+                idleStep = (idleStep + 1) % idleSequence.size
             }
         } else {
-            idleExpression = 0
+            idleStep = 0
         }
     }
 
     val expression = when (mood) {
-        RobotMood.IDLE -> idleExpression
+        RobotMood.IDLE -> idleSequence[idleStep]
         RobotMood.GREETING -> 0
         RobotMood.ANALYZING -> 6
         RobotMood.WARNING -> 5
         RobotMood.SAD -> 1
         RobotMood.CUTE -> 3
+        RobotMood.DOI -> 2
+        RobotMood.CRY -> 4
+        RobotMood.JUMPING -> 7
+        RobotMood.SITTING -> 8
+        RobotMood.THINKING -> 9
     }
 
-    val motion = rememberInfiniteTransition(label = "scamshield-toy-robot")
+    val isJumping = expression == 7
+    val isSitting = expression == 8
+    val isThinking = expression == 9
+
+    val motion = rememberInfiniteTransition(label = "scamshield-chibi-robot")
     val bob by motion.animateFloat(
-        -1.2f, 1.2f,
+        -1.6f, 1.6f,
         infiniteRepeatable(tween(2100, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "robot-bob"
     )
+    val jumpPhase by motion.animateFloat(
+        0f, 1f,
+        infiniteRepeatable(
+            animation = keyframes {
+                durationMillis = 950
+                0f at 0
+                0.15f at 170
+                1f at 460
+                0.15f at 740
+                0f at 950
+            }
+        ),
+        label = "robot-jump"
+    )
+    val sitSway by motion.animateFloat(
+        -1f, 1f,
+        infiniteRepeatable(tween(1600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-sit"
+    )
+    val thinkTilt by motion.animateFloat(
+        -3f, -6f,
+        infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-think-tilt"
+    )
+    val thinkDot by motion.animateFloat(
+        0f, -2.6f,
+        infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-think-dot"
+    )
     val wave by motion.animateFloat(
-        -5.5f, 5.5f,
-        infiniteRepeatable(tween(1450, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        -6f, 6f,
+        infiniteRepeatable(tween(800, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "robot-wave"
     )
     val blink by motion.animateFloat(
         1f, 1f,
         infiniteRepeatable(
-            animation = androidx.compose.animation.core.keyframes {
+            animation = keyframes {
                 durationMillis = 3900
                 1f at 0
                 0.08f at 75
@@ -274,12 +343,27 @@ private fun ComposeRobotMascot(
         infiniteRepeatable(tween(850, easing = FastOutSlowInEasing), RepeatMode.Reverse),
         label = "robot-scan"
     )
+    val glow by motion.animateFloat(
+        0.55f, 1f,
+        infiniteRepeatable(tween(1500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-glow"
+    )
+    val antenna by motion.animateFloat(
+        -1.6f, 1.6f,
+        infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "robot-antenna"
+    )
+
+    val containerOffsetY = when {
+        isJumping -> 2f - jumpPhase * 15f
+        isSitting -> 3.5f + sitSway * 0.7f
+        else -> bob
+    }
 
     Box(
         modifier = modifier
-            .width(size * 1.28f)
-            .height(size * 1.40f)
-            .graphicsLayer { translationY = bob.dp.toPx() },
+            .width(size * 1.32f)
+            .height(size * 1.44f),
         contentAlignment = Alignment.Center
     ) {
         Canvas(
@@ -287,246 +371,310 @@ private fun ComposeRobotMascot(
                 contentDescription = when (expression) {
                     1 -> "Robot ScamShield đang buồn"
                     2 -> "Robot ScamShield đang dỗi"
-                    3 -> "Robot ScamShield đang vui"
+                    3 -> "Robot ScamShield đang vui dễ thương"
                     4 -> "Robot ScamShield đang khóc"
-                    5 -> "Robot ScamShield ngạc nhiên"
-                    6 -> "Robot ScamShield đang phân tích"
-                    else -> "Robot ScamShield đang mỉm cười"
+                    5 -> "Robot ScamShield ngạc nhiên cảnh báo"
+                    6 -> "Robot ScamShield đang quét phân tích"
+                    7 -> "Robot ScamShield đang nhảy nhảy vui vẻ"
+                    8 -> "Robot ScamShield đang ngồi nghỉ"
+                    9 -> "Robot ScamShield đang chống cằm suy nghĩ"
+                    else -> "Robot ScamShield đang vẫy tay chào"
                 }
             }
         ) {
-            val sx = this.size.width / 100f
-            val sy = this.size.height / 120f
-            fun pt(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * sx, y * sy)
-            fun box(w: Float, h: Float) =
-                androidx.compose.ui.geometry.Size(w * sx, h * sy)
+            val vh = 122f
+            val s = minOf(this.size.width / 100f, this.size.height / vh)
+            val ox = (this.size.width - 100f * s) / 2f
+            val oy = (this.size.height - vh * s) / 2f
+            fun px(x: Float) = ox + x * s
+            fun py(y: Float) = oy + y * s
+            fun pt(x: Float, y: Float) = Offset(px(x), py(y))
+            fun box(w: Float, h: Float) = Size(w * s, h * s)
+            fun rr(r: Float) = CornerRadius(r * s)
+
+            val purple = Color(0xFF7C4DFF)
+            val purpleLight = Color(0xFFC8B4FF)
+            val purpleDeep = Color(0xFF5B2FD0)
+            val ink = Color(0xFF1E193C)
+            val edge = Color(0xFFD2CCE8)
+            val cyan = Color(0xFF3BD8FF)
+            val cyanLight = Color(0xFFB8F4FF)
+            val blushPink = Color(0xFFFF8FB8)
 
             val shell = Brush.linearGradient(
-                colors = listOf(Color.White, Color(0xFFF4FBFE), Color(0xFFBFDDEB)),
-                start = pt(14f, 18f), end = pt(88f, 115f)
+                listOf(Color.White, Color(0xFFF5F2FC), Color(0xFFDFDAF0)),
+                start = pt(14f, 12f), end = pt(86f, 74f)
             )
-            val blue = Brush.linearGradient(
-                colors = listOf(Color(0xFFDDF7FF), Color(0xFF9ADDF2), Color(0xFF65BFE0)),
-                start = pt(30f, 63f), end = pt(70f, 108f)
-            )
-
-            // Bóng đổ mờ, không dùng viền trắng dày quanh toàn bộ robot.
-            drawOval(
-                brush = Brush.radialGradient(
-                    listOf(Color(0x332E82A8), Color(0x142E82A8), Color.Transparent),
-                    center = pt(50f, 114f), radius = 33f * sx
-                ),
-                topLeft = pt(17f, 108f), size = box(66f, 10f)
+            val bodyShell = Brush.linearGradient(
+                listOf(Color.White, Color(0xFFF3EFFB), Color(0xFFDAD4EC)),
+                start = pt(28f, 66f), end = pt(70f, 106f)
             )
 
-            // Ăng-ten nhỏ và đèn cyan.
-            drawLine(Color(0xFF83C9DE), pt(50f, 13f), pt(50f, 20f), 2.2f * sx,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawRoundRect(
-                Brush.linearGradient(listOf(Color(0xFFE8FBFF), Color(0xFF8CCCE3))),
-                topLeft = pt(44f, 17f), size = box(12f, 4f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2f * sx)
-            )
-            drawCircle(
-                Brush.radialGradient(listOf(Color(0xFFE6FFFF), Color(0xFF80F0F0), Color(0xFF55C5E2))),
-                radius = 4.2f * sx, center = pt(50f, 10f)
-            )
-            drawCircle(Color.White.copy(alpha = 0.85f), 1.2f * sx, pt(48.7f, 8.8f))
-
-            // Tai hai bên đầu, lộ nhẹ sau lớp vỏ.
-            drawRoundRect(
-                Brush.linearGradient(listOf(Color(0xFFC7F0FA), Color(0xFF76C3DF))),
-                topLeft = pt(8f, 36f), size = box(11f, 15f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * sx)
-            )
-            drawRoundRect(
-                Brush.linearGradient(listOf(Color(0xFF76C3DF), Color(0xFFC7F0FA))),
-                topLeft = pt(81f, 36f), size = box(11f, 15f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(5f * sx)
-            )
-
-            // Tay trái giơ lên chào; xoay rất nhẹ ở khớp vai.
-            val leftArm = androidx.compose.ui.graphics.Path().apply {
-                moveTo(30f * sx, 71f * sy)
-                cubicTo(25f * sx, 68f * sy, 22f * sx, 65f * sy, 18f * sx, 65f * sy)
-                cubicTo(12f * sx, 64f * sy, 8f * sx, 69f * sy, 10f * sx, 74f * sy)
-                cubicTo(12f * sx, 80f * sy, 19f * sx, 83f * sy, 24f * sx, 81f * sy)
-                cubicTo(28f * sx, 80f * sy, 31f * sx, 76f * sy, 30f * sx, 71f * sy)
-                close()
+            val shadowScaleX = if (isJumping) 1.06f - jumpPhase * 0.42f else if (isSitting) 1.12f else 1f
+            val shadowAlpha = if (isJumping) 0.28f - jumpPhase * 0.14f else 0.24f
+            scale(scaleX = shadowScaleX, scaleY = 1f, pivot = pt(50f, 117.5f)) {
+                drawOval(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF382A78).copy(alpha = shadowAlpha), Color.Transparent),
+                        center = pt(50f, if (isSitting) 115.5f else 117.5f),
+                        radius = (if (isSitting) 34f else 30f) * s
+                    ),
+                    topLeft = pt(if (isSitting) 16f else 20f, if (isSitting) 111f else 114f),
+                    size = box(if (isSitting) 68f else 60f, if (isSitting) 9f else 7.2f)
+                )
             }
-            // Cánh tay trái chuyển động nhẹ theo trục ngang để tạo cảm giác vẫy chào.
-            drawPath(leftArm, shell)
-            drawPath(leftArm, Color(0xFFDDEEF4),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
-            drawCircle(Color(0xFFFFFFFF), 2.1f * sx, pt(9.5f + wave * 0.22f, 68f))
-            drawCircle(Color(0xFFEAF7FC), 1.9f * sx, pt(14f + wave * 0.32f, 65.8f))
-            drawCircle(Color(0xFFFFFFFF), 1.8f * sx, pt(18.5f + wave * 0.40f, 68f))
 
-            // Tay phải buông xuống, bàn tay dạng găng tròn.
-            val rightArm = androidx.compose.ui.graphics.Path().apply {
-                moveTo(71f * sx, 70f * sy)
-                cubicTo(77f * sx, 73f * sy, 80f * sx, 82f * sy, 83f * sx, 90f * sy)
-                lineTo(88f * sx, 101f * sy)
-                cubicTo(89f * sx, 105f * sy, 85f * sx, 107f * sy, 82f * sx, 103f * sy)
-                cubicTo(77f * sx, 98f * sy, 73f * sx, 88f * sy, 70f * sx, 80f * sy)
-                close()
-            }
-            drawPath(rightArm, shell)
-            drawPath(rightArm, Color(0xFFDDEEF4),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
-            drawCircle(Color(0xFF9DD9EA), 2.7f * sx, pt(84f, 100f))
-            drawCircle(Color.White, 1.4f * sx, pt(84f, 100f))
-            drawRoundRect(shell, topLeft = pt(83f, 101f), size = box(5f, 7f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.5f * sx))
-
-            // Thân trắng bo tròn, hơi thuôn ở phần đáy.
-            val torso = androidx.compose.ui.graphics.Path().apply {
-                moveTo(31f * sx, 64f * sy)
-                cubicTo(35f * sx, 61f * sy, 65f * sx, 61f * sy, 69f * sx, 64f * sy)
-                cubicTo(76f * sx, 71f * sy, 73f * sx, 90f * sy, 68f * sx, 104f * sy)
-                cubicTo(65f * sx, 112f * sy, 60f * sx, 115f * sy, 50f * sx, 115f * sy)
-                cubicTo(40f * sx, 115f * sy, 35f * sx, 112f * sy, 32f * sx, 104f * sy)
-                cubicTo(27f * sx, 90f * sy, 24f * sx, 71f * sy, 31f * sx, 64f * sy)
-                close()
-            }
-            drawPath(torso, shell)
-            drawPath(torso, Color(0xFFD9EBF2),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.9f * sx))
-
-            // Tấm ngực xanh pastel đặc trưng của robot mẫu.
-            val chest = androidx.compose.ui.graphics.Path().apply {
-                moveTo(34f * sx, 69f * sy)
-                cubicTo(40f * sx, 72f * sy, 60f * sx, 72f * sy, 66f * sx, 69f * sy)
-                cubicTo(64f * sx, 80f * sy, 63f * sx, 92f * sy, 60f * sx, 101f * sy)
-                cubicTo(58f * sx, 106f * sy, 42f * sx, 106f * sy, 40f * sx, 101f * sy)
-                cubicTo(37f * sx, 92f * sy, 36f * sx, 80f * sy, 34f * sx, 69f * sy)
-                close()
-            }
-            drawPath(chest, blue)
-            drawPath(chest, Color(0xFFB9E4F3),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.7f * sx))
-
-            // Khớp vai và viền đế xanh nhạt.
-            drawCircle(Brush.linearGradient(listOf(Color(0xFFD5F5FC), Color(0xFF78C6E2))),
-                5.2f * sx, pt(29f, 73f))
-            drawCircle(Brush.linearGradient(listOf(Color(0xFFD5F5FC), Color(0xFF78C6E2))),
-                5.2f * sx, pt(71f, 73f))
-            drawCircle(Color.White.copy(alpha = 0.62f), 1.4f * sx, pt(27.5f, 71.5f))
-            drawCircle(Color.White.copy(alpha = 0.62f), 1.4f * sx, pt(69.5f, 71.5f))
-            drawRoundRect(
-                Brush.verticalGradient(listOf(Color(0xFFC3EFF9), Color(0xFF86CDE5))),
-                topLeft = pt(38f, 110f), size = box(24f, 5f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f * sx)
-            )
-
-            // Đầu lớn, vỏ nhựa trắng ngọc trai và mặt kính navy.
-            drawRoundRect(
-                brush = shell, topLeft = pt(12f, 18f), size = box(76f, 47f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f * sx)
-            )
-            drawRoundRect(
-                color = Color.White.copy(alpha = 0.72f), topLeft = pt(12f, 18f), size = box(76f, 47f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18f * sx),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.8f * sx)
-            )
-            drawRoundRect(
-                brush = Brush.linearGradient(
-                    listOf(Color(0xFF263A66), Color(0xFF111D40), Color(0xFF07142F)),
-                    start = pt(23f, 22f), end = pt(78f, 62f)
-                ),
-                topLeft = pt(18f, 23f), size = box(64f, 37f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * sx)
-            )
-            drawRoundRect(
-                color = Color(0xFF87CFE9).copy(alpha = 0.24f),
-                topLeft = pt(18f, 23f), size = box(64f, 37f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(14f * sx),
-                style = androidx.compose.ui.graphics.drawscope.Stroke(0.7f * sx)
-            )
-
-            // Ánh phản chiếu mờ trên mặt kính, tạo cảm giác sâu hơn.
-            val reflection = androidx.compose.ui.graphics.Path().apply {
-                moveTo(23f * sx, 28f * sy)
-                cubicTo(36f * sx, 23f * sy, 56f * sx, 23f * sy, 76f * sx, 28f * sy)
-                cubicTo(58f * sx, 25f * sy, 39f * sx, 26f * sy, 23f * sx, 31f * sy)
-                close()
-            }
-            drawPath(reflection, Color.White.copy(alpha = 0.06f))
-
-            // Mắt xanh cyan có quầng sáng và nhịp chớp tự nhiên.
-            val eyeY = 40f * sy
-            val eyeHeight = if (blink < 0.2f) 1.25f * sy
-                else if (expression == 5) 7.4f * sy else 6.3f * sy
-            val eyeWidth = if (expression == 5) 5.4f * sx else 4.5f * sx
-            val lookOffset = if (expression == 6) scan * sx else 0f
-            for (eyeX in listOf(39.5f, 60.5f)) {
-                val center = pt(eyeX, 40f)
-                drawCircle(Color(0xFF55F5F5).copy(alpha = 0.18f), 7.3f * sx, center)
-                if (blink < 0.2f) {
-                    drawLine(Color(0xFF67F4F2),
-                        androidx.compose.ui.geometry.Offset(center.x - 3.2f * sx, center.y),
-                        androidx.compose.ui.geometry.Offset(center.x + 3.2f * sx, center.y),
-                        1.5f * sx, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                } else {
-                    drawOval(
-                        Brush.verticalGradient(listOf(Color(0xFFB4FFFF), Color(0xFF4AE6EC), Color(0xFF20BFD5))),
-                        topLeft = androidx.compose.ui.geometry.Offset(center.x - eyeWidth / 2f + lookOffset, center.y - eyeHeight / 2f),
-                        size = androidx.compose.ui.geometry.Size(eyeWidth, eyeHeight)
-                    )
-                    drawCircle(Color.White.copy(alpha = 0.7f), 0.75f * sx,
-                        androidx.compose.ui.geometry.Offset(center.x - 0.8f * sx + lookOffset, center.y - 1.35f * sy))
+            if (isThinking) {
+                drawCircle(Color.White, 2.1f * s, pt(76f, 19f + thinkDot * 0.5f))
+                drawCircle(purpleLight, 2.1f * s, pt(76f, 19f + thinkDot * 0.5f), style = Stroke(0.9f * s))
+                drawCircle(Color.White, 3f * s, pt(81.5f, 13.5f + thinkDot * 0.8f))
+                drawCircle(purpleLight, 3f * s, pt(81.5f, 13.5f + thinkDot * 0.8f), style = Stroke(0.9f * s))
+                val cloudY = -1f + thinkDot
+                drawRoundRect(Color.White, topLeft = pt(81f, cloudY), size = box(18f, 13f), cornerRadius = rr(6.5f))
+                drawRoundRect(purple, topLeft = pt(81f, cloudY), size = box(18f, 13f), cornerRadius = rr(6.5f), style = Stroke(1.1f * s))
+                for (dx in listOf(86.5f, 90f, 93.5f)) {
+                    drawCircle(purple, 1.15f * s, pt(dx, cloudY + 6.5f))
                 }
             }
 
-            // Miệng vẽ trực tiếp, đổi hình theo cảm xúc thay vì ký tự.
-            val mouth = androidx.compose.ui.graphics.Path().apply {
-                when (expression) {
-                    1, 4 -> {
-                        moveTo(43f * sx, 49f * sy)
-                        cubicTo(46f * sx, 45f * sy, 54f * sx, 45f * sy, 57f * sx, 49f * sy)
-                    }
-                    2 -> {
-                        moveTo(44f * sx, 48f * sy)
-                        cubicTo(48f * sx, 49.2f * sy, 52f * sx, 49.2f * sy, 56f * sx, 48f * sy)
-                    }
-                    5 -> {
-                        moveTo(47f * sx, 46f * sy)
-                        cubicTo(47f * sx, 44f * sy, 53f * sx, 44f * sy, 53f * sx, 46f * sy)
-                        cubicTo(53f * sx, 51f * sy, 47f * sx, 51f * sy, 47f * sx, 46f * sy)
-                        close()
-                    }
-                    6 -> {
-                        moveTo(47f * sx, 49f * sy)
-                        cubicTo(49f * sx, 47f * sy, 51f * sx, 47f * sy, 53f * sx, 49f * sy)
-                    }
-                    else -> {
-                        moveTo(42f * sx, 46.5f * sy)
-                        cubicTo(46f * sx, 51f * sy, 54f * sx, 51f * sy, 58f * sx, 46.5f * sy)
+            val stretchX = if (isJumping) 1.04f - jumpPhase * 0.08f else 1f
+            val stretchY = if (isJumping) 0.95f + jumpPhase * 0.09f else 1f
+            val bodyRotate = if (isSitting) sitSway else 0f
+
+            translate(top = containerOffsetY * s) {
+                scale(scaleX = stretchX, scaleY = stretchY, pivot = pt(50f, 114f)) {
+                    rotate(degrees = bodyRotate, pivot = pt(50f, 110f)) {
+                        when {
+                            isSitting -> {
+                                for ((idx, fx) in listOf(36.5f, 63.5f).withIndex()) {
+                                    val footCenter = pt(fx, 107f)
+                                    rotate(degrees = if (idx == 0) -16f else 16f, pivot = footCenter) {
+                                        drawOval(Color(0xFFF5F2FC), topLeft = pt(fx - 7.8f, 100.6f), size = box(15.6f, 12.8f))
+                                        drawOval(edge, topLeft = pt(fx - 7.8f, 100.6f), size = box(15.6f, 12.8f), style = Stroke(0.9f * s))
+                                        drawOval(Color(0xFF9C78FF).copy(alpha = 0.45f), topLeft = pt(fx - 4.4f, 104.3f), size = box(8.8f, 6.8f))
+                                        drawCircle(purple.copy(alpha = 0.6f), 1f * s, pt(fx - 2.1f, 104.5f))
+                                        drawCircle(purple.copy(alpha = 0.6f), 1f * s, pt(fx, 103.8f))
+                                        drawCircle(purple.copy(alpha = 0.6f), 1f * s, pt(fx + 2.1f, 104.5f))
+                                    }
+                                }
+                            }
+                            isJumping -> {
+                                for ((idx, fx) in listOf(38f, 62f).withIndex()) {
+                                    val footPivot = pt(fx, 106f)
+                                    rotate(degrees = if (idx == 0) 22f else -22f, pivot = footPivot) {
+                                        drawRoundRect(Color(0xFFF3EFFB), topLeft = pt(fx - 7.2f, 101.5f), size = box(14.4f, 10.5f), cornerRadius = rr(5.2f))
+                                        drawRoundRect(edge, topLeft = pt(fx - 7.2f, 101.5f), size = box(14.4f, 10.5f), cornerRadius = rr(5.2f), style = Stroke(0.9f * s))
+                                        drawRoundRect(purple, topLeft = pt(fx - 5.5f, 108.8f), size = box(11f, 2.2f), cornerRadius = rr(1.1f))
+                                    }
+                                }
+                            }
+                            else -> {
+                                for (fx in listOf(39f, 61f)) {
+                                    drawRoundRect(Color(0xFFF3EFFB), topLeft = pt(fx - 7.5f, 102.5f), size = box(15f, 11f), cornerRadius = rr(5.5f))
+                                    drawRoundRect(edge, topLeft = pt(fx - 7.5f, 102.5f), size = box(15f, 11f), cornerRadius = rr(5.5f), style = Stroke(0.9f * s))
+                                    drawRoundRect(purple, topLeft = pt(fx - 5.8f, 109.5f), size = box(11.6f, 2.3f), cornerRadius = rr(1.15f))
+                                }
+                            }
+                        }
+
+                        translate(top = if (isSitting) 6f * s else 0f) {
+                            drawRoundRect(bodyShell, topLeft = pt(30f, 66f), size = box(40f, 39f), cornerRadius = rr(18f))
+                            drawRoundRect(edge, topLeft = pt(30f, 66f), size = box(40f, 39f), cornerRadius = rr(18f), style = Stroke(0.9f * s))
+
+                            drawRoundRect(
+                                Brush.horizontalGradient(listOf(purpleDeep, Color(0xFFB69CFF), purpleDeep), startX = px(31.2f), endX = px(68.8f)),
+                                topLeft = pt(31.2f, 94.5f), size = box(37.6f, 3.5f), cornerRadius = rr(1.75f)
+                            )
+                            drawLine(cyan.copy(alpha = 0.25f + 0.45f * glow), pt(34f, 99.6f), pt(66f, 99.6f), 1.1f * s, cap = StrokeCap.Round)
+
+                            val chest = pt(50f, 82f)
+                            drawCircle(cyan.copy(alpha = 0.22f * glow), 11f * s, chest)
+                            drawCircle(Color(0xFFF3EFFB), 8.2f * s, chest)
+                            drawCircle(purple.copy(alpha = 0.88f), 7f * s, chest, style = Stroke(1.4f * s))
+                            drawCircle(
+                                Brush.radialGradient(listOf(Color.White.copy(alpha = 0.96f), cyanLight, cyan), center = chest, radius = 5.8f * s),
+                                5.8f * s, chest
+                            )
+                            drawCircle(Color.White.copy(alpha = 0.85f), 1.3f * s, pt(48f, 79.8f))
+
+                            val leftAngle = when {
+                                isJumping -> 135f
+                                isSitting -> -28f
+                                else -> 18f
+                            }
+                            drawChubbyArm(
+                                px = ::px, py = ::py, s = s,
+                                shoulderX = 30f, shoulderY = if (isSitting) 77f else 76f,
+                                angleDeg = leftAngle, side = -1,
+                                length = if (isJumping || isSitting) 16f else 17f,
+                                shellBrush = shell, edgeColor = edge, purpleColor = purple
+                            )
+
+                            val rightAngle = when {
+                                isJumping -> -135f
+                                isSitting -> 28f
+                                isThinking -> 138f
+                                else -> -118f + wave
+                            }
+                            drawChubbyArm(
+                                px = ::px, py = ::py, s = s,
+                                shoulderX = 70f, shoulderY = if (isSitting || isThinking) 77f else 76f,
+                                angleDeg = rightAngle, side = 1,
+                                length = when {
+                                    isJumping || isSitting -> 16f
+                                    isThinking -> 16.5f
+                                    else -> 17f
+                                },
+                                shellBrush = shell, edgeColor = edge, purpleColor = purple
+                            )
+
+                            drawRoundRect(ink, topLeft = pt(42.5f, 64f), size = box(15f, 7f), cornerRadius = rr(3.5f))
+
+                            val headPivot = pt(50f, 66f)
+                            rotate(degrees = if (isThinking) thinkTilt else 0f, pivot = headPivot) {
+                                val tipL = pt(21f + antenna, 5f)
+                                val tipR = pt(79f - antenna, 5f)
+                                drawLine(Color(0xFFC8C3DB), pt(28f, 16f), tipL, 1.6f * s, cap = StrokeCap.Round)
+                                drawLine(Color(0xFFC8C3DB), pt(72f, 16f), tipR, 1.6f * s, cap = StrokeCap.Round)
+                                for (tip in listOf(tipL, tipR)) {
+                                    drawCircle(Brush.radialGradient(listOf(purpleLight, purple, purpleDeep), center = tip, radius = 3.2f * s), 3.1f * s, tip)
+                                    drawCircle(Color.White.copy(alpha = 0.88f), 1f * s, Offset(tip.x - 1f * s, tip.y - 1f * s))
+                                }
+
+                                for (cupX in listOf(4f, 84f)) {
+                                    drawRoundRect(Color(0xFFF5F2FC), topLeft = pt(cupX, 33f), size = box(12f, 24f), cornerRadius = rr(6f))
+                                    drawRoundRect(purple, topLeft = pt(cupX, 33f), size = box(12f, 24f), cornerRadius = rr(6f), style = Stroke(1.6f * s))
+                                    drawRoundRect(purple.copy(alpha = 0.35f), topLeft = pt(cupX + 3.5f, 37f), size = box(5f, 16f), cornerRadius = rr(2.5f))
+                                }
+
+                                drawRoundRect(shell, topLeft = pt(11f, 13f), size = box(78f, 57f), cornerRadius = rr(28f))
+                                drawRoundRect(edge, topLeft = pt(11f, 13f), size = box(78f, 57f), cornerRadius = rr(28f), style = Stroke(0.95f * s))
+                                drawOval(Color.White.copy(alpha = 0.9f), topLeft = pt(24f, 15.4f), size = box(24f, 4.8f))
+
+                                drawRoundRect(
+                                    Brush.linearGradient(
+                                        listOf(Color(0xFF262E54), Color(0xFF0E122B), Color(0xFF050714)),
+                                        start = pt(22f, 24f), end = pt(78f, 62f)
+                                    ),
+                                    topLeft = pt(17f, 23f), size = box(66f, 40f), cornerRadius = rr(19f)
+                                )
+                                drawRoundRect(
+                                    Color(0xFF6E7BFF).copy(alpha = 0.30f),
+                                    topLeft = pt(17f, 23f), size = box(66f, 40f), cornerRadius = rr(19f), style = Stroke(0.75f * s)
+                                )
+                                val reflection = Path().apply {
+                                    moveTo(px(26f), py(28.5f))
+                                    cubicTo(px(38f), py(23.8f), px(60f), py(23.8f), px(74f), py(28f))
+                                    cubicTo(px(60f), py(26.2f), px(40f), py(26.6f), px(26f), py(31.2f))
+                                    close()
+                                }
+                                drawPath(reflection, Color.White.copy(alpha = 0.08f))
+
+                                if (expression == 6) {
+                                    val t = (scan + 1.4f) / 2.8f
+                                    val y = 27f + t * 32f
+                                    drawLine(cyan.copy(alpha = 0.38f), pt(22f, y), pt(78f, y), 1.5f * s, cap = StrokeCap.Round)
+                                }
+
+                                val blushAlpha = if (expression == 3 || isJumping || isSitting) 0.45f else 0.2f
+                                drawOval(blushPink.copy(alpha = blushAlpha), topLeft = pt(22.1f, 49.4f), size = box(6.8f, 4.2f))
+                                drawOval(blushPink.copy(alpha = blushAlpha), topLeft = pt(71.1f, 49.4f), size = box(6.8f, 4.2f))
+
+                                val eyeBrush = Brush.verticalGradient(
+                                    listOf(cyanLight, cyan, Color(0xFF22A8F2)),
+                                    startY = py(33f), endY = py(49f)
+                                )
+                                val eyeShiftX = (if (expression == 6) scan * 1.3f else 0f) + (if (isThinking) 2.5f else 0f)
+                                val eyeShiftY = if (isThinking) -2f else 0f
+
+                                for (i in 0..1) {
+                                    val ex = (if (i == 0) 36f else 64f) + eyeShiftX
+                                    val ey = 40.5f + eyeShiftY
+                                    drawCircle(
+                                        Brush.radialGradient(listOf(cyan.copy(alpha = 0.14f + 0.2f * glow), Color.Transparent), center = pt(ex, ey), radius = 11.5f * s),
+                                        11.5f * s, pt(ex, ey)
+                                    )
+                                    if (blink < 0.2f) {
+                                        drawLine(cyan, pt(ex - 4.8f, ey), pt(ex + 4.8f, ey), 2.4f * s, cap = StrokeCap.Round)
+                                    } else when {
+                                        expression == 3 || isJumping || isSitting -> {
+                                            drawArc(
+                                                brush = eyeBrush, startAngle = 202f, sweepAngle = 136f, useCenter = false,
+                                                topLeft = pt(ex - 5.4f, 39.1f), size = box(10.8f, 10.8f),
+                                                style = Stroke(2.8f * s, cap = StrokeCap.Round)
+                                            )
+                                        }
+                                        expression == 5 -> {
+                                            drawCircle(eyeBrush, 5.4f * s, pt(ex, ey), style = Stroke(2.5f * s))
+                                            drawCircle(Color.White, 1.4f * s, pt(ex + 1.5f, ey - 2f))
+                                        }
+                                        isThinking -> {
+                                            val ry = if (i == 0) 5.8f else 4.2f
+                                            val rx = if (i == 0) 5f else 4.8f
+                                            drawOval(eyeBrush, topLeft = pt(ex - rx, ey - ry), size = box(rx * 2f, ry * 2f))
+                                            drawCircle(Color.White, (if (i == 0) 1.8f else 1.5f) * s, pt(ex - 1.3f, ey - 2f))
+                                            if (i == 0) {
+                                                drawCircle(Color.White.copy(alpha = 0.85f), 0.9f * s, pt(ex + 1.8f, ey + 1.7f))
+                                            }
+                                        }
+                                        expression == 1 || expression == 4 -> {
+                                            drawOval(eyeBrush, topLeft = pt(ex - 5.1f, 36.1f), size = box(10.2f, 10.8f))
+                                            drawCircle(Color.White, 1.7f * s, pt(ex - 1.5f, 39.4f))
+                                            drawCircle(Color.White.copy(alpha = 0.8f), 0.9f * s, pt(ex + 1.6f, 43.2f))
+                                        }
+                                        else -> {
+                                            drawOval(eyeBrush, topLeft = pt(ex - 5.3f, 34.2f), size = box(10.6f, 12.6f))
+                                            drawCircle(Color.White, 2f * s, pt(ex - 1.5f, 37.6f))
+                                            drawCircle(Color.White.copy(alpha = 0.9f), 1f * s, pt(ex + 1.9f, 42.5f))
+                                        }
+                                    }
+                                }
+
+                                if (expression == 5) {
+                                    drawCircle(cyan, 2.7f * s, pt(50f, 51.8f), style = Stroke(1.9f * s))
+                                } else {
+                                    val mouth = Path().apply {
+                                        fun m(x: Float, y: Float) = moveTo(px(x), py(y))
+                                        fun c(x1: Float, y1: Float, x2: Float, y2: Float, x3: Float, y3: Float) =
+                                            cubicTo(px(x1), py(y1), px(x2), py(y2), px(x3), py(y3))
+                                        when {
+                                            expression == 1 || expression == 4 -> {
+                                                m(45.5f, 53.2f); c(47.5f, 49.8f, 52.5f, 49.8f, 54.5f, 53.2f)
+                                            }
+                                            expression == 2 -> {
+                                                m(45.8f, 51.5f); c(48f, 52.2f, 52f, 52.2f, 54.2f, 51.5f)
+                                            }
+                                            expression == 3 || isJumping -> {
+                                                m(44f, 49.2f); c(45.5f, 53.5f, 48.5f, 53.5f, 50f, 50.8f)
+                                                c(51.5f, 53.5f, 54.5f, 53.5f, 56f, 49.2f)
+                                            }
+                                            expression == 6 -> {
+                                                m(47f, 51.5f); c(48.5f, 52.2f, 51.5f, 52.2f, 53f, 51.5f)
+                                            }
+                                            isThinking -> {
+                                                m(47.2f, 52.2f); c(48.8f, 50.8f, 51.2f, 50.8f, 52.8f, 52.2f)
+                                            }
+                                            else -> {
+                                                m(45.2f, 49.8f); c(47.2f, 54f, 52.8f, 54f, 54.8f, 49.8f)
+                                            }
+                                        }
+                                    }
+                                    drawPath(mouth, cyan, style = Stroke(2.1f * s, cap = StrokeCap.Round))
+                                }
+
+                                if (expression == 4) {
+                                    drawOval(cyanLight, topLeft = pt(32.1f, 47.2f), size = box(2.8f, 4.6f))
+                                    drawOval(cyanLight, topLeft = pt(65.1f, 47.2f), size = box(2.8f, 4.6f))
+                                }
+                            }
+                        }
                     }
                 }
-            }
-            drawPath(
-                mouth,
-                color = Color(0xFF73F7F0),
-                style = if (expression == 5) androidx.compose.ui.graphics.drawscope.Fill
-                    else androidx.compose.ui.graphics.drawscope.Stroke(1.7f * sx,
-                        cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            )
-
-            // Má hồng nhẹ khi vui/dễ thương và giọt nước khi buồn.
-            if (expression == 3 || expression == 0) {
-                drawCircle(Color(0xFFFF9EB8).copy(alpha = 0.30f), 2.0f * sx, pt(29f, 47f))
-                drawCircle(Color(0xFFFF9EB8).copy(alpha = 0.30f), 2.0f * sx, pt(71f, 47f))
-            }
-            if (expression == 4) {
-                drawCircle(Color(0xFF6BDDF4), 1.2f * sx, pt(33f, 47f))
-                drawCircle(Color(0xFF6BDDF4), 1.2f * sx, pt(67f, 47f))
             }
         }
     }
 }
 
-/** Nút chatbot luôn ở góc màn hình, robot chỉ nhún và nghiêng rất nhẹ khi chờ. */
 @Composable
 private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier.size(width = 124.dp, height = 148.dp), contentAlignment = Alignment.Center) {
@@ -551,11 +699,13 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
 
     LaunchedEffect(robotMood) {
         val duration = when (robotMood) {
-            RobotMood.GREETING -> 2200L
-            RobotMood.CUTE -> 2600L
-            RobotMood.WARNING, RobotMood.SAD -> 4200L
-            RobotMood.ANALYZING -> null
-            RobotMood.IDLE -> null
+            RobotMood.GREETING -> 2400L
+            RobotMood.CUTE -> 2800L
+            RobotMood.JUMPING -> 3600L
+            RobotMood.THINKING -> 4200L
+            RobotMood.SITTING -> 5200L
+            RobotMood.DOI, RobotMood.CRY, RobotMood.WARNING, RobotMood.SAD -> 4200L
+            RobotMood.ANALYZING, RobotMood.IDLE -> null
         }
         if (duration != null) {
             delay(duration)
@@ -624,7 +774,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         val chatReply = ChatIntent.localReply(message)
         if (chatReply != null) {
             lines.add(ChatLine(fromUser = false, text = chatReply))
-            robotMood = if (chatReply.contains("cảm ơn", ignoreCase = true)) RobotMood.CUTE else RobotMood.GREETING
+            robotMood = robotMoodFromReply(chatReply)
             return
         }
 
@@ -1000,6 +1150,27 @@ internal object ChatIntent {
         }
         if (n.contains("xin loi") && words.size <= 5) {
             return "Bạn đừng ngại, cứ hỏi thoải mái nhé! 😊"
+        }
+        if (n.contains("nhay") && words.size <= 6) {
+            return pick(
+                "Yay! Mình đang nhảy tưng tưng đây nè! ✨",
+                "Nhảy một cái cho vui nào! Bạn cần mình kiểm tra gì không?"
+            )
+        }
+        if (n.contains("ngoi") && words.size <= 6) {
+            return "Mình ngồi nghỉ một chút đây nhé, có tin nhắn lạ cứ gửi mình xem ngay nha!"
+        }
+        if ((n.contains("suy nghi") || n.contains("ngam")) && words.size <= 6) {
+            return "Hmm… để mình suy nghĩ thật kỹ xem nào 🤔"
+        }
+        if ((n.contains("de thuong") || n.contains("xinh") || n.contains("cute")) && words.size <= 6) {
+            return "Hihi cảm ơn bạn nhiều nha! Được khen dễ thương làm mình vui quá 💚"
+        }
+        if (n.contains("doi") && words.size <= 6) {
+            return "Hừm... mình dỗi nhẹ một chút thôi nhé! 😤"
+        }
+        if (n.contains("khoc") && words.size <= 6) {
+            return "Oa... mình đang khóc một chút đây... 💧"
         }
 
         // Hỏi chung chung về lừa đảo nhưng chưa gửi nội dung
