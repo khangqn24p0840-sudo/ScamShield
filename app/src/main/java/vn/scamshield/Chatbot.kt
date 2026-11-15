@@ -56,7 +56,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -299,7 +298,7 @@ private fun ComposeRobotMascot(
             val sx = this.size.width / 100f
             val sy = this.size.height / 120f
             fun pt(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * sx, y * sy)
-            fun box(x: Float, y: Float, w: Float, h: Float) =
+            fun box(w: Float, h: Float) =
                 androidx.compose.ui.geometry.Size(w * sx, h * sy)
 
             val shell = Brush.linearGradient(
@@ -355,16 +354,13 @@ private fun ComposeRobotMascot(
                 cubicTo(28f * sx, 80f * sy, 31f * sx, 76f * sy, 30f * sx, 71f * sy)
                 close()
             }
-            androidx.compose.ui.graphics.drawscope.withTransform({
-                rotate(wave, pivot = pt(29f, 74f))
-            }) {
-                drawPath(leftArm, shell)
-                drawPath(leftArm, Color(0xFFDDEEF4),
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
-                drawCircle(Color(0xFFFFFFFF), 2.1f * sx, pt(9.5f, 68f))
-                drawCircle(Color(0xFFEAF7FC), 1.9f * sx, pt(14f, 65.8f))
-                drawCircle(Color(0xFFFFFFFF), 1.8f * sx, pt(18.5f, 68f))
-            }
+            // Cánh tay trái chuyển động nhẹ theo trục ngang để tạo cảm giác vẫy chào.
+            drawPath(leftArm, shell)
+            drawPath(leftArm, Color(0xFFDDEEF4),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(0.75f * sx))
+            drawCircle(Color(0xFFFFFFFF), 2.1f * sx, pt(9.5f + wave * 0.22f, 68f))
+            drawCircle(Color(0xFFEAF7FC), 1.9f * sx, pt(14f + wave * 0.32f, 65.8f))
+            drawCircle(Color(0xFFFFFFFF), 1.8f * sx, pt(18.5f + wave * 0.40f, 68f))
 
             // Tay phải buông xuống, bàn tay dạng găng tròn.
             val rightArm = androidx.compose.ui.graphics.Path().apply {
