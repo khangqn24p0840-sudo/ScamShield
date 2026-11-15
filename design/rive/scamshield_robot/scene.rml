@@ -116,6 +116,29 @@
                     <KeyFrameDouble value="220" interpolationType="linear" frame="120"/>
                 </KeyedProperty>
             </KeyedObject>
+            <!-- Natural double blink while waiting -->
+            <KeyedObject objectId="0:9">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.08" interpolationType="linear" frame="4"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="8"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="48"/>
+                    <KeyFrameDouble value="0.08" interpolationType="linear" frame="52"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="56"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:10">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.08" interpolationType="linear" frame="4"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="8"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="48"/>
+                    <KeyFrameDouble value="0.08" interpolationType="linear" frame="52"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="56"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
             <KeyedObject objectId="0:6">
                 <KeyedProperty property="y">
                     <KeyFrameDouble value="246" interpolationType="linear"/>
@@ -149,6 +172,14 @@
                     <KeyFrameDouble value="0" interpolationType="linear"/>
                     <KeyFrameDouble value="0.08" interpolationType="linear" frame="45"/>
                     <KeyFrameDouble value="0" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:13">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="1.65" interpolationType="linear" frame="30"/>
+                    <KeyFrameDouble value="1.65" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="90"/>
                 </KeyedProperty>
             </KeyedObject>
         </LinearAnimation>
