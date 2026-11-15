@@ -29,6 +29,18 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Install Rive CLI
+        shell: bash
+        run: |
+          curl -fsSL https://releases.rive.app/cli/install.sh | bash
+          echo "$HOME/.rive/bin" >> "$GITHUB_PATH"
+
+      - name: Validate and render Rive robot source
+        run: |
+          mkdir -p dist
+          rive design/rive/scamshield_robot --verify
+          rive design/rive/scamshield_robot --screenshot=dist/scamshield-robot-preview.png --viewport=360x360
+
       - name: Verify Android project files
         run: |
           test -f settings.gradle.kts
@@ -59,7 +71,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ScamShield-${{ steps.package.outputs.version }}-debug-apk
-          path: dist/ScamShield.apk
+          path: dist/*
           if-no-files-found: error
           retention-days: 30
 
