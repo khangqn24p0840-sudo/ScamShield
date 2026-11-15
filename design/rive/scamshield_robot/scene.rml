@@ -33,6 +33,23 @@
             <Ellipse width="62" height="34" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FFEAF7FC" name="Color"/></Fill>
         </Shape>
+        <!-- Front-to-back torso details: badge and highlight sit above the white body shell. -->
+        <Shape x="180" y="348" name="ShieldCore" id="0:19">
+            <Triangle width="27" height="31" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFF0FDFF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="348" name="ShieldBadge" id="0:16">
+            <Ellipse width="50" height="54" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF65CBE8" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="344" name="ChestPanel" id="0:40">
+            <Ellipse width="126" height="132" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFB8ECF8" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="253" name="BodyHighlight" id="0:23">
+            <Ellipse width="104" height="22" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="BFFFFFFF" name="Color"/></Fill>
+        </Shape>
         <Shape x="180" y="334" name="Body" id="0:6">
             <Ellipse width="190" height="196" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FFF9FCFF" name="Color"/></Fill>
@@ -44,10 +61,6 @@
         <Shape x="244" y="269" name="RightShoulder" id="0:22">
             <Ellipse width="58" height="50" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FFE3F5FC" name="Color"/></Fill>
-        </Shape>
-        <Shape x="180" y="253" name="BodyHighlight" id="0:23">
-            <Ellipse width="104" height="22" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="BFFFFFFF" name="Color"/></Fill>
         </Shape>
 
         <!-- Blue ear pods, placed behind the head -->
@@ -78,38 +91,27 @@
             <Fill name="Fill"><SolidColor colorValue="FF8AF2FA" name="Color"/></Fill>
         </Shape>
 
-        <!-- Main glossy white head casing -->
-        <Shape x="180" y="151" name="HeadShadow" id="0:28">
-            <Ellipse width="296" height="216" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFB8D9EC" name="Color"/></Fill>
-        </Shape>
-        <Shape x="180" y="144" name="Head" id="0:7">
-            <Ellipse width="290" height="210" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFFBFDFF" name="Color"/></Fill>
-        </Shape>
+        <!-- Front-to-back draw order: facial details first, then panel, rim, shell and rear shadow. -->
+        <!-- Keep this order: later opaque shell shapes would hide the face if moved above these details. -->
         <Shape x="140" y="76" name="HeadShine" id="0:29">
             <Ellipse width="118" height="20" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="BFFFFFFF" name="Color"/></Fill>
         </Shape>
-
-        <!-- Navy glass display panel with an icy-blue rim -->
-        <Shape x="180" y="148" name="FaceRim" id="0:30">
-            <Ellipse width="250" height="164" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FF8DDCF0" name="Color"/></Fill>
+        <Shape x="128" y="128" name="LeftEyeHighlight" id="0:33">
+            <Ellipse width="8" height="10" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFFFFFFF" name="Color"/></Fill>
         </Shape>
-        <Shape x="180" y="148" name="FacePanel" id="0:8">
-            <Ellipse width="236" height="150" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FF0B1C3C" name="Color"/></Fill>
+        <Shape x="218" y="128" name="RightEyeHighlight" id="0:34">
+            <Ellipse width="8" height="10" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFFFFFFF" name="Color"/></Fill>
         </Shape>
-
-        <!-- Glowing eyes: soft halo plus luminous cyan centers -->
-        <Shape x="135" y="137" name="LeftEyeGlow" id="0:9">
-            <Ellipse width="50" height="52" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="6677EAF5" name="Color"/></Fill>
+        <Shape x="135" y="137" name="LeftPupil" id="0:31">
+            <Ellipse width="16" height="23" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF10436A" name="Color"/></Fill>
         </Shape>
-        <Shape x="225" y="137" name="RightEyeGlow" id="0:10">
-            <Ellipse width="50" height="52" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="6677EAF5" name="Color"/></Fill>
+        <Shape x="225" y="137" name="RightPupil" id="0:32">
+            <Ellipse width="16" height="23" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF10436A" name="Color"/></Fill>
         </Shape>
         <Shape x="135" y="137" name="LeftEye" id="0:11">
             <Ellipse width="34" height="40" originX="0.5" originY="0.5" name="Path"/>
@@ -119,22 +121,13 @@
             <Ellipse width="34" height="40" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FF73EAF1" name="Color"/></Fill>
         </Shape>
-
-        <Shape x="135" y="137" name="LeftPupil" id="0:31">
-            <Ellipse width="16" height="23" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FF10436A" name="Color"/></Fill>
+        <Shape x="135" y="137" name="LeftEyeGlow" id="0:9">
+            <Ellipse width="50" height="52" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="6677EAF5" name="Color"/></Fill>
         </Shape>
-        <Shape x="225" y="137" name="RightPupil" id="0:32">
-            <Ellipse width="16" height="23" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FF10436A" name="Color"/></Fill>
-        </Shape>
-        <Shape x="128" y="128" name="LeftEyeHighlight" id="0:33">
-            <Ellipse width="8" height="10" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFFFFFFF" name="Color"/></Fill>
-        </Shape>
-        <Shape x="218" y="128" name="RightEyeHighlight" id="0:34">
-            <Ellipse width="8" height="10" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFFFFFFF" name="Color"/></Fill>
+        <Shape x="225" y="137" name="RightEyeGlow" id="0:10">
+            <Ellipse width="50" height="52" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="6677EAF5" name="Color"/></Fill>
         </Shape>
         <Shape x="135" y="105" name="LeftBrow" id="0:35">
             <Ellipse width="31" height="8" originX="0.5" originY="0.5" name="Path"/>
@@ -152,26 +145,31 @@
             <Ellipse width="29" height="15" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="CCFF91B7" name="Color"/></Fill>
         </Shape>
-
-        <!-- Simple open, happy mouth -->
         <Shape x="180" y="190" name="Mouth" id="0:13">
             <Ellipse width="42" height="22" originX="0.5" originY="0.5" name="Path"/>
             <Fill name="Fill"><SolidColor colorValue="FFFF91B7" name="Color"/></Fill>
         </Shape>
+        <Shape x="180" y="148" name="FacePanel" id="0:8">
+            <Ellipse width="236" height="150" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF0B1C3C" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="148" name="FaceRim" id="0:30">
+            <Ellipse width="250" height="164" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF8DDCF0" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="144" name="Head" id="0:7">
+            <Ellipse width="290" height="210" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFFBFDFF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="151" name="HeadShadow" id="0:28">
+            <Ellipse width="296" height="216" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFB8D9EC" name="Color"/></Fill>
+        </Shape>
 
-        <!-- ScamShield emblem on the chest -->
-        <Shape x="180" y="344" name="ChestPanel" id="0:40">
-            <Ellipse width="126" height="132" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFB8ECF8" name="Color"/></Fill>
-        </Shape>
-        <Shape x="180" y="348" name="ShieldBadge" id="0:16">
-            <Ellipse width="50" height="54" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FF65CBE8" name="Color"/></Fill>
-        </Shape>
-        <Shape x="180" y="348" name="ShieldCore" id="0:19">
-            <Triangle width="27" height="31" originX="0.5" originY="0.5" name="Path"/>
-            <Fill name="Fill"><SolidColor colorValue="FFF0FDFF" name="Color"/></Fill>
-        </Shape>
+
+
+
+
 
         <!-- Idle: soft arm wave, pupil drift, double blink and gentle body float -->
         <LinearAnimation loopValue="loop" duration="120" name="Idle" id="0:100">
