@@ -1,0 +1,280 @@
+<Rive version="1" kind="fragment">
+    <Artboard width="360" height="360" name="ScamShieldRobot" id="0:1">
+        <!-- Soft blue arms and mittens -->
+        <Shape x="91" y="222" name="LeftArm" id="0:2">
+            <Ellipse width="28" height="78" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF65B9F5" name="Color"/></Fill>
+        </Shape>
+        <Shape x="269" y="222" name="RightArm" id="0:3">
+            <Ellipse width="28" height="78" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF65B9F5" name="Color"/></Fill>
+        </Shape>
+        <Shape x="78" y="267" name="LeftHand" id="0:4">
+            <Ellipse width="38" height="38" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFEAF7FF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="282" y="267" name="RightHand" id="0:5">
+            <Ellipse width="38" height="38" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFEAF7FF" name="Color"/></Fill>
+        </Shape>
+
+        <!-- Body and head -->
+        <Shape x="180" y="246" name="Body" id="0:6">
+            <Ellipse width="122" height="100" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFEAF6FF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="139" name="Head" id="0:7">
+            <Ellipse width="192" height="150" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFD8EEFF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="143" name="FacePanel" id="0:8">
+            <Ellipse width="153" height="103" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF0B2552" name="Color"/></Fill>
+        </Shape>
+
+        <!-- Antenna -->
+        <Shape x="180" y="47" name="AntennaStem" id="0:14">
+            <Rectangle width="7" height="27" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF4D9FEA" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="30" name="AntennaLight" id="0:15">
+            <Ellipse width="15" height="15" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF75E5FF" name="Color"/></Fill>
+        </Shape>
+
+        <!-- Large expressive eyes with blue pupils -->
+        <Shape x="145" y="132" name="LeftEye" id="0:9">
+            <Ellipse width="25" height="31" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFBDF5FF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="215" y="132" name="RightEye" id="0:10">
+            <Ellipse width="25" height="31" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFBDF5FF" name="Color"/></Fill>
+        </Shape>
+        <Shape x="150" y="133" name="LeftPupil" id="0:11">
+            <Ellipse width="12" height="18" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF277FD8" name="Color"/></Fill>
+        </Shape>
+        <Shape x="220" y="133" name="RightPupil" id="0:12">
+            <Ellipse width="12" height="18" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF277FD8" name="Color"/></Fill>
+        </Shape>
+
+        <!-- Blush and mouth -->
+        <Shape x="119" y="164" name="LeftBlush" id="0:17">
+            <Ellipse width="18" height="9" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFFF9DB6" name="Color"/></Fill>
+        </Shape>
+        <Shape x="241" y="164" name="RightBlush" id="0:18">
+            <Ellipse width="18" height="9" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FFFF9DB6" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="177" name="Mouth" id="0:13">
+            <Ellipse width="28" height="9" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF62DDFB" name="Color"/></Fill>
+        </Shape>
+
+        <!-- ScamShield chest emblem -->
+        <Shape x="180" y="241" name="ShieldBadge" id="0:16">
+            <Ellipse width="44" height="44" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValue="FF2879E6" name="Color"/></Fill>
+        </Shape>
+        <Shape x="180" y="241" name="ShieldCore" id="0:19">
+            <Triangle width="20" height="22" originX="0.5" originY="0.5" name="Path"/>
+            <Fill name="Fill"><SolidColor colorValueFFFFFFFF name="Color"/></Fill>
+        </Shape>
+
+        <!-- Idle: gentle bob, eye movement and relaxed arm wave -->
+        <LinearAnimation loopValue="loop" duration="120" name="Idle" id="0:100">
+            <KeyedObject objectId="0:2">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.12" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="0.10" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:3">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="-0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.12" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="-0.10" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:11">
+                <KeyedProperty property="x">
+                    <KeyFrameDouble value="150" interpolationType="linear"/>
+                    <KeyFrameDouble value="153" interpolationType="linear" frame="40"/>
+                    <KeyFrameDouble value="147" interpolationType="linear" frame="80"/>
+                    <KeyFrameDouble value="150" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:12">
+                <KeyedProperty property="x">
+                    <KeyFrameDouble value="220" interpolationType="linear"/>
+                    <KeyFrameDouble value="223" interpolationType="linear" frame="40"/>
+                    <KeyFrameDouble value="217" interpolationType="linear" frame="80"/>
+                    <KeyFrameDouble value="220" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:6">
+                <KeyedProperty property="y">
+                    <KeyFrameDouble value="246" interpolationType="linear"/>
+                    <KeyFrameDouble value="242" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="246" interpolationType="linear" frame="120"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+
+        <!-- Greeting: both arms wave and the robot leans forward -->
+        <LinearAnimation loopValue="oneShot" duration="90" name="Greeting" id="0:101">
+            <KeyedObject objectId="0:2">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.75" interpolationType="linear" frame="24"/>
+                    <KeyFrameDouble value="0.35" interpolationType="linear" frame="48"/>
+                    <KeyFrameDouble value="-0.65" interpolationType="linear" frame="72"/>
+                    <KeyFrameDouble value="0.10" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:3">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="-0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.55" interpolationType="linear" frame="32"/>
+                    <KeyFrameDouble value="-0.10" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="-0.10" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:7">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.08" interpolationType="linear" frame="45"/>
+                    <KeyFrameDouble value="0" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+
+        <!-- Analyzing: scanning eyes, antenna pulses and a small body bounce -->
+        <LinearAnimation loopValue="loop" duration="90" name="Analyzing" id="0:102">
+            <KeyedObject objectId="0:11">
+                <KeyedProperty property="x">
+                    <KeyFrameDouble value="150" interpolationType="linear"/>
+                    <KeyFrameDouble value="160" interpolationType="linear" frame="30"/>
+                    <KeyFrameDouble value="143" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="150" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:12">
+                <KeyedProperty property="x">
+                    <KeyFrameDouble value="220" interpolationType="linear"/>
+                    <KeyFrameDouble value="230" interpolationType="linear" frame="30"/>
+                    <KeyFrameDouble value="213" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="220" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:14">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="-0.18" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.18" interpolationType="linear" frame="45"/>
+                    <KeyFrameDouble value="-0.18" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:6">
+                <KeyedProperty property="y">
+                    <KeyFrameDouble value="246" interpolationType="linear"/>
+                    <KeyFrameDouble value="241" interpolationType="linear" frame="45"/>
+                    <KeyFrameDouble value="246" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+
+        <!-- Warning: widened eyes, open mouth and an alert head movement -->
+        <LinearAnimation loopValue="oneShot" duration="72" name="Warning" id="0:103">
+            <KeyedObject objectId="0:7">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.12" interpolationType="linear" frame="18"/>
+                    <KeyFrameDouble value="0.12" interpolationType="linear" frame="36"/>
+                    <KeyFrameDouble value="0" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:13">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="2.2" interpolationType="linear" frame="18"/>
+                    <KeyFrameDouble value="2.2" interpolationType="linear" frame="54"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:9">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="1.18" interpolationType="linear" frame="18"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:10">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="1.18" interpolationType="linear" frame="18"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+
+        <!-- Sad: head lowers and arms relax -->
+        <LinearAnimation loopValue="oneShot" duration="90" name="Sad" id="0:104">
+            <KeyedObject objectId="0:7">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.10" interpolationType="linear" frame="45"/>
+                    <KeyFrameDouble value="-0.08" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:2">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.45" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="0.45" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:3">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="-0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.45" interpolationType="linear" frame="60"/>
+                    <KeyFrameDouble value="-0.45" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:13">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.55" interpolationType="linear" frame="90"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+
+        <!-- Cute: tilt and small wave -->
+        <LinearAnimation loopValue="oneShot" duration="72" name="Cute" id="0:105">
+            <KeyedObject objectId="0:7">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0" interpolationType="linear"/>
+                    <KeyFrameDouble value="0.14" interpolationType="linear" frame="36"/>
+                    <KeyFrameDouble value="0" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:2">
+                <KeyedProperty property="rotation">
+                    <KeyFrameDouble value="0.10" interpolationType="linear"/>
+                    <KeyFrameDouble value="-0.65" interpolationType="linear" frame="36"/>
+                    <KeyFrameDouble value="0.10" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+            <KeyedObject objectId="0:13">
+                <KeyedProperty property="scaleY">
+                    <KeyFrameDouble value="1" interpolationType="linear"/>
+                    <KeyFrameDouble value="1.5" interpolationType="linear" frame="36"/>
+                    <KeyFrameDouble value="1" interpolationType="linear" frame="72"/>
+                </KeyedProperty>
+            </KeyedObject>
+        </LinearAnimation>
+    </Artboard>
+</Rive>
