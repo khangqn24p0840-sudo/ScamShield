@@ -42,10 +42,13 @@ jobs:
           echo "Rive CLI installed."
 
 
-      - name: Validate and render Rive robot source
+      - name: Compile and render Rive robot source
         run: |
-          mkdir -p dist
+          mkdir -p dist app/src/main/res/raw
           rive design/rive/scamshield_robot --verify
+          rive design/rive/scamshield_robot --publish=local
+          test -s design/rive/scamshield_robot/build/scamshield_robot.riv
+          cp design/rive/scamshield_robot/build/scamshield_robot.riv app/src/main/res/raw/scamshield_robot.riv
           rive design/rive/scamshield_robot --screenshot=dist/scamshield-robot-preview.png --viewport=360x360
 
       - name: Verify Android project files
