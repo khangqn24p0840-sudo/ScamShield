@@ -1,7 +1,0 @@
-name: scamshield_robot
-main: ScamShieldRobot
-output:
-  dir: build
-logs:
-  file: build/rive.log
-  problems: build/problems.log
