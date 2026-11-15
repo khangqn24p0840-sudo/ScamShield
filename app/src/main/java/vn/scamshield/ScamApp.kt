@@ -1,8 +1,13 @@
 package vn.scamshield
 
 import android.app.Application
+import app.rive.runtime.kotlin.core.Rive
 
 /** Khởi tạo sớm để mọi nơi gọi ScamDetector (tin nhắn, cuộc gọi, thông báo) đều dùng được mô hình TFLite. */
 class ScamApp : Application() {
-    override fun onCreate() { super.onCreate(); TextModel.init(this) }
+    override fun onCreate() {
+        super.onCreate()
+        TextModel.init(this)
+        Rive.init(this)
+    }
 }
