@@ -1,12 +1,12 @@
 plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "vn.scamshield"
-    compileSdk = 34
-    defaultConfig { applicationId = "vn.scamshield"; minSdk = 24; targetSdk = 34; versionCode = 18; versionName = "4.13" }
+    compileSdk = 36
+    defaultConfig { applicationId = "vn.scamshield"; minSdk = 24; targetSdk = 34; versionCode = 19; versionName = "4.14" }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
-    composeOptions { kotlinCompilerExtensionVersion = "1.5.14" }
+    composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
 }
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
@@ -17,4 +17,5 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:face-detection:16.1.6")
     implementation("org.tensorflow:tensorflow-lite:2.14.0")   // chạy mô hình scam_text.tflite
+    implementation("app.rive:rive-android:11.16.0")
 }

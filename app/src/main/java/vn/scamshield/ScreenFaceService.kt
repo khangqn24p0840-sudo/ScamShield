@@ -38,7 +38,14 @@ class ScreenFaceService : Service() {
 
         val data = i?.getParcelableExtra<Intent>("data")
         if (data == null) { stopSelf(); return START_NOT_STICKY }
-        val p = getSystemService(MediaProjectionManager::class.java).getMediaProjection(i.getIntExtra("code", 0), data)
+        val p = getSystemService(MediaProjectionManager::class.java)
+            .getMediaProjection(i.getIntExtra("code", 0), data)
+        if (p == null) {
+            // The platform can reject or expire a projection token; release the foreground service cleanly.
+            stopForeground(true)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         proj = p
         p.registerCallback(object : MediaProjection.Callback() { override fun onStop() { stopSelf() } }, Handler(Looper.getMainLooper()))
         val dm = resources.displayMetrics
