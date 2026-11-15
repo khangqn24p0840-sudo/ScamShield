@@ -370,7 +370,7 @@
                     <KeyFrameDouble value="0" interpolationType="linear"/>
                     <KeyFrameDouble value="0.12" interpolationType="linear" frame="18"/>
                     <KeyFrameDouble value="0" interpolationType="linear" frame="72"/>
-                </KeyProperty>
+                </KeyedProperty>
             </KeyedObject>
             <KeyedObject objectId="0:7">
                 <KeyedProperty property="rotation">
