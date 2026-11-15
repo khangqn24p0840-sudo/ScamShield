@@ -47,6 +47,7 @@ jobs:
           mkdir -p dist
           rive design/rive/scamshield_robot --verify
           rive design/rive/scamshield_robot --screenshot=dist/scamshield-robot-preview.png --viewport=360x440
+          rive inspect design/rive/scamshield_robot --json > dist/scamshield-robot-inspect.json
           if [ -s app/src/main/res/raw/scamshield_robot.riv ]; then
             echo "Rive runtime asset found and will be packaged."
           else
