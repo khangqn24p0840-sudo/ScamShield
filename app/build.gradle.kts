@@ -17,5 +17,4 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:face-detection:16.1.6")
     implementation("org.tensorflow:tensorflow-lite:2.14.0")   // chạy mô hình scam_text.tflite
-    implementation("app.rive:rive-android:11.16.0")
 }
