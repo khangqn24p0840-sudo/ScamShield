@@ -43,3 +43,10 @@ To export the runtime file on Windows:
 4. Commit the generated `app/src/main/res/raw/scamshield_robot.riv`, then build the APK.
 
 The script verifies the RML project, publishes the local `.riv` asset, and copies it to Android's `res/raw` folder. Do not add an empty or placeholder `.riv` file: the Android runtime needs the real exported binary.
+
+
+## Layer order and visual checks
+
+Rive uses the artboard hierarchy as its default draw order. In this scene the XML keeps foreground elements before the shapes behind them: eye details before the face panel, the face panel before its rim and head shell, and the chest badge before the body shell. Do not move the opaque head or body shapes ahead of these details, or they will cover them.
+
+A successful `--verify` only confirms that the project compiles. The build also renders `scamshield-robot-preview.png` and saves `rive inspect --json` output so the actual scene can be reviewed.
