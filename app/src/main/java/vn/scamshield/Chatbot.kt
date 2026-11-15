@@ -160,9 +160,60 @@ fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
         infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-bob")
     val tilt by motion.animateFloat(-1.5f, 1.5f,
         infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-tilt")
+    val armSwing by motion.animateFloat(-7f, 7f,
+        infiniteRepeatable(tween(1750, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-arm-swing")
     Box(modifier.size(size * 1.28f).graphicsLayer { translationY = bob.dp.toPx() }, contentAlignment = Alignment.Center) {
         Box(Modifier.size(size * 1.18f).background(
             Brush.radialGradient(listOf(Color(0x667CC8FF), Color(0x1A5AA8FF), Color.Transparent)), CircleShape))
+
+        // Hai cánh tay nhỏ nằm phía sau đầu và thân; chuyển động vẫy nhẹ khi robot idle.
+        Box(
+            Modifier.align(Alignment.CenterStart)
+                .offset(x = size * 0.025f, y = size * 0.045f)
+                .size(width = size * 0.19f, height = size * 0.34f)
+                .graphicsLayer { rotationZ = armSwing }
+                .shadow(3.dp, CircleShape)
+                .background(
+                    Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))),
+                    CircleShape
+                )
+                .border(1.dp, Color.White, CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.CenterEnd)
+                .offset(x = -(size * 0.025f), y = size * 0.045f)
+                .size(width = size * 0.19f, height = size * 0.34f)
+                .graphicsLayer { rotationZ = -armSwing }
+                .shadow(3.dp, CircleShape)
+                .background(
+                    Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))),
+                    CircleShape
+                )
+                .border(1.dp, Color.White, CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.CenterStart)
+                .offset(x = size * 0.015f, y = size * 0.205f)
+                .size(size * 0.20f)
+                .shadow(3.dp, CircleShape)
+                .background(
+                    Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))),
+                    CircleShape
+                )
+                .border(1.dp, Color(0xFF6CBFFF), CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.CenterEnd)
+                .offset(x = -(size * 0.015f), y = size * 0.205f)
+                .size(size * 0.20f)
+                .shadow(3.dp, CircleShape)
+                .background(
+                    Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))),
+                    CircleShape
+                )
+                .border(1.dp, Color(0xFF6CBFFF), CircleShape)
+        )
+
         Box(Modifier.align(Alignment.TopCenter).offset(y = 3.dp).width(3.dp).height(size * 0.18f)
             .background(Color(0xFF4C91E8), RoundedCornerShape(3.dp)))
         Box(Modifier.align(Alignment.TopCenter).offset(y = 1.dp).size(size * 0.105f)
