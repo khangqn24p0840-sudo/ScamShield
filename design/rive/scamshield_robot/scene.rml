@@ -243,7 +243,7 @@
                     <KeyFrameDouble value="0.08" interpolationType="linear" frame="52"/>
                     <KeyFrameDouble value="1" interpolationType="linear" frame="56"/>
                     <KeyFrameDouble value="1" interpolationType="linear" frame="120"/>
-                </KeyProperty>
+                </KeyedProperty>
             </KeyedObject>
             <KeyedObject objectId="0:6">
                 <KeyedProperty property="y">
