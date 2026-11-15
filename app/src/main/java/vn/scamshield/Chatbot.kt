@@ -63,6 +63,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import app.rive.runtime.kotlin.RiveAnimationView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -86,6 +88,15 @@ private val ChatMuted = Color(0xFF6780A5)
 private val ChatBubbleUser = Color(0xFFE2EEFF)
 private val ChatChip = Color(0xFFEBF3FF)
 
+enum class RobotMood(val animationName: String) {
+    IDLE("Idle"),
+    GREETING("Greeting"),
+    ANALYZING("Analyzing"),
+    WARNING("Warning"),
+    SAD("Sad"),
+    CUTE("Cute")
+}
+
 private data class RobotFaceExpression(
     val eyes: String,
     val mouth: String,
@@ -94,15 +105,27 @@ private data class RobotFaceExpression(
     val description: String
 )
 
-private val RobotFaceExpressions = listOf(
-    RobotFaceExpression("◕  ◕", "ᴗ", "˶  ˶", Color(0xFFFF8FA8), "vui vẻ"),
-    RobotFaceExpression("•  •", "︵", "﹀", Color(0xFF72C9F5), "buồn"),
-    RobotFaceExpression("¬  ¬", "з", "///", Color(0xFFFF91A9), "dỗi yêu"),
-    RobotFaceExpression("✧  ✧", "ω", "♡  ♡", Color(0xFFFF8FB8), "dễ thương"),
-    RobotFaceExpression("ಥ  ಥ", "﹏", "💧  💧", Color(0xFF65CFFF), "đang khóc"),
-    RobotFaceExpression("⊙  ⊙", "o", "✨", Color(0xFFFFD36E), "ngạc nhiên")
-)
+private fun RobotMood.fallbackFace() = when (this) {
+    RobotMood.IDLE -> RobotFaceExpression("◕  ◕", "ᴗ", "˶  ˶", Color(0xFF8ADFFF), "đang chờ")
+    RobotMood.GREETING -> RobotFaceExpression("◕  ◕", "ᴗ", "✦  ✦", Color(0xFFFFA0BC), "vui vẻ chào bạn")
+    RobotMood.ANALYZING -> RobotFaceExpression("⌕  ⌕", "…", "·  ·", Color(0xFF73DFFF), "đang phân tích")
+    RobotMood.WARNING -> RobotFaceExpression("⊙  ⊙", "o", "!!", Color(0xFFFFC66D), "phát hiện dấu hiệu đáng ngờ")
+    RobotMood.SAD -> RobotFaceExpression("•  •", "︵", "﹀", Color(0xFF73C9F5), "đang buồn")
+    RobotMood.CUTE -> RobotFaceExpression("✧  ✧", "ω", "♡  ♡", Color(0xFFFF8FB8), "dễ thương")
+}
 
+private fun robotMoodFromReply(reply: String): RobotMood {
+    val text = reply.lowercase()
+    return when {
+        listOf("đáng ngờ", "lừa đảo", "nguy hiểm", "rủi ro cao", "giả mạo", "cảnh báo").any(text::contains) ->
+            RobotMood.WARNING
+        listOf("không thể phân tích", "chưa phân tích được", "đã xảy ra lỗi", "gặp sự cố", "không kết nối").any(text::contains) ->
+            RobotMood.SAD
+        listOf("không có gì", "rất vui được giúp", "cảm ơn").any(text::contains) ->
+            RobotMood.CUTE
+        else -> RobotMood.GREETING
+    }
+}
 
 /** One entry point for the AI assistant. The packaged project keeps its original FloatingBot button. */
 @Composable
@@ -144,39 +167,87 @@ fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) 
     }
 }
 
-/** Robot trợ lý dạng 3D cách điệu bằng Compose, chuyển động nhẹ nhàng tại chỗ. */
+/**
+ * Mascot renderer: ưu tiên Rive file trong res/raw/scamshield_robot.riv.
+ * Nếu file chưa được biên dịch/copy vào Android resources, dùng mascot Compose tạm thời.
+ */
 @Composable
-fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
-    var expressionIndex by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(15_000L)
-            expressionIndex = (expressionIndex + 1) % RobotFaceExpressions.size
-        }
+fun RobotMascot(
+    modifier: Modifier = Modifier,
+    size: Dp = 72.dp,
+    mood: RobotMood = RobotMood.IDLE
+) {
+    val context = LocalContext.current
+    val riveResId = remember(context) {
+        context.resources.getIdentifier("scamshield_robot", "raw", context.packageName)
     }
-    val expression = RobotFaceExpressions[expressionIndex]
-    val motion = rememberInfiniteTransition(label = "mascot-idle")
-    val bob by motion.animateFloat(-2.2f, 2.2f,
-        infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-bob")
-    val tilt by motion.animateFloat(-1.5f, 1.5f,
-        infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-tilt")
-    val armSwing by motion.animateFloat(-7f, 7f,
-        infiniteRepeatable(tween(1750, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "mascot-arm-swing")
-    Box(modifier.size(size * 1.28f).graphicsLayer { translationY = bob.dp.toPx() }, contentAlignment = Alignment.Center) {
-        Box(Modifier.size(size * 1.18f).background(
-            Brush.radialGradient(listOf(Color(0x667CC8FF), Color(0x1A5AA8FF), Color.Transparent)), CircleShape))
 
-        // Hai cánh tay nhỏ nằm phía sau đầu và thân; chuyển động vẫy nhẹ khi robot idle.
+    if (riveResId != 0) {
+        AndroidView(
+            modifier = modifier.size(size * 1.28f),
+            factory = { viewContext ->
+                RiveAnimationView(viewContext).also { view ->
+                    view.setRiveResource(
+                        resId = riveResId,
+                        animationName = mood.animationName,
+                        autoplay = true
+                    )
+                    view.tag = mood.name
+                }
+            },
+            update = { view ->
+                if (view.tag != mood.name) {
+                    view.play(mood.animationName)
+                    view.tag = mood.name
+                }
+            }
+        )
+    } else {
+        ComposeRobotMascot(modifier = modifier, size = size, mood = mood)
+    }
+}
+
+@Composable
+private fun ComposeRobotMascot(
+    modifier: Modifier,
+    size: Dp,
+    mood: RobotMood
+) {
+    val expression = mood.fallbackFace()
+    val motion = rememberInfiniteTransition(label = "mascot-idle")
+    val bob by motion.animateFloat(
+        -2.2f, 2.2f,
+        infiniteRepeatable(tween(1900, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "mascot-bob"
+    )
+    val tilt by motion.animateFloat(
+        -1.5f, 1.5f,
+        infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "mascot-tilt"
+    )
+    val armSwing by motion.animateFloat(
+        -7f, 7f,
+        infiniteRepeatable(tween(1750, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "mascot-arm-swing"
+    )
+    Box(
+        modifier.size(size * 1.28f).graphicsLayer { translationY = bob.dp.toPx() },
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier.size(size * 1.18f).background(
+                Brush.radialGradient(listOf(Color(0x667CC8FF), Color(0x1A5AA8FF), Color.Transparent)),
+                CircleShape
+            )
+        )
+        // Cánh tay và bàn tay nằm phía sau phần đầu/thân.
         Box(
             Modifier.align(Alignment.CenterStart)
                 .offset(x = size * 0.025f, y = size * 0.045f)
                 .size(width = size * 0.19f, height = size * 0.34f)
                 .graphicsLayer { rotationZ = armSwing }
                 .shadow(3.dp, CircleShape)
-                .background(
-                    Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))),
-                    CircleShape
-                )
+                .background(Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))), CircleShape)
                 .border(1.dp, Color.White, CircleShape)
         )
         Box(
@@ -185,66 +256,81 @@ fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
                 .size(width = size * 0.19f, height = size * 0.34f)
                 .graphicsLayer { rotationZ = -armSwing }
                 .shadow(3.dp, CircleShape)
-                .background(
-                    Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))),
-                    CircleShape
-                )
+                .background(Brush.verticalGradient(listOf(Color(0xFFDDF4FF), Color(0xFF6DC9FF))), CircleShape)
                 .border(1.dp, Color.White, CircleShape)
         )
         Box(
-            Modifier.align(Alignment.CenterStart)
-                .offset(x = size * 0.015f, y = size * 0.205f)
-                .size(size * 0.20f)
-                .shadow(3.dp, CircleShape)
-                .background(
-                    Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))),
-                    CircleShape
-                )
+            Modifier.align(Alignment.CenterStart).offset(x = size * 0.015f, y = size * 0.205f)
+                .size(size * 0.20f).shadow(3.dp, CircleShape)
+                .background(Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))), CircleShape)
                 .border(1.dp, Color(0xFF6CBFFF), CircleShape)
         )
         Box(
-            Modifier.align(Alignment.CenterEnd)
-                .offset(x = -(size * 0.015f), y = size * 0.205f)
-                .size(size * 0.20f)
-                .shadow(3.dp, CircleShape)
-                .background(
-                    Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))),
-                    CircleShape
-                )
+            Modifier.align(Alignment.CenterEnd).offset(x = -(size * 0.015f), y = size * 0.205f)
+                .size(size * 0.20f).shadow(3.dp, CircleShape)
+                .background(Brush.linearGradient(listOf(Color.White, Color(0xFF8ED5FF))), CircleShape)
                 .border(1.dp, Color(0xFF6CBFFF), CircleShape)
         )
-
-        Box(Modifier.align(Alignment.TopCenter).offset(y = 3.dp).width(3.dp).height(size * 0.18f)
-            .background(Color(0xFF4C91E8), RoundedCornerShape(3.dp)))
-        Box(Modifier.align(Alignment.TopCenter).offset(y = 1.dp).size(size * 0.105f)
-            .background(Brush.linearGradient(listOf(Color(0xFFB9F1FF), Color(0xFF3194FF))), CircleShape)
-            .border(1.dp, Color.White, CircleShape))
-        Box(Modifier.align(Alignment.BottomCenter).offset(y = (-size * 0.035f))
-            .size(width = size * 0.68f, height = size * 0.42f)
-            .shadow(5.dp, RoundedCornerShape(size * 0.19f))
-            .background(Brush.linearGradient(listOf(Color.White, Color(0xFFBBD9FF))), RoundedCornerShape(size * 0.19f))
-            .border(1.2.dp, Color.White, RoundedCornerShape(size * 0.19f)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.align(Alignment.TopCenter).offset(y = 3.dp).width(3.dp).height(size * 0.18f)
+                .background(Color(0xFF4C91E8), RoundedCornerShape(3.dp))
+        )
+        Box(
+            Modifier.align(Alignment.TopCenter).offset(y = 1.dp).size(size * 0.105f)
+                .background(Brush.linearGradient(listOf(Color(0xFFB9F1FF), Color(0xFF3194FF))), CircleShape)
+                .border(1.dp, Color.White, CircleShape)
+        )
+        Box(
+            Modifier.align(Alignment.BottomCenter).offset(y = -(size * 0.035f))
+                .size(width = size * 0.68f, height = size * 0.42f)
+                .shadow(5.dp, RoundedCornerShape(size * 0.19f))
+                .background(
+                    Brush.linearGradient(listOf(Color.White, Color(0xFFBBD9FF))),
+                    RoundedCornerShape(size * 0.19f)
+                )
+                .border(1.2.dp, Color.White, RoundedCornerShape(size * 0.19f)),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(Icons.Rounded.Shield, null, tint = Color(0xFF2679E7), modifier = Modifier.size(size * 0.22f))
         }
-        Box(Modifier.align(Alignment.Center).offset(y = (-size * 0.095f)).graphicsLayer { rotationZ = tilt }
-            .size(width = size * 0.98f, height = size * 0.70f)
-            .shadow(8.dp, RoundedCornerShape(size * 0.27f))
-            .background(Brush.linearGradient(listOf(Color.White, Color(0xFFB8D9FF))), RoundedCornerShape(size * 0.27f))
-            .border(1.5.dp, Color.White, RoundedCornerShape(size * 0.27f)), contentAlignment = Alignment.Center) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = size * 0.055f),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                Box(Modifier.size(size * 0.15f, size * 0.31f)
-                    .background(Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))), RoundedCornerShape(8.dp)))
-                Box(Modifier.weight(1f).padding(horizontal = size * 0.035f)
-                    .size(width = size * 0.54f, height = size * 0.51f)
-                    .background(Brush.linearGradient(listOf(Color(0xFF102B62), Color(0xFF071A42))), RoundedCornerShape(size * 0.19f))
-                    .border(1.dp, Color(0xFF6ACBFF).copy(alpha = 0.55f), RoundedCornerShape(size * 0.19f)),
-                    contentAlignment = Alignment.Center) {
-                    Crossfade(
-                        targetState = expression,
-                        animationSpec = tween(420, easing = FastOutSlowInEasing),
-                        label = "robot-expression"
-                    ) { face ->
+        Box(
+            Modifier.align(Alignment.Center).offset(y = -(size * 0.095f))
+                .graphicsLayer { rotationZ = tilt }
+                .size(width = size * 0.98f, height = size * 0.70f)
+                .shadow(8.dp, RoundedCornerShape(size * 0.27f))
+                .background(
+                    Brush.linearGradient(listOf(Color.White, Color(0xFFB8D9FF))),
+                    RoundedCornerShape(size * 0.27f)
+                )
+                .border(1.5.dp, Color.White, RoundedCornerShape(size * 0.27f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = size * 0.055f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Box(
+                    Modifier.size(size * 0.15f, size * 0.31f)
+                        .background(
+                            Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))),
+                            RoundedCornerShape(8.dp)
+                        )
+                )
+                Box(
+                    Modifier.weight(1f).padding(horizontal = size * 0.035f)
+                        .size(width = size * 0.54f, height = size * 0.51f)
+                        .background(
+                            Brush.linearGradient(listOf(Color(0xFF102B62), Color(0xFF071A42))),
+                            RoundedCornerShape(size * 0.19f)
+                        )
+                        .border(
+                            1.dp, Color(0xFF6ACBFF).copy(alpha = 0.55f),
+                            RoundedCornerShape(size * 0.19f)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Crossfade(expression, animationSpec = tween(420, easing = FastOutSlowInEasing), label = "robot-expression") { face ->
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(size * 0.005f),
@@ -252,32 +338,25 @@ fun RobotMascot(modifier: Modifier = Modifier, size: Dp = 72.dp) {
                                 contentDescription = "Robot đang biểu cảm " + face.description
                             }
                         ) {
-                            Text(
-                                face.eyes,
-                                color = Color(0xFF79E8FF),
-                                fontSize = (size.value * 0.18f).sp,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = (size.value * 0.19f).sp
-                            )
-                            Text(
-                                face.mouth,
-                                color = Color(0xFF62E4FF),
-                                fontSize = (size.value * 0.23f).sp,
-                                fontWeight = FontWeight.Bold,
-                                lineHeight = (size.value * 0.22f).sp
-                            )
-                            Text(
-                                face.accent,
-                                color = face.accentColor,
-                                fontSize = (size.value * 0.10f).sp,
-                                fontWeight = FontWeight.SemiBold,
-                                lineHeight = (size.value * 0.10f).sp
-                            )
+                            Text(face.eyes, color = Color(0xFF79E8FF),
+                                fontSize = (size.value * 0.18f).sp, fontWeight = FontWeight.Bold,
+                                lineHeight = (size.value * 0.19f).sp)
+                            Text(face.mouth, color = Color(0xFF62E4FF),
+                                fontSize = (size.value * 0.23f).sp, fontWeight = FontWeight.Bold,
+                                lineHeight = (size.value * 0.22f).sp)
+                            Text(face.accent, color = face.accentColor,
+                                fontSize = (size.value * 0.10f).sp, fontWeight = FontWeight.SemiBold,
+                                lineHeight = (size.value * 0.10f).sp)
                         }
                     }
                 }
-                Box(Modifier.size(size * 0.15f, size * 0.31f)
-                    .background(Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))), RoundedCornerShape(8.dp)))
+                Box(
+                    Modifier.size(size * 0.15f, size * 0.31f)
+                        .background(
+                            Brush.verticalGradient(listOf(Color(0xFF6DC9FF), Color(0xFF2777D8))),
+                            RoundedCornerShape(8.dp)
+                        )
+                )
             }
         }
     }
@@ -290,7 +369,7 @@ private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modi
         Box(Modifier.size(84.dp).background(
             Brush.radialGradient(listOf(Color(0x5574BFFF), Color(0x1174BFFF), Color.Transparent)), CircleShape))
         Box(Modifier.size(78.dp).semantics { contentDescription = "Mở trợ lý AI ScamShield"; role = Role.Button }.clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-            RobotMascot(Modifier, size = 62.dp)
+            RobotMascot(Modifier, size = 57.dp, mood = RobotMood.IDLE)
         }
     }
 }
@@ -303,7 +382,22 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
     var draft by remember { mutableStateOf("") }
     var selectedImage by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var robotMood by remember { mutableStateOf(RobotMood.GREETING) }
     var showTools by remember { mutableStateOf(false) }
+
+    LaunchedEffect(robotMood) {
+        val duration = when (robotMood) {
+            RobotMood.GREETING -> 2200L
+            RobotMood.CUTE -> 2600L
+            RobotMood.WARNING, RobotMood.SAD -> 4200L
+            RobotMood.ANALYZING -> null
+            RobotMood.IDLE -> null
+        }
+        if (duration != null) {
+            delay(duration)
+            robotMood = RobotMood.IDLE
+        }
+    }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         selectedImage = uri
     }
@@ -312,10 +406,12 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         val uri = selectedImage ?: return
         if (busy) return
         lines.add(ChatLine(fromUser = true, text = draft.trim().ifBlank { "Đã gửi ảnh để kiểm tra" }, imageUri = uri))
+        robotMood = RobotMood.ANALYZING
         draft = ""
         selectedImage = null
         if (Store.str(c, "token").isBlank()) {
             lines.add(ChatLine(fromUser = false, text = "Bạn cần đăng nhập ScamShield để gửi ảnh cho AI phân tích. Ảnh chỉ được tải lên sau khi bạn nhấn Gửi."))
+            robotMood = RobotMood.SAD
             return
         }
         busy = true
@@ -335,6 +431,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                         val pendingIndex = lines.indexOfLast { it.pending }
                         if (pendingIndex >= 0) lines[pendingIndex] = ChatLine(fromUser = false, text = reply)
                         else lines.add(ChatLine(fromUser = false, text = reply))
+                        robotMood = robotMoodFromReply(reply)
                         busy = false
                     }
                 }
@@ -344,6 +441,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
                     val pendingIndex = lines.indexOfLast { it.pending }
                     if (pendingIndex >= 0) lines[pendingIndex] = ChatLine(fromUser = false, text = error)
                     else lines.add(ChatLine(fromUser = false, text = error))
+                    robotMood = RobotMood.SAD
                     busy = false
                 }
             }
@@ -362,6 +460,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         val chatReply = ChatIntent.localReply(message)
         if (chatReply != null) {
             lines.add(ChatLine(fromUser = false, text = chatReply))
+            robotMood = if (chatReply.contains("cảm ơn", ignoreCase = true)) RobotMood.CUTE else RobotMood.GREETING
             return
         }
 
@@ -376,6 +475,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         }
 
         busy = true
+        robotMood = RobotMood.ANALYZING
         lines.add(ChatLine(fromUser = false, text = "Mình đang phân tích nội dung…", pending = true))
         Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", message)) { code, result ->
             val reply = if (code in 200..299 && result != null) {
@@ -389,6 +489,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
             } else {
                 lines.add(ChatLine(fromUser = false, text = reply))
             }
+            robotMood = robotMoodFromReply(reply)
             busy = false
         }
     }
@@ -412,7 +513,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
             horizontalArrangement = Arrangement.spacedBy(11.dp)
         ) {
             Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                RobotMascot(Modifier, size = 35.dp)
+                RobotMascot(Modifier, size = 35.dp, mood = robotMood)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text("Trợ lý ScamShield", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
