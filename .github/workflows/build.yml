@@ -29,11 +29,18 @@ jobs:
         with:
           gradle-version: "8.13"
 
+      - name: Install Rive CLI system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgles2 libx11-6
+
       - name: Install Rive CLI
         shell: bash
         run: |
           curl -fsSL https://releases.rive.app/cli/install.sh | bash
           echo "$HOME/.rive/bin" >> "$GITHUB_PATH"
+          echo "Rive CLI installed."
+
 
       - name: Validate and render Rive robot source
         run: |
