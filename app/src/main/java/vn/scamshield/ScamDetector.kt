@@ -9,8 +9,10 @@ data class Result(val score: Int, val reasons: List<String>) {
 }
 
 object ScamDetector {
+    private val combiningMarks = Regex("\\p{Mn}+")
+
     fun norm(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
-        .replace(Regex("\\p{Mn}+"), "").replace('đ', 'd')
+        .replace(combiningMarks, "").replace('đ', 'd')
 
     private val rules = listOf(
         Triple("cong an|vien kiem sat|toa an|co quan dieu tra|bo cong an|lenh bat|trieu tap", 40, "Giả danh cơ quan chức năng"),
