@@ -2,7 +2,26 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android") }
 android {
     namespace = "vn.scamshield"
     compileSdk = 36
-    defaultConfig { applicationId = "vn.scamshield"; minSdk = 24; targetSdk = 34; versionCode = 19; versionName = "4.14" }
+    defaultConfig {
+        applicationId = "vn.scamshield"
+        minSdk = 24
+        targetSdk = 34
+        versionCode = 19
+        versionName = "4.14"
+
+        // Android phones/tablets use ARM; do not package emulator-only x86 native libraries.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+    buildTypes {
+        getByName("debug") {
+            // Keep the installable debug APK small by removing unused code/resources.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+        }
+    }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
