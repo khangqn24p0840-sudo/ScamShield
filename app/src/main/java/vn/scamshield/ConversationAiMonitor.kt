@@ -117,7 +117,7 @@ object ConversationAiMonitor {
             if (safeText.isNotBlank()) {
                 payloadMessages.put(
                     JSONObject()
-                        .put("sender", item.sender.take(100))
+                        .put("sender", redactSensitiveText(item.sender).take(100))
                         .put("text", safeText)
                         .put("timestamp", item.timestamp)
                 )
