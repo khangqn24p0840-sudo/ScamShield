@@ -105,7 +105,11 @@ class SocialListener : NotificationListenerService() {
                 if (body.isNotBlank()) {
                     val entry = IncomingMessage(item.senderPerson?.name?.toString() ?: "Bạn", body, item.timestamp)
                     captured += entry
-                    if (newestIncoming == null || entry.timestamp > newestIncoming!!.timestamp) {
+                    // Ưu tiên tin mới nhất từ phía đối thoại; không để tin do chính người dùng gửi
+                    // làm mất cảnh báo cho tin đến trong cùng một payload MessagingStyle.
+                    if (entry.sender != "Bạn" &&
+                        (newestIncoming == null || entry.timestamp > newestIncoming!!.timestamp)
+                    ) {
                         newestIncoming = entry
                     }
                 }
