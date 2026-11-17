@@ -96,12 +96,8 @@ class SocialListener : NotificationListenerService() {
             (historic + current).forEach { item ->
                 val body = item.text?.toString()?.trim().orEmpty()
                 if (body.isBlank()) return@forEach
-                val sender = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    item.senderPerson?.name?.toString() ?: "Bạn"
-                } else {
-                    @Suppress("DEPRECATION")
-                    item.sender?.toString() ?: "Bạn"
-                }
+                // senderPerson is available here because MessagingStyle bundle parsing is API 30+.
+                val sender = item.senderPerson?.name?.toString() ?: "Bạn"
                 captured += IncomingMessage(sender, body, item.timestamp)
             }
         }
