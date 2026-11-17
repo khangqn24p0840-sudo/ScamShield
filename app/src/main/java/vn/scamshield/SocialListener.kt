@@ -76,8 +76,9 @@ class SocialListener : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString().orEmpty()
         val conversationTitle =
             extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString().orEmpty()
-        val shortcutId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            sbn.shortcutId.orEmpty()
+        // shortcutId belongs to Notification (API 26+), not StatusBarNotification.
+        val shortcutId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            sbn.notification.shortcutId.orEmpty()
         } else ""
         val conversationIdentity = shortcutId.ifBlank {
             conversationTitle.ifBlank { title }
