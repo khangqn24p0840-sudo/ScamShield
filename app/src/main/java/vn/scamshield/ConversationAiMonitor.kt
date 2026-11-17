@@ -198,14 +198,10 @@ object ConversationAiMonitor {
 
     private fun redactSensitiveText(input: String): String {
         var text = input
-        text = text.replace(
-            Regex("(?i)(otp|mã\\s*xác\\s*thực|mã\\s*bảo\\s*mật|verification\\s*code)\\s*[:=\\-]?\\s*\\d{4,8}"),
-            "\\$1 [đã ẩn]"
-        )
-        text = text.replace(
-            Regex("(?i)(mật\\s*khẩu|password|passcode)\\s*[:=]\\s*[^\\s,;]+"),
-            "\\$1: [đã ẩn]"
-        )
+        text = Regex("(?i)(otp|mã\\s*xác\\s*thực|mã\\s*bảo\\s*mật|verification\\s*code)\\s*[:=\\-]?\\s*\\d{4,8}")
+            .replace(text) { match -> match.groupValues[1] + " [đã ẩn]" }
+        text = Regex("(?i)(mật\\s*khẩu|password|passcode)\\s*[:=]\\s*[^\\s,;]+")
+            .replace(text) { match -> match.groupValues[1] + ": [đã ẩn]" }
         text = text.replace(Regex("(?<!\\d)(?:\\+?84|0)\\d{8,10}(?!\\d)"), "[số điện thoại đã ẩn]")
         text = text.replace(Regex("(?<!\\d)\\d{9,19}(?!\\d)"), "[dãy số đã ẩn]")
         return text.take(TRANSCRIPT_CHAR_LIMIT)
