@@ -196,7 +196,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 )
                 if (channel == "social") {
                     Text(
-                        "Nhập đúng tên người gửi đang hiện trên thông báo. Android không cung cấp danh sách tài khoản đăng nhập bên trong Zalo/Messenger.",
+                        "Nhập chính xác tên người gửi hoặc tiêu đề nhóm/cuộc trò chuyện đang hiện trên thông báo. Android không cho ScamShield xem danh sách tài khoản đăng nhập hay toàn bộ lịch sử chat riêng.",
                         color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
                     )
                 }
@@ -227,7 +227,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Mạng xã hội: chỉ đọc nội dung được hiển thị trong thông báo mới sau khi bạn tự bật quyền Truy cập thông báo. Android không cho ScamShield xem danh sách tài khoản đăng nhập hoặc toàn bộ lịch sử chat cũ trong Zalo/Messenger.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
-                Text("• Bạn chọn ứng dụng và nhập tên người gửi hiển thị trên thông báo. Chỉ tin nhắn khớp cả ứng dụng và tên người gửi mới được lưu vào hồ sơ theo dõi.",
+                Text("• Bạn chọn ứng dụng và nhập chính xác tên người gửi hoặc tiêu đề nhóm/cuộc trò chuyện. Chỉ tin khớp ứng dụng và tên đã chọn mới được lưu vào hồ sơ theo dõi.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Tin nhắn được lưu trên thiết bị và cảnh báo tự động chạy cục bộ. Gemini chỉ nhận tối đa 10 tin gần nhất của cuộc trò chuyện mới nhất khi bạn chủ động bấm phân tích và xác nhận gửi.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
