@@ -17,20 +17,34 @@ object Api {
     fun call(c: Context, method: String, path: String, body: JSONObject?, cb: (Int, JSONObject?) -> Unit) {
         val base = Api.server(c); val token = Store.str(c, "token")
         Thread {
-            var code = -1; var out: JSONObject? = null
+            var code = -1
+            var out: JSONObject? = null
+            var connection: HttpURLConnection? = null
             try {
                 if (!base.startsWith("https://")) throw Exception("Địa chỉ máy chủ phải bắt đầu bằng https://")
                 val con = URL(base + path).openConnection() as HttpURLConnection
-                con.requestMethod = method; con.connectTimeout = 10000; con.readTimeout = 60000
-                con.setRequestProperty("Content-Type", "application/json")
-                con.setRequestProperty("ngrok-skip-browser-warning", "1")   // bỏ trang cảnh báo của ngrok (gói miễn phí)
+                connection = con
+                con.requestMethod = method
+                con.connectTimeout = 10000
+                con.readTimeout = 60000
+                con.setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                con.setRequestProperty("Accept", "application/json")
+                con.setRequestProperty("ngrok-skip-browser-warning", "1")
                 con.setRequestProperty("User-Agent", "ScamShieldVN-App")
                 if (token.isNotEmpty()) con.setRequestProperty("Authorization", "Bearer $token")
-                if (body != null) { con.doOutput = true; con.outputStream.use { it.write(body.toString().toByteArray()) } }
+                if (body != null) {
+                    con.doOutput = true
+                    con.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+                }
                 code = con.responseCode
-                val s = (if (code in 200..299) con.inputStream else con.errorStream)?.bufferedReader()?.readText()
-                out = s?.let { try { JSONObject(it) } catch (_: Exception) { null } }
-            } catch (e: Exception) { out = JSONObject().put("error", e.message ?: "Không kết nối được máy chủ") }
+                val stream = if (code in 200..299) con.inputStream else con.errorStream
+                val response = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }
+                out = response?.let { try { JSONObject(it) } catch (_: Exception) { null } }
+            } catch (e: Exception) {
+                out = JSONObject().put("error", e.message ?: "Không kết nối được máy chủ")
+            } finally {
+                connection?.disconnect()
+            }
             Handler(Looper.getMainLooper()).post { cb(code, out) }
         }.start()
     }

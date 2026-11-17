@@ -3,3 +3,26 @@ build/
 local.properties
 *.iml
 .idea/
+
+# Local Android/Gradle output
+**/build/
+.gradle/
+local.properties
+.idea/
+*.iml
+
+# Local data and credentials (never commit these)
+.env
+.env.*
+!.env.example
+*.db
+*.sqlite
+*.sqlite3
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+data/
+secrets/
+*.log
