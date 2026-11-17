@@ -14,7 +14,9 @@ data class MonitoredTarget(
     val channel: String,
     val identifier: String,
     val createdAt: Long,
-    val appPackage: String = ""
+    val appPackage: String = "",
+    val conversationKey: String = "",
+    val conversationTitle: String = ""
 )
 
 data class MonitoredMessage(
@@ -24,7 +26,9 @@ data class MonitoredMessage(
     val sender: String,
     val body: String,
     val timestamp: Long,
-    val appPackage: String = ""
+    val appPackage: String = "",
+    val conversationKey: String = "",
+    val conversationTitle: String = ""
 )
 
 /** Lưu riêng trên thiết bị. Không tự đồng bộ nội dung tin nhắn lên máy chủ. */
@@ -32,7 +36,7 @@ object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 2) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 3) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
@@ -51,16 +55,25 @@ object MonitorStore {
                     sender TEXT NOT NULL,
                     body TEXT NOT NULL,
                     timestamp INTEGER NOT NULL,
-                    app_package TEXT NOT NULL DEFAULT ''
+                    app_package TEXT NOT NULL DEFAULT '',
+                    conversation_key TEXT NOT NULL DEFAULT '',
+                    conversation_title TEXT NOT NULL DEFAULT ''
                 )"""
             )
             db.execSQL("CREATE INDEX idx_monitor_target_time ON messages(target_id, timestamp)")
+            db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             db.execSQL("CREATE INDEX idx_monitor_time ON messages(timestamp)")
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             if (oldVersion < 2) {
                 db.execSQL("ALTER TABLE targets ADD COLUMN app_package TEXT NOT NULL DEFAULT ''")
+            }
+            if (oldVersion < 3) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN conversation_key TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE messages ADD COLUMN conversation_title TEXT NOT NULL DEFAULT ''")
+                db.execSQL("UPDATE messages SET conversation_key = channel || ':' || target_id WHERE conversation_key = ''")
+                db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             }
         }
     }
@@ -131,12 +144,12 @@ object MonitorStore {
         val database = db(c)
         val cursor = if (targetId == null) {
             database.rawQuery(
-                "SELECT id,target_id,channel,sender,body,timestamp,app_package FROM messages ORDER BY timestamp ASC",
+                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title FROM messages ORDER BY timestamp ASC",
                 null
             )
         } else {
             database.rawQuery(
-                "SELECT id,target_id,channel,sender,body,timestamp,app_package FROM messages WHERE target_id=? ORDER BY timestamp ASC",
+                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title FROM messages WHERE target_id=? ORDER BY timestamp ASC",
                 arrayOf(targetId)
             )
         }
@@ -146,7 +159,9 @@ object MonitorStore {
                     id = it.getString(0), targetId = it.getString(1),
                     channel = it.getString(2), sender = it.getString(3),
                     body = it.getString(4), timestamp = it.getLong(5),
-                    appPackage = it.getString(6)
+                    appPackage = it.getString(6),
+                    conversationKey = it.getString(7),
+                    conversationTitle = it.getString(8)
                 )
             }
         }
@@ -158,7 +173,7 @@ object MonitorStore {
         if (item.body.isBlank()) return false
         val key = sha256(
             item.channel + "|" + item.targetId + "|" + item.timestamp + "|" +
-                item.sender + "|" + item.body
+                item.sender + "|" + item.body + "|" + item.conversationKey
         )
         val values = ContentValues().apply {
             put("id", key)
@@ -168,6 +183,8 @@ object MonitorStore {
             put("body", item.body.take(4000))
             put("timestamp", item.timestamp)
             put("app_package", item.appPackage.take(120))
+            put("conversation_key", item.conversationKey.take(300))
+            put("conversation_title", item.conversationTitle.take(180))
         }
         val database = db(c)
         val inserted = database.insertWithOnConflict(
@@ -186,21 +203,39 @@ object MonitorStore {
             it.channel == "sms" && normalized.length >= 7 &&
                 Store.digits(it.identifier) == normalized
         } ?: return
-        saveMessage(c, MonitoredMessage("", target.id, "sms", sender, body, timestamp))
+        saveMessage(c, MonitoredMessage(
+            "", target.id, "sms", sender, body, timestamp,
+            conversationKey = "sms|" + normalized, conversationTitle = sender
+        ))
     }
 
-    fun captureSocial(c: Context, sender: String, body: String, packageName: String, timestamp: Long) {
-        val s = sender.trim().lowercase()
-        if (s.isBlank()) return
-        val target = targets(c).firstOrNull {
-            it.channel == "social" &&
-                (it.appPackage.isBlank() || it.appPackage == packageName) &&
-                (
-                    s == it.identifier.trim().lowercase() ||
-                    (it.identifier.trim().length >= 3 && s.contains(it.identifier.trim().lowercase()))
-                )
+    fun captureSocial(
+        c: Context,
+        sender: String,
+        body: String,
+        packageName: String,
+        timestamp: Long,
+        conversationTitle: String = "",
+        conversationKey: String = ""
+    ) {
+        val senderName = sender.trim().lowercase()
+        val threadName = conversationTitle.trim().lowercase()
+        if (senderName.isBlank() && threadName.isBlank()) return
+        val target = targets(c).firstOrNull { candidate ->
+            if (candidate.channel != "social" ||
+                (candidate.appPackage.isNotBlank() && candidate.appPackage != packageName)
+            ) return@firstOrNull false
+            val wanted = candidate.identifier.trim().lowercase()
+            // Match chính xác tên người gửi hoặc tên cuộc trò chuyện; tránh bắt nhầm tên gần giống.
+            wanted == senderName || wanted == threadName
         } ?: return
-        saveMessage(c, MonitoredMessage("", target.id, "social", sender, body, timestamp, packageName))
+        val stableKey = conversationKey.trim().ifBlank {
+            packageName + "|" + conversationTitle.ifBlank { sender }
+        }
+        saveMessage(c, MonitoredMessage(
+            "", target.id, "social", sender.ifBlank { conversationTitle }, body, timestamp,
+            packageName, stableKey, conversationTitle
+        ))
     }
 
     /** Nhập SMS đến của đúng số đã chọn. Quyền READ_SMS chỉ được hỏi khi người dùng bấm nhập. */
@@ -230,19 +265,56 @@ object MonitorStore {
                 val body = if (bodyCol >= 0) cursor.getString(bodyCol).orEmpty() else ""
                 val timestamp = if (dateCol >= 0) cursor.getLong(dateCol) else 0L
                 if (Store.digits(address) == digits && body.isNotBlank()) {
-                    if (saveMessage(c, MonitoredMessage("", target.id, "sms", address, body, timestamp))) imported++
+                    if (saveMessage(c, MonitoredMessage(
+                        "", target.id, "sms", address, body, timestamp,
+                        conversationKey = "sms|" + digits, conversationTitle = address
+                    ))) imported++
                 }
             }
         }
         return imported
     }
 
-    fun contextualText(c: Context, targetId: String, maxMessages: Int = 30): String =
-        messages(c, targetId).takeLast(maxMessages).joinToString("\n\n") { item ->
+    fun messageCount(c: Context, targetId: String): Int =
+        db(c).rawQuery("SELECT COUNT(*) FROM messages WHERE target_id=?", arrayOf(targetId)).use {
+            if (it.moveToFirst()) it.getInt(0) else 0
+        }
+
+    /** Chỉ tải tin mới nhất thuộc cùng một thread, tránh trộn hai cuộc trò chuyện có cùng tên. */
+    fun recentMessages(c: Context, targetId: String, limit: Int = 3): List<MonitoredMessage> {
+        val database = db(c)
+        val threadKey = database.rawQuery(
+            "SELECT conversation_key FROM messages WHERE target_id=? ORDER BY timestamp DESC LIMIT 1",
+            arrayOf(targetId)
+        ).use { if (it.moveToFirst()) it.getString(0) else null } ?: return emptyList()
+        val result = mutableListOf<MonitoredMessage>()
+        database.rawQuery(
+            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title
+               FROM messages WHERE target_id=? AND conversation_key=? ORDER BY timestamp DESC LIMIT ?""",
+            arrayOf(targetId, threadKey, limit.coerceIn(1, 50).toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                result += MonitoredMessage(
+                    id = cursor.getString(0), targetId = cursor.getString(1),
+                    channel = cursor.getString(2), sender = cursor.getString(3),
+                    body = cursor.getString(4), timestamp = cursor.getLong(5),
+                    appPackage = cursor.getString(6), conversationKey = cursor.getString(7),
+                    conversationTitle = cursor.getString(8)
+                )
+            }
+        }
+        return result.asReversed()
+    }
+
+    /** Transcript ngắn, có thứ tự thời gian, chỉ từ cuộc trò chuyện gần nhất. */
+    fun contextualText(c: Context, targetId: String, maxMessages: Int = 10, maxChars: Int = 1700): String {
+        val transcript = recentMessages(c, targetId, maxMessages).joinToString("\n") { item ->
             val time = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
                 .format(java.util.Date(item.timestamp))
-            "[$time] ${item.sender}: ${item.body}"
+            "[$time] " + item.sender + ": " + item.body.take(320)
         }
+        return if (transcript.length > maxChars) "…\n" + transcript.takeLast(maxChars - 2) else transcript
+    }
 
     private fun sha256(value: String): String =
         MessageDigest.getInstance("SHA-256").digest(value.toByteArray(Charsets.UTF_8))
