@@ -86,6 +86,7 @@ class SocialListener : NotificationListenerService() {
         val conversationKey = sbn.packageName + "|" + conversationIdentity.trim().lowercase()
 
         val captured = mutableListOf<IncomingMessage>()
+        var newestIncoming: IncomingMessage? = null
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val current = Notification.MessagingStyle.Message.getMessagesFromBundleArray(
                 extras.getParcelableArray(Notification.EXTRA_MESSAGES)
@@ -93,12 +94,21 @@ class SocialListener : NotificationListenerService() {
             val historic = Notification.MessagingStyle.Message.getMessagesFromBundleArray(
                 extras.getParcelableArray(Notification.EXTRA_HISTORIC_MESSAGES)
             )
-            (historic + current).forEach { item ->
+            historic.forEach { item ->
                 val body = item.text?.toString()?.trim().orEmpty()
-                if (body.isBlank()) return@forEach
-                // senderPerson is available here because MessagingStyle bundle parsing is API 30+.
-                val sender = item.senderPerson?.name?.toString() ?: "Bạn"
-                captured += IncomingMessage(sender, body, item.timestamp)
+                if (body.isNotBlank()) {
+                    captured += IncomingMessage(item.senderPerson?.name?.toString() ?: "Bạn", body, item.timestamp)
+                }
+            }
+            current.forEach { item ->
+                val body = item.text?.toString()?.trim().orEmpty()
+                if (body.isNotBlank()) {
+                    val entry = IncomingMessage(item.senderPerson?.name?.toString() ?: "Bạn", body, item.timestamp)
+                    captured += entry
+                    if (newestIncoming == null || entry.timestamp > newestIncoming!!.timestamp) {
+                        newestIncoming = entry
+                    }
+                }
             }
         }
 
@@ -112,45 +122,49 @@ class SocialListener : NotificationListenerService() {
                     ?: ""
                 ).toString().trim()
             if (body.isNotBlank()) {
-                captured += IncomingMessage(title.ifBlank { conversationTitle }, body, sbn.postTime)
+                val fallback = IncomingMessage(title.ifBlank { conversationTitle }, body, sbn.postTime)
+                captured += fallback
+                newestIncoming = fallback
             }
         }
 
-        captured.distinctBy { it.timestamp.toString() + "|" + it.sender + "|" + it.body }
-            .forEach { item ->
-                val eventKey = conversationKey + "|" + item.timestamp + "|" +
-                    item.sender + "|" + item.body.hashCode()
-                if (!markIfNew(eventKey)) return@forEach
+        val uniqueMessages = captured.distinctBy {
+            it.timestamp.toString() + "|" + it.sender + "|" + it.body
+        }
+        // Lưu lịch sử MessagingStyle cục bộ nhưng chỉ cảnh báo tin mới nhất, tránh báo lại toàn bộ lịch sử.
+        uniqueMessages.forEach { item ->
+            val eventKey = conversationKey + "|" + item.timestamp + "|" +
+                item.sender + "|" + item.body.hashCode()
+            if (!markIfNew(eventKey)) return@forEach
 
-                // Chỉ lưu cục bộ nếu khớp đúng tên người gửi hoặc tên cuộc trò chuyện đã chọn.
-                MonitorStore.captureSocial(
-                    this,
-                    item.sender,
-                    item.body,
-                    sbn.packageName,
-                    item.timestamp,
-                    conversationTitle.ifBlank { title },
-                    conversationKey
-                )
+            MonitorStore.captureSocial(
+                this,
+                item.sender,
+                item.body,
+                sbn.packageName,
+                item.timestamp,
+                conversationTitle.ifBlank { title },
+                conversationKey
+            )
 
-                // Cảnh báo tức thời vẫn chạy cục bộ; Gemini chỉ được gọi khi người dùng chủ động yêu cầu.
-                val risk = ScamDetector.analyze(item.body)
-                if (risk.level < 1) return@forEach
-                val alertTitle = (if (risk.level == 2) "🚨 Tin nhắn có dấu hiệu lừa đảo trên "
-                    else "⚠️ Tin nhắn đáng ngờ trên ") + app
-                Store.log(
-                    this,
-                    if (risk.level == 2) 2 else 1,
-                    alertTitle + " từ " + item.sender,
-                    item.body
-                )
-                Notifier.show(
-                    this,
-                    alertTitle,
-                    "Từ " + item.sender + ": " + risk.reasons.joinToString(", ") +
-                        ". Không bấm link, không chuyển tiền, không cung cấp OTP."
-                )
-                Alerter.fire(this, risk.level)
-            }
+            if (item != newestIncoming || item.sender == "Bạn") return@forEach
+            val risk = ScamDetector.analyze(item.body)
+            if (risk.level < 1) return@forEach
+            val alertTitle = (if (risk.level == 2) "🚨 Tin nhắn có dấu hiệu lừa đảo trên "
+                else "⚠️ Tin nhắn đáng ngờ trên ") + app
+            Store.log(
+                this,
+                if (risk.level == 2) 2 else 1,
+                alertTitle + " từ " + item.sender,
+                item.body
+            )
+            Notifier.show(
+                this,
+                alertTitle,
+                "Từ " + item.sender + ": " + risk.reasons.joinToString(", ") +
+                    ". Không bấm link, không chuyển tiền, không cung cấp OTP."
+            )
+            Alerter.fire(this, risk.level)
+        }
     }
 }
