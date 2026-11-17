@@ -16,7 +16,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -301,7 +300,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                 val transcript = MonitorStore.contextualText(c, target.id, 30)
                                 analysis = target.id to ScamDetector.analyze(transcript)
                                 message = if (transcript.isBlank()) "Chưa có tin nhắn để phân tích." else
-                                    "Đã phân tích chuỗi $targetMessageCount tin gần đây ngay trên thiết bị."
+                                    "Đã phân tích tối đa 30 tin gần nhất ngay trên thiết bị."
                             },
                             enabled = targetMessageCount > 0,
                             modifier = Modifier.weight(1f)
