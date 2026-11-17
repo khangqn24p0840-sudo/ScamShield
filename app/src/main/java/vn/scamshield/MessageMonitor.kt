@@ -20,8 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import org.json.JSONArray
-import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,7 +33,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var message by remember { mutableStateOf("") }
     var analysis by remember { mutableStateOf<Pair<String, Result>?>(null) }
     var pendingGeminiTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
-    var geminiResult by remember { mutableStateOf<Pair<String, String>?>(null) }
     var geminiBusyTarget by remember { mutableStateOf<String?>(null) }
     var autoGeminiEnabled by remember { mutableStateOf(ConversationAiMonitor.isEnabled(c)) }
     var askAutoGeminiConsent by remember { mutableStateOf(false) }
@@ -410,8 +407,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 title = { Text("Gửi nội dung cuộc trò chuyện cho Gemini?") },
                 text = {
                     Text(
-                        "ScamShield sẽ gửi tối đa 10 tin gần nhất của cuộc trò chuyện mới nhất từ mục " +
-                            selectedTarget.identifier + " lên máy chủ ScamShield để chuyển cho Google Gemini phân tích. " +
+                        "ScamShield sẽ gửi tối đa 12 tin gần nhất của thread mới nhất đã theo dõi trong mục " +
+                            selectedTarget.identifier + " lên máy chủ ScamShield để Gemini phân tích. Một số dữ liệu nhạy cảm dễ nhận diện sẽ được ẩn trước khi gửi. " +
                             "Đây không phải thao tác tự động. Hãy hủy nếu nội dung có OTP, mật khẩu, thông tin ngân hàng " +
                             "hoặc dữ liệu riêng tư của người khác."
                     )
