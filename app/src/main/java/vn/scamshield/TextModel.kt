@@ -71,7 +71,8 @@ object TextModel {
         return try {
             val out = Array(1) { FloatArray(1) }
             m.run(arrayOf(features(text)), out)
-            out[0][0]
+            val probability = out[0][0]
+            if (probability.isFinite()) probability.coerceIn(0f, 1f) else null
         } catch (e: Throwable) { status = "lỗi: ${e.message}"; null }
     }
 }
