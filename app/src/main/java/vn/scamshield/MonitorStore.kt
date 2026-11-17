@@ -273,7 +273,7 @@ object MonitorStore {
             "", target.id, "social", sender.ifBlank { conversationTitle }, body, timestamp,
             packageName, stableKey, conversationTitle
         ))
-        if (inserted) target.id else null
+        return if (inserted) target.id else null
     }
 
     /** Nhập SMS đến của đúng số đã chọn. Quyền READ_SMS chỉ được hỏi khi người dùng bấm nhập. */
