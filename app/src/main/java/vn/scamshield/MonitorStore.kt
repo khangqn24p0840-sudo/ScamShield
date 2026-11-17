@@ -14,9 +14,7 @@ data class MonitoredTarget(
     val channel: String,
     val identifier: String,
     val createdAt: Long,
-    val appPackage: String = "",
-    val conversationKey: String = "",
-    val conversationTitle: String = ""
+    val appPackage: String = ""
 )
 
 data class MonitoredMessage(
