@@ -113,7 +113,7 @@ object ConversationAiMonitor {
 
         val payloadMessages = JSONArray()
         messages.forEach { item ->
-            val safeText = redactSensitiveText(item.body).take(600)
+            val safeText = redactSensitiveText(item.body).take(480)
             if (safeText.isNotBlank()) {
                 payloadMessages.put(
                     JSONObject()
