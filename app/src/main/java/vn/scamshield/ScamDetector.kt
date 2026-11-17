@@ -33,11 +33,16 @@ object ScamDetector {
         Triple("https?://|www\\.", 10, "Chứa đường link"),
     )
 
+    // Compile once at first use; notification analysis may run frequently in the background.
+    private val compiledRules: List<Triple<Regex, Int, String>> by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        rules.map { Triple(Regex(it.first), it.second, it.third) }
+    }
+
     fun analyze(text: String): Result {
         val t = norm(text)
         var score = 0
         val why = mutableListOf<String>()
-        for ((re, pts, label) in rules) if (Regex(re).containsMatchIn(t)) { score += pts; why += label }
+        for ((re, pts, label) in compiledRules) if (re.containsMatchIn(t)) { score += pts; why += label }
         // Mô hình học máy TFLite: chỉ CỘNG điểm khi tin chắc là lừa đảo (tối đa +30), không bao giờ trừ điểm của bộ quy tắc
         val p = TextModel.predict(text)
         if (p != null && p >= 0.5f) {
