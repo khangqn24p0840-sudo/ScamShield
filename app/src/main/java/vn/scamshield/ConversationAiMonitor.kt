@@ -221,8 +221,9 @@ object ConversationAiMonitor {
         if (code !in 200..299 || response == null) {
             val error = response?.optString("error")?.takeIf { it.isNotBlank() }
                 ?: "Chưa kết nối được máy chủ ScamShield."
-            setPending(c, targetId, conversationKey, true, error)
-            return if (isRetryable(code)) QueueResult.RETRY else QueueResult.DONE
+            val retryable = isRetryable(code) || (code in 200..299 && response == null)
+            setPending(c, targetId, conversationKey, retryable, error)
+            return if (retryable) QueueResult.RETRY else QueueResult.DONE
         }
         if (!response.has("risk_score") || !response.has("summary")) {
             setPending(c, targetId, conversationKey, true, "Máy chủ chưa trả về kết quả phân tích hợp lệ.")
@@ -278,7 +279,12 @@ object ConversationAiMonitor {
 
             val result = persistResponse(c, targetId, conversationKey, messages, response)
             if (result == null) {
-                onComplete(null, "Máy chủ chưa trả về kết quả phân tích hợp lệ.")
+                if (isEnabled(c)) {
+                    queueForRetryIfEnabled(c, targetId, conversationKey)
+                    onComplete(null, "Máy chủ chưa trả kết quả hợp lệ. Yêu cầu đã được xếp hàng để tự thử lại.")
+                } else {
+                    onComplete(null, "Máy chủ chưa trả về kết quả phân tích hợp lệ.")
+                }
                 return@call
             }
             val id = threadId(targetId, conversationKey)

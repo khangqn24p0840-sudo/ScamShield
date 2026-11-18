@@ -72,6 +72,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             target.id to (key?.let { ConversationAiMonitor.isPending(c, target.id, it) } == true)
         }
     }
+    val targetPendingErrors = remember(refresh, targets) {
+        targets.associate { target ->
+            val key = MonitorStore.latestConversationKey(c, target.id)
+            target.id to key?.let { ConversationAiMonitor.pendingError(c, target.id, it) }.orEmpty()
+        }
+    }
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
@@ -295,6 +301,11 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     if (targetPendingAnalyses[target.id] == true) {
                         Text(
                             "⏳ Đã lưu trên thiết bị • đang chờ máy chủ để tự gửi phân tích",
+                            color = Color(0xFFB87916), fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    } else if (!targetPendingErrors[target.id].isNullOrBlank()) {
+                        Text(
+                            "Chưa gửi được phân tích: " + targetPendingErrors[target.id],
                             color = Color(0xFFB87916), fontSize = 11.sp, lineHeight = 15.sp
                         )
                     }
