@@ -66,6 +66,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     val targetConversationAnalyses = remember(refresh, targets) {
         targets.associate { it.id to MonitorStore.latestConversationAnalysis(c, it.id) }
     }
+    val targetPendingAnalyses = remember(refresh, targets) {
+        targets.associate { target ->
+            val key = MonitorStore.latestConversationKey(c, target.id)
+            target.id to (key?.let { ConversationAiMonitor.isPending(c, target.id, it) } == true)
+        }
+    }
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
@@ -123,7 +129,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 message = "Gemini đã cập nhật đánh giá ngữ cảnh cho cuộc trò chuyện này."
                 refresh++
             } else {
-                message = error ?: "Gemini chưa phân tích được. Hãy thử lại sau."
+                message = if (ConversationAiMonitor.isPending(c, target.id, conversationKey)) {
+                    "Server đang tạm thời không phản hồi. Yêu cầu đã được lưu trên thiết bị và sẽ tự gửi lại khi server hoạt động."
+                } else {
+                    error ?: "Gemini chưa phân tích được. Hãy thử lại sau."
+                }
+                refresh++
             }
         }
     }
@@ -281,6 +292,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         }
                         Text("$targetMessageCount tin", color = C.Blue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
+                    if (targetPendingAnalyses[target.id] == true) {
+                        Text(
+                            "⏳ Đã lưu trên thiết bị • đang chờ máy chủ để tự gửi phân tích",
+                            color = Color(0xFFB87916), fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    }
                     if (target.channel == "sms") {
                         OutlinedButton(
                             onClick = {
@@ -381,9 +398,10 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 text = {
                     Text(
                         "Sau khi có tin nhắn mới trong một cuộc trò chuyện bạn đã thêm theo dõi, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
+                            "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại; bạn có thể xem trạng thái đang chờ trong mục này. " +
                             "ScamShield không gửi toàn bộ lịch sử; một số mã OTP, mật khẩu, số điện thoại và dãy số dài sẽ được ẩn trước khi gửi. " +
                             "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức Gemini. " +
-                            "Bạn có thể tắt tính năng này bất cứ lúc nào."
+                            "Bạn có thể tắt tính năng này bất cứ lúc nào; thao tác đó sẽ hủy các yêu cầu đang chờ."
                     )
                 },
                 confirmButton = {
