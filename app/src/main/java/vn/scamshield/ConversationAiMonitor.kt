@@ -128,11 +128,14 @@ object ConversationAiMonitor {
             return
         }
 
+        val previousMemory = MonitorStore.conversationMemory(c, targetId, conversationKey) ?: JSONObject()
         Api.call(
             c,
             "POST",
             "/api/monitor/conversation",
-            JSONObject().put("messages", payloadMessages)
+            JSONObject()
+                .put("messages", payloadMessages)
+                .put("memory", previousMemory)
         ) { code, response ->
             if (code !in 200..299 || response == null) {
                 onComplete(
@@ -167,6 +170,11 @@ object ConversationAiMonitor {
                 lastMessageTimestamp = messages.last().timestamp
             )
 
+            response.optJSONObject("conversation_memory")?.let { memory ->
+                MonitorStore.saveConversationMemory(
+                    c, targetId, conversationKey, memory, result.lastMessageTimestamp
+                )
+            }
             val previousScore = MonitorStore.saveConversationAnalysis(c, result)
             notifyOnEscalation(c, result, previousScore)
             onComplete(result, null)
