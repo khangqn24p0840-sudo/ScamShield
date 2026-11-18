@@ -7,11 +7,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 object Api {
-    /** Địa chỉ máy chủ đang dùng: người dùng tự đặt (mục Nâng cao) thì ưu tiên, không thì dùng mặc định trong Config. */
-    fun server(c: Context): String {
-        val custom = Store.str(c, "server").trim().trimEnd('/')
-        return if (custom.isNotEmpty()) custom else Config.SERVER_URL.trim().trimEnd('/')
-    }
+    /** Địa chỉ máy chủ được cố định trong mã nguồn; người dùng không cần cấu hình trong app. */
+    fun server(c: Context): String = Config.SERVER_URL.trim().trimEnd('/')
 
     /** Gọi máy chủ ScamShield (chỉ HTTPS). cb chạy trên luồng chính. */
     fun call(c: Context, method: String, path: String, body: JSONObject?, cb: (Int, JSONObject?) -> Unit) {

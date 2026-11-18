@@ -494,11 +494,8 @@ fun linkCheck(u: String): Result {
     var logged by remember { mutableStateOf(Store.str(c, "token").isNotEmpty()) }
     var consent by remember { mutableStateOf(Store.flag(c, "consent")) }
     var msg by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf(Store.str(c, "server")) }
-    var advanced by remember { mutableStateOf(false) }
     var askDel by remember { mutableStateOf(false) }
     var nameEdit by remember { mutableStateOf(Store.str(c, "name")) }
-    val hasDefault = Config.SERVER_URL.isNotBlank()
     Page("Tài khoản", null) {
         CardX(bg = C.CardHi) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -547,10 +544,6 @@ fun linkCheck(u: String): Result {
             }
         }
         if (msg.isNotEmpty()) Text(msg, fontSize = 13.sp, color = C.Warn)
-        if (!hasDefault || advanced)
-            PillField(server, { server = it; Store.putStr(c, "server", it.trim()) },
-                if (hasDefault) "Máy chủ riêng (để trống = dùng mặc định)" else "Địa chỉ máy chủ (https://...)", leading = Icons.Rounded.Language)
-        if (hasDefault) TextButton({ advanced = !advanced }) { Text(if (advanced) "Ẩn nâng cao" else "Nâng cao", fontSize = 12.sp, color = C.Dim) }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Icon(Icons.Rounded.Lock, null, tint = C.Dim, modifier = Modifier.size(15.dp))
             Text("Nội dung tin nhắn, số tiền và danh bạ chỉ được xử lý trong máy.", fontSize = 12.sp, color = C.Dim)

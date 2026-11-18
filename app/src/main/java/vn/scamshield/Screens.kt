@@ -81,11 +81,8 @@ fun displayName(c: Context): String {
     var user by remember { mutableStateOf("") }
     var email by remember { mutableStateOf(Store.str(c, "email")) }
     var pass by remember { mutableStateOf("") }
-    var server by remember { mutableStateOf(Store.str(c, "server")) }
     var msg by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
-    var showServer by remember { mutableStateOf(false) }
-    val hasDefault = Config.SERVER_URL.isNotBlank()
 
     fun finish(code: Int, j: JSONObject?) {
         busy = false
@@ -123,8 +120,6 @@ fun displayName(c: Context): String {
             Spacer(Modifier.height(22.dp))
             Column(Modifier.fillMaxWidth().background(C.Card, RoundedCornerShape(24.dp))
                 .border(1.dp, C.Stroke, RoundedCornerShape(24.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!hasDefault || showServer)
-                    PillField(server, { server = it; Store.putStr(c, "server", it.trim()) }, "Máy chủ https://…", leading = Icons.Rounded.Language)
                 if (reg) PillField(user, { user = it }, "Tên người dùng", leading = Icons.Rounded.Person)
                 PillField(email, { email = it }, "Email", leading = Icons.Rounded.Email,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
@@ -137,8 +132,6 @@ fun displayName(c: Context): String {
             }
             Spacer(Modifier.height(14.dp))
             TextButton({ onSkip() }) { Text("Dùng không cần tài khoản →", color = C.Gold, fontSize = 14.sp, fontWeight = FontWeight.SemiBold) }
-            if (hasDefault) TextButton({ showServer = !showServer }) {
-                Text(if (showServer) "Ẩn máy chủ" else "Máy chủ riêng", color = C.Dim, fontSize = 12.sp) }
             Spacer(Modifier.height(8.dp))
             Text(if (reg) "Đã có tài khoản? Đăng nhập ngay" else "Chưa có tài khoản? Đăng ký ngay",
                 color = C.Cyan, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,

@@ -142,7 +142,7 @@ class SocialListener : NotificationListenerService() {
                 item.sender + "|" + item.body.hashCode()
             if (!markIfNew(eventKey)) return@forEach
 
-            MonitorStore.captureSocial(
+            val targetId = MonitorStore.captureSocial(
                 this,
                 item.sender,
                 item.body,
@@ -151,6 +151,10 @@ class SocialListener : NotificationListenerService() {
                 conversationTitle.ifBlank { title },
                 conversationKey
             )
+            // Gemini context monitoring runs only for a tracked thread and only after explicit opt-in.
+            if (targetId != null && item.sender != "Bạn") {
+                ConversationAiMonitor.schedule(this, targetId, conversationKey)
+            }
 
             if (item != newestIncoming || item.sender == "Bạn") return@forEach
             val risk = ScamDetector.analyze(item.body)

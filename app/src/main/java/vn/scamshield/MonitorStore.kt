@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.provider.Telephony
+import org.json.JSONArray
+import org.json.JSONObject
 import java.security.MessageDigest
 
 data class MonitoredTarget(
@@ -29,12 +31,26 @@ data class MonitoredMessage(
     val conversationTitle: String = ""
 )
 
+data class ConversationAnalysisResult(
+    val targetId: String,
+    val conversationKey: String,
+    val riskScore: Int,
+    val riskLevel: String,
+    val summary: String,
+    val evidence: List<String>,
+    val recommendedAction: String,
+    val confidence: String,
+    val analyzedAt: Long,
+    val messageCount: Int,
+    val lastMessageTimestamp: Long
+)
+
 /** Lưu riêng trên thiết bị. Không tự đồng bộ nội dung tin nhắn lên máy chủ. */
 object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 3) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 5) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
@@ -61,6 +77,8 @@ object MonitorStore {
             db.execSQL("CREATE INDEX idx_monitor_target_time ON messages(target_id, timestamp)")
             db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             db.execSQL("CREATE INDEX idx_monitor_time ON messages(timestamp)")
+            createConversationAnalysisTable(db)
+            createConversationMemoryTable(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -73,6 +91,40 @@ object MonitorStore {
                 db.execSQL("UPDATE messages SET conversation_key = channel || ':' || target_id WHERE conversation_key = ''")
                 db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             }
+            if (oldVersion < 4) createConversationAnalysisTable(db)
+            if (oldVersion < 5) createConversationMemoryTable(db)
+        }
+
+        private fun createConversationMemoryTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS conversation_memory (
+                    target_id TEXT NOT NULL,
+                    conversation_key TEXT NOT NULL,
+                    memory_json TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    last_message_timestamp INTEGER NOT NULL,
+                    PRIMARY KEY(target_id, conversation_key)
+                )"""
+            )
+        }
+
+        private fun createConversationAnalysisTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS conversation_analysis (
+                    target_id TEXT NOT NULL,
+                    conversation_key TEXT NOT NULL,
+                    risk_score INTEGER NOT NULL,
+                    risk_level TEXT NOT NULL,
+                    summary TEXT NOT NULL,
+                    evidence TEXT NOT NULL,
+                    recommended_action TEXT NOT NULL,
+                    confidence TEXT NOT NULL,
+                    analyzed_at INTEGER NOT NULL,
+                    message_count INTEGER NOT NULL,
+                    last_message_timestamp INTEGER NOT NULL,
+                    PRIMARY KEY(target_id, conversation_key)
+                )"""
+            )
         }
     }
 
@@ -130,6 +182,8 @@ object MonitorStore {
         database.beginTransaction()
         try {
             database.delete("messages", "target_id=?", arrayOf(targetId))
+            database.delete("conversation_analysis", "target_id=?", arrayOf(targetId))
+            database.delete("conversation_memory", "target_id=?", arrayOf(targetId))
             database.delete("targets", "id=?", arrayOf(targetId))
             database.setTransactionSuccessful()
         } finally {
@@ -201,10 +255,12 @@ object MonitorStore {
             it.channel == "sms" && normalized.length >= 7 &&
                 Store.digits(it.identifier) == normalized
         } ?: return
-        saveMessage(c, MonitoredMessage(
+        val conversationKey = "sms|" + normalized
+        val inserted = saveMessage(c, MonitoredMessage(
             "", target.id, "sms", sender, body, timestamp,
-            conversationKey = "sms|" + normalized, conversationTitle = sender
+            conversationKey = conversationKey, conversationTitle = sender
         ))
+        if (inserted) ConversationAiMonitor.schedule(c, target.id, conversationKey)
     }
 
     fun captureSocial(
@@ -215,10 +271,10 @@ object MonitorStore {
         timestamp: Long,
         conversationTitle: String = "",
         conversationKey: String = ""
-    ) {
+    ): String? {
         val senderName = sender.trim().lowercase()
         val threadName = conversationTitle.trim().lowercase()
-        if (senderName.isBlank() && threadName.isBlank()) return
+        if (senderName.isBlank() && threadName.isBlank()) return null
         val target = targets(c).firstOrNull { candidate ->
             if (candidate.channel != "social" ||
                 (candidate.appPackage.isNotBlank() && candidate.appPackage != packageName)
@@ -226,14 +282,15 @@ object MonitorStore {
             val wanted = candidate.identifier.trim().lowercase()
             // Match chính xác tên người gửi hoặc tên cuộc trò chuyện; tránh bắt nhầm tên gần giống.
             wanted == senderName || wanted == threadName
-        } ?: return
+        } ?: return null
         val stableKey = conversationKey.trim().ifBlank {
             packageName + "|" + conversationTitle.ifBlank { sender }
         }
-        saveMessage(c, MonitoredMessage(
+        val inserted = saveMessage(c, MonitoredMessage(
             "", target.id, "social", sender.ifBlank { conversationTitle }, body, timestamp,
             packageName, stableKey, conversationTitle
         ))
+        return if (inserted) target.id else null
     }
 
     /** Nhập SMS đến của đúng số đã chọn. Quyền READ_SMS chỉ được hỏi khi người dùng bấm nhập. */
@@ -306,12 +363,165 @@ object MonitorStore {
 
     /** Transcript ngắn, có thứ tự thời gian, chỉ từ cuộc trò chuyện gần nhất. */
     fun contextualText(c: Context, targetId: String, maxMessages: Int = 10, maxChars: Int = 1700): String {
-        val transcript = recentMessages(c, targetId, maxMessages).joinToString("\n") { item ->
+        val key = latestConversationKey(c, targetId) ?: return ""
+        return contextualText(c, targetId, key, maxMessages, maxChars)
+    }
+
+    fun latestConversationKey(c: Context, targetId: String): String? =
+        db(c).rawQuery(
+            "SELECT conversation_key FROM messages WHERE target_id=? ORDER BY timestamp DESC LIMIT 1",
+            arrayOf(targetId)
+        ).use { if (it.moveToFirst()) it.getString(0).takeIf(String::isNotBlank) else null }
+
+    /** Trả về transcript của một thread xác định; không trộn các chat khác cùng người gửi. */
+    fun contextualText(
+        c: Context,
+        targetId: String,
+        conversationKey: String,
+        maxMessages: Int = 12,
+        maxChars: Int = 2200
+    ): String {
+        val transcript = recentMessages(c, targetId, conversationKey, maxMessages).joinToString("\n") { item ->
             val time = java.text.SimpleDateFormat("dd/MM HH:mm", java.util.Locale.getDefault())
                 .format(java.util.Date(item.timestamp))
             "[$time] " + item.sender + ": " + item.body.take(320)
         }
         return if (transcript.length > maxChars) "…\n" + transcript.takeLast(maxChars - 2) else transcript
+    }
+
+    fun recentMessages(
+        c: Context,
+        targetId: String,
+        conversationKey: String,
+        limit: Int = 12
+    ): List<MonitoredMessage> {
+        val result = mutableListOf<MonitoredMessage>()
+        db(c).rawQuery(
+            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title
+               FROM messages
+               WHERE target_id=? AND conversation_key=?
+               ORDER BY timestamp DESC LIMIT ?""",
+            arrayOf(targetId, conversationKey, limit.coerceIn(1, 50).toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                result += MonitoredMessage(
+                    id = cursor.getString(0), targetId = cursor.getString(1),
+                    channel = cursor.getString(2), sender = cursor.getString(3),
+                    body = cursor.getString(4), timestamp = cursor.getLong(5),
+                    appPackage = cursor.getString(6), conversationKey = cursor.getString(7),
+                    conversationTitle = cursor.getString(8)
+                )
+            }
+        }
+        return result.asReversed()
+    }
+
+    /** Bộ nhớ ngữ cảnh được lưu trên thiết bị, phân tách theo đúng target và thread. */
+    fun conversationMemory(c: Context, targetId: String, conversationKey: String): JSONObject? =
+        db(c).rawQuery(
+            "SELECT memory_json FROM conversation_memory WHERE target_id=? AND conversation_key=?",
+            arrayOf(targetId, conversationKey)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null
+            else runCatching { JSONObject(cursor.getString(0)) }.getOrNull()
+        }
+
+    fun saveConversationMemory(
+        c: Context,
+        targetId: String,
+        conversationKey: String,
+        memory: JSONObject,
+        lastMessageTimestamp: Long
+    ) {
+        val bounded = JSONObject().apply {
+            put("summary", memory.optString("summary").take(1200))
+            put("key_facts", boundedMemoryArray(memory.optJSONArray("key_facts"), 8, 180))
+            put("behavior_patterns", boundedMemoryArray(memory.optJSONArray("behavior_patterns"), 8, 180))
+            put("open_questions", boundedMemoryArray(memory.optJSONArray("open_questions"), 5, 160))
+        }
+        val values = ContentValues().apply {
+            put("target_id", targetId)
+            put("conversation_key", conversationKey)
+            put("memory_json", bounded.toString())
+            put("updated_at", System.currentTimeMillis())
+            put("last_message_timestamp", lastMessageTimestamp)
+        }
+        db(c).insertWithOnConflict(
+            "conversation_memory", null, values, SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    private fun boundedMemoryArray(source: JSONArray?, limit: Int, maxChars: Int): JSONArray {
+        val result = JSONArray()
+        if (source == null) return result
+        for (index in 0 until minOf(source.length(), limit)) {
+            val value = source.optString(index).trim().take(maxChars)
+            if (value.isNotBlank()) result.put(value)
+        }
+        return result
+    }
+
+    fun saveConversationAnalysis(
+        c: Context,
+        result: ConversationAnalysisResult
+    ): Int? {
+        val database = db(c)
+        val previousScore = database.rawQuery(
+            "SELECT risk_score FROM conversation_analysis WHERE target_id=? AND conversation_key=?",
+            arrayOf(result.targetId, result.conversationKey)
+        ).use { if (it.moveToFirst()) it.getInt(0) else null }
+        val values = ContentValues().apply {
+            put("target_id", result.targetId)
+            put("conversation_key", result.conversationKey)
+            put("risk_score", result.riskScore.coerceIn(0, 100))
+            put("risk_level", result.riskLevel.take(12))
+            put("summary", result.summary.take(600))
+            put("evidence", JSONArray(result.evidence.take(5)).toString())
+            put("recommended_action", result.recommendedAction.take(500))
+            put("confidence", result.confidence.take(12))
+            put("analyzed_at", result.analyzedAt)
+            put("message_count", result.messageCount.coerceIn(0, 10000))
+            put("last_message_timestamp", result.lastMessageTimestamp)
+        }
+        database.insertWithOnConflict(
+            "conversation_analysis", null, values, SQLiteDatabase.CONFLICT_REPLACE
+        )
+        return previousScore
+    }
+
+    fun conversationAnalysis(
+        c: Context,
+        targetId: String,
+        conversationKey: String
+    ): ConversationAnalysisResult? =
+        db(c).rawQuery(
+            """SELECT risk_score,risk_level,summary,evidence,recommended_action,confidence,
+                      analyzed_at,message_count,last_message_timestamp
+               FROM conversation_analysis WHERE target_id=? AND conversation_key=?""",
+            arrayOf(targetId, conversationKey)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) return@use null
+            val evidenceJson = runCatching { JSONArray(cursor.getString(3)) }.getOrElse { JSONArray() }
+            ConversationAnalysisResult(
+                targetId = targetId,
+                conversationKey = conversationKey,
+                riskScore = cursor.getInt(0),
+                riskLevel = cursor.getString(1),
+                summary = cursor.getString(2),
+                evidence = (0 until evidenceJson.length()).mapNotNull { i ->
+                    evidenceJson.optString(i).takeIf { it.isNotBlank() }
+                },
+                recommendedAction = cursor.getString(4),
+                confidence = cursor.getString(5),
+                analyzedAt = cursor.getLong(6),
+                messageCount = cursor.getInt(7),
+                lastMessageTimestamp = cursor.getLong(8)
+            )
+        }
+
+    fun latestConversationAnalysis(c: Context, targetId: String): ConversationAnalysisResult? {
+        val key = latestConversationKey(c, targetId) ?: return null
+        return conversationAnalysis(c, targetId, key)
     }
 
     private fun sha256(value: String): String =
