@@ -179,7 +179,9 @@ object ConversationAiMonitor {
 
     fun cancelTarget(c: Context, targetId: String) {
         WorkManager.getInstance(c.applicationContext).cancelAllWorkByTag(targetWorkTag(targetId))
-        MonitorStore.latestConversationKey(c, targetId)?.let { setPending(c, targetId, it, false) }
+        MonitorStore.conversationKeys(c, targetId).forEach { key ->
+            setPending(c, targetId, key, false)
+        }
     }
 
     /** Xử lý đồng bộ bên trong Worker; không chặn luồng giao diện. */
