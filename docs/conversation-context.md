@@ -32,3 +32,12 @@ Server hiện tại đọc `message` và `history` (mỗi mục lịch sử có 
 - Khóa nhận diện thread ưu tiên shortcut ID, sau đó dùng tiêu đề hội thoại/tiêu đề thông báo. Nếu ứng dụng nguồn không cung cấp định danh ổn định, một số thread có thể vẫn bị gộp hoặc thiếu dữ liệu.
 - Tự động cảnh báo vẫn xử lý trên thiết bị. Chỉ thao tác Gemini do người dùng chủ động xác nhận mới gửi transcript lên máy chủ và nhà cung cấp AI.
 - Không gửi OTP, mật khẩu, mã khôi phục, số thẻ, thông tin đăng nhập hoặc dữ liệu riêng tư không cần thiết. Mô hình có thể sai; luôn xem kết quả là chỉ báo chứ không phải kết luận.
+
+
+## Bộ nhớ ngữ cảnh xuyên suốt cuộc trò chuyện
+
+- Mỗi cặp `target_id + conversation_key` có một bộ nhớ riêng lưu trong SQLite trên thiết bị.
+- Bộ nhớ chỉ gồm tóm tắt diễn biến, sự kiện quan trọng, hành vi quan sát được và câu hỏi còn thiếu; không thay thế bản ghi tin nhắn gốc.
+- Mỗi lần Gemini phân tích, app gửi bộ nhớ cũ cùng tối đa 12 tin nhắn mới nhất thuộc đúng thread đó. Gemini trả về bộ nhớ đã cập nhật cùng đánh giá rủi ro mới.
+- Server không lưu nội dung hội thoại hoặc bộ nhớ lâu dài. Người dùng có thể tắt tự động phân tích; xóa đối tượng theo dõi sẽ xóa cả tin nhắn, kết quả phân tích và bộ nhớ liên quan.
+- Bộ nhớ là dữ liệu tóm tắt hỗ trợ ngữ cảnh, không phải bằng chứng độc lập. Gemini phải đánh giá lại bằng chứng mới và hạ độ tin cậy khi thông báo thiếu tin nhắn/thiếu chiều hội thoại.
