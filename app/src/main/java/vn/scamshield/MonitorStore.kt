@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.provider.Telephony
 import org.json.JSONArray
+import org.json.JSONObject
 import java.security.MessageDigest
 
 data class MonitoredTarget(
@@ -49,7 +50,7 @@ object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 4) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 5) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
@@ -77,6 +78,7 @@ object MonitorStore {
             db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             db.execSQL("CREATE INDEX idx_monitor_time ON messages(timestamp)")
             createConversationAnalysisTable(db)
+            createConversationMemoryTable(db)
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -90,6 +92,20 @@ object MonitorStore {
                 db.execSQL("CREATE INDEX idx_monitor_conversation_time ON messages(target_id, conversation_key, timestamp)")
             }
             if (oldVersion < 4) createConversationAnalysisTable(db)
+            if (oldVersion < 5) createConversationMemoryTable(db)
+        }
+
+        private fun createConversationMemoryTable(db: SQLiteDatabase) {
+            db.execSQL(
+                """CREATE TABLE IF NOT EXISTS conversation_memory (
+                    target_id TEXT NOT NULL,
+                    conversation_key TEXT NOT NULL,
+                    memory_json TEXT NOT NULL,
+                    updated_at INTEGER NOT NULL,
+                    last_message_timestamp INTEGER NOT NULL,
+                    PRIMARY KEY(target_id, conversation_key)
+                )"""
+            )
         }
 
         private fun createConversationAnalysisTable(db: SQLiteDatabase) {
@@ -167,6 +183,7 @@ object MonitorStore {
         try {
             database.delete("messages", "target_id=?", arrayOf(targetId))
             database.delete("conversation_analysis", "target_id=?", arrayOf(targetId))
+            database.delete("conversation_memory", "target_id=?", arrayOf(targetId))
             database.delete("targets", "id=?", arrayOf(targetId))
             database.setTransactionSuccessful()
         } finally {
@@ -397,6 +414,51 @@ object MonitorStore {
             }
         }
         return result.asReversed()
+    }
+
+    /** Bộ nhớ ngữ cảnh được lưu trên thiết bị, phân tách theo đúng target và thread. */
+    fun conversationMemory(c: Context, targetId: String, conversationKey: String): JSONObject? =
+        db(c).rawQuery(
+            "SELECT memory_json FROM conversation_memory WHERE target_id=? AND conversation_key=?",
+            arrayOf(targetId, conversationKey)
+        ).use { cursor ->
+            if (!cursor.moveToFirst()) null
+            else runCatching { JSONObject(cursor.getString(0)) }.getOrNull()
+        }
+
+    fun saveConversationMemory(
+        c: Context,
+        targetId: String,
+        conversationKey: String,
+        memory: JSONObject,
+        lastMessageTimestamp: Long
+    ) {
+        val bounded = JSONObject().apply {
+            put("summary", memory.optString("summary").take(1200))
+            put("key_facts", boundedMemoryArray(memory.optJSONArray("key_facts"), 8, 180))
+            put("behavior_patterns", boundedMemoryArray(memory.optJSONArray("behavior_patterns"), 8, 180))
+            put("open_questions", boundedMemoryArray(memory.optJSONArray("open_questions"), 5, 160))
+        }
+        val values = ContentValues().apply {
+            put("target_id", targetId)
+            put("conversation_key", conversationKey)
+            put("memory_json", bounded.toString())
+            put("updated_at", System.currentTimeMillis())
+            put("last_message_timestamp", lastMessageTimestamp)
+        }
+        db(c).insertWithOnConflict(
+            "conversation_memory", null, values, SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
+    private fun boundedMemoryArray(source: JSONArray?, limit: Int, maxChars: Int): JSONArray {
+        val result = JSONArray()
+        if (source == null) return result
+        for (index in 0 until minOf(source.length(), limit)) {
+            val value = source.optString(index).trim().take(maxChars)
+            if (value.isNotBlank()) result.put(value)
+        }
+        return result
     }
 
     fun saveConversationAnalysis(
