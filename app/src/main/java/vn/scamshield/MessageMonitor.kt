@@ -2,7 +2,9 @@ package vn.scamshield
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +42,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var socialAppPackage by remember { mutableStateOf("") }
     var appExpanded by remember { mutableStateOf(false) }
     var askNotificationAccess by remember { mutableStateOf(false) }
+    var screenMonitorEnabled by remember { mutableStateOf(ChatAccessibilityService.isMonitoringEnabled(c)) }
+    var askScreenAccessConsent by remember { mutableStateOf(false) }
     var journalTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
 
     val installedSocialApps = remember(c) {
@@ -56,7 +60,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         }
     }
 
-    val targets = remember(refresh) { MonitorStore.targets(c) }\n    val accessibilityServiceEnabled = remember(refresh) { ChatAccessibilityService.isServiceEnabled(c) }
+    val targets = remember(refresh) { MonitorStore.targets(c) }
+    val accessibilityServiceEnabled = remember(refresh) { ChatAccessibilityService.isServiceEnabled(c) }
     // Chỉ lấy COUNT và ba tin gần nhất của mỗi mục; không tải toàn bộ bảng 10.000 tin mỗi lần refresh.
     val targetMessageCounts = remember(refresh, targets) {
         targets.associate { it.id to MonitorStore.messageCount(c, it.id) }
@@ -194,7 +199,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 Button(
                     onClick = {
                         val ok = MonitorStore.addTarget(c, channel, identifier, if (channel == "social") socialAppPackage else "")
-                        ChatAccessibilityService.refreshPackageFilter(c)\n                        message = if (ok) "Đã thêm đối tượng theo dõi. Dữ liệu mới sẽ được lưu cục bộ trên máy."
+                        ChatAccessibilityService.refreshPackageFilter(c)
+                        message = if (ok) "Đã thêm đối tượng theo dõi. Dữ liệu mới sẽ được lưu cục bộ trên máy."
                             else "Không thêm được: hãy kiểm tra nội dung hoặc đối tượng đã tồn tại."
                         identifier = ""
                         refresh++
@@ -377,6 +383,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     }
                     OutlinedButton(onClick = {
                         MonitorStore.removeTarget(c, target.id)
+                        ChatAccessibilityService.refreshPackageFilter(c)
                         journalTarget = null
                         message = "Đã xóa đối tượng và dữ liệu tin nhắn liên quan khỏi bộ theo dõi."
                         refresh++
@@ -403,7 +410,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Mỗi tin được ScamShield tự đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn có nghĩa là hiện chưa phát hiện dấu hiệu, không phải bảo đảm tuyệt đối.",
+                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Tin đọc từ màn hình dùng thời điểm ScamShield quan sát được, không nhất thiết là giờ gửi ban đầu. Mỗi tin được đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn không phải bảo đảm tuyệt đối.",
                             color = C.Sub, fontSize = 11.sp
                         )
                         if (journalMessages.isEmpty()) {
@@ -424,7 +431,11 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                             "${item.sender} • " + SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.timestamp)),
                                             color = C.Blue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
                                         )
-                                        Text(\n                                            when (item.channel) { "screen" -> "Nguồn: màn hình (Trợ năng)"; "social" -> "Nguồn: thông báo"; else -> "Nguồn: SMS" },\n                                            color = C.Sub, fontSize = 9.sp\n                                        )\n                                        Text(item.body, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
+                                        Text(
+                                            when (item.channel) { "screen" -> "Nguồn: màn hình (ghi nhận lúc đọc)"; "social" -> "Nguồn: thông báo"; else -> "Nguồn: SMS" },
+                                            color = C.Sub, fontSize = 9.sp
+                                        )
+                                        Text(item.body, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
                                         val (verdict, verdictColor) = when (item.riskLevel) {
                                             "DANGER" -> "NGUY HIỂM" to Color(0xFFC62828)
                                             "SUSPICIOUS" -> "ĐÁNG NGỜ" to Color(0xFFB77900)
