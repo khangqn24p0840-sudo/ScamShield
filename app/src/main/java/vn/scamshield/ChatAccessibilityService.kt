@@ -171,13 +171,13 @@ class ChatAccessibilityService : AccessibilityService() {
             scanner.execute {
                 if (!isMonitoringEnabled(this) || !hasConsent(this)) return@execute
                 var inserted = 0
-                newBodies.forEach { body ->
+                newBodies.forEachIndexed { index, body ->
                     if (MonitorStore.captureScreenSocial(
                             this,
                             target.id,
                             body,
                             packageName,
-                            observedAt,
+                            observedAt + index,
                             title,
                             conversationKey
                         )
