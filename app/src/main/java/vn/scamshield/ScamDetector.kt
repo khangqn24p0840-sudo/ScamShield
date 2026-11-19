@@ -17,7 +17,9 @@ object ScamDetector {
     private val rules = listOf(
         Triple("cong an|vien kiem sat|toa an|co quan dieu tra|bo cong an|lenh bat|trieu tap", 40, "Giả danh cơ quan chức năng"),
         Triple("tai khoan.*(khoa|dong bang|tam ngung|bi han che)|xac thuc.*tai khoan", 30, "Dọa khóa/đóng băng tài khoản"),
-        Triple("\\botp\\b|ma xac thuc|ma xac minh|mat khau|so the|cvv", 30, "Hỏi mã OTP / thông tin nhạy cảm"),
+        Triple("ma xac thuc|ma xac minh|mat khau|so the|cvv", 30, "Hỏi thông tin nhạy cảm"),
+        Triple("(gui|doc|cung cap|nhap).{0,24}(ma )?otp|otp.{0,24}(gui|doc|cung cap|nhap)", 45, "Yêu cầu gửi / cung cấp mã OTP"),
+        Triple("\\botp\\b", 15, "Có nhắc đến mã OTP"),
         Triple("trung thuong|trung giai|nhan qua|qua tang|voucher mien phi", 35, "Lừa trúng thưởng"),
         Triple("viec nhe luong cao|lam nhiem vu|cong tac vien|hoa hong|chot don|tang don|tha tim|like video", 40, "Lừa tuyển việc làm online / nhiệm vụ"),
         Triple("dau tu|loi nhuan|sinh loi|tien ao|usdt|crypto|cam ket lai|forex", 30, "Lừa đầu tư sinh lời"),

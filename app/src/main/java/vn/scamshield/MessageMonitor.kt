@@ -3,9 +3,12 @@ package vn.scamshield
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,6 +43,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var socialAppPackage by remember { mutableStateOf("") }
     var appExpanded by remember { mutableStateOf(false) }
     var askNotificationAccess by remember { mutableStateOf(false) }
+    var journalTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
 
     val installedSocialApps = remember(c) {
         SocialListener.apps.entries.mapNotNull { (pkg, _) ->
@@ -78,6 +82,11 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             target.id to key?.let { ConversationAiMonitor.pendingError(c, target.id, it) }.orEmpty()
         }
     }
+    val notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
+        c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    val journalMessages = remember(journalTarget?.id, refresh) {
+        journalTarget?.let { MonitorStore.messages(c, it.id).takeLast(500).asReversed() }.orEmpty()
+    }
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
     }
@@ -90,6 +99,17 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     ) { granted ->
         message = if (granted) "Đã cấp quyền nhận SMS mới từ số đang theo dõi."
             else "Bạn chưa cấp quyền nhận SMS mới; lịch sử cũ vẫn có thể nhập riêng nếu có READ_SMS."
+        refresh++
+    }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        message = if (granted) {
+            "Đã cấp quyền hiển thị cảnh báo của ScamShield."
+        } else {
+            "Chưa được cấp quyền hiển thị thông báo; ScamShield không thể hiện cảnh báo trên thanh thông báo."
+        }
         refresh++
     }
 
@@ -146,6 +166,25 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     }
 
     Page("Theo dõi tin nhắn", back) {
+        if (Build.VERSION.SDK_INT >= 33 && !notificationPermissionGranted) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4DD)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Chưa cấp quyền hiển thị cảnh báo", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        "Android đang chặn ScamShield gửi thông báo cảnh báo. Quyền Truy cập thông báo để đọc tin nhắn và quyền Hiển thị thông báo là hai quyền riêng biệt.",
+                        color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
+                    )
+                    Button(
+                        onClick = { notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Cấp quyền hiển thị cảnh báo") }
+                }
+            }
+        }
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(20.dp),
@@ -185,7 +224,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         }
                     }
                     Text(
-                        "Chọn ứng dụng đã cài trên điện thoại. Tin nhắn chỉ được ghép với hồ sơ của ứng dụng này.",
+                        "Chọn đúng ứng dụng nhận tin nhắn: thông báo từ Zalo phải theo dõi bằng Zalo, không phải Facebook. Tên người gửi hoặc tên nhóm cũng phải khớp chính xác.",
                         color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
                     )
                 }
@@ -234,7 +273,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Gemini tự động hiểu ngữ cảnh", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text("ScamShield tự động hiểu ngữ cảnh", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                         Text("Chỉ áp dụng cho các cuộc chat đang theo dõi; có thể tắt bất cứ lúc nào.", color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp)
                     }
                     Switch(
@@ -243,9 +282,9 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                             if (!enabled) {
                                 ConversationAiMonitor.setEnabled(c, false)
                                 autoGeminiEnabled = false
-                                message = "Đã tắt Gemini tự động phân tích ngữ cảnh."
+                                message = "Đã tắt ScamShield tự động hiểu ngữ cảnh."
                             } else if (Store.str(c, "token").isBlank()) {
-                                message = "Bạn cần đăng nhập ScamShield trước khi bật Gemini tự động."
+                                message = "Bạn cần đăng nhập ScamShield trước khi bật phân tích ngữ cảnh tự động."
                             } else {
                                 askAutoGeminiConsent = true
                             }
@@ -298,6 +337,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         }
                         Text("$targetMessageCount tin", color = C.Blue, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     }
+                    if (target.channel == "social" && targetMessageCount == 0) {
+                        Text(
+                            "Chưa nhận được tin nhắn khớp. Kiểm tra lại ứng dụng đã chọn, tên người gửi/nhóm và quyền Truy cập thông báo.",
+                            color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    }
                     if (targetPendingAnalyses[target.id] == true) {
                         Text(
                             "⏳ Đã lưu trên thiết bị • đang chờ máy chủ để tự gửi phân tích",
@@ -346,13 +391,22 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         }) { Icon(Icons.Rounded.Delete, null); Text("Xóa") }
                     }
                     OutlinedButton(
+                        onClick = { journalTarget = target },
+                        enabled = targetMessageCount > 0,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.History, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("Nhật ký tin nhắn đã theo dõi ($targetMessageCount)")
+                    }
+                    OutlinedButton(
                         onClick = { pendingGeminiTarget = target },
                         enabled = targetMessageCount > 0 && geminiBusyTarget != target.id,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Icon(Icons.Rounded.AutoAwesome, null)
                         Spacer(Modifier.width(7.dp))
-                        Text(if (geminiBusyTarget == target.id) "Đang phân tích bằng Gemini…" else "Phân tích hội thoại bằng Gemini")
+                        Text(if (geminiBusyTarget == target.id) "Đang phân tích bằng ScamShield AI…" else "Phân tích hội thoại bằng ScamShield AI")
                     }
                     recentMessages.asReversed().forEach { item ->
                         Column(
@@ -378,7 +432,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         ) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(
-                                    "Gemini • ${result.riskLevel} • ${result.riskScore}/100",
+                                    "ScamShield AI • ${result.riskLevel} • ${result.riskScore}/100",
                                     color = C.Text, fontWeight = FontWeight.Bold, fontSize = 13.sp
                                 )
                                 Text(result.summary, color = C.Text, fontSize = 12.sp, lineHeight = 18.sp)
@@ -402,10 +456,52 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
 
         if (message.isNotBlank()) Text(message, color = C.Blue, fontSize = 12.sp, lineHeight = 17.sp)
 
+        if (journalTarget != null) {
+            val selectedJournalTarget = journalTarget!!
+            AlertDialog(
+                onDismissRequest = { journalTarget = null },
+                title = { Text("Nhật ký tin nhắn • ${selectedJournalTarget.identifier}") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "Lịch sử được lưu trên thiết bị. Hiển thị tối đa 500 tin mới nhất.",
+                            color = C.Sub, fontSize = 11.sp
+                        )
+                        if (journalMessages.isEmpty()) {
+                            Text("Chưa có tin nhắn được lưu.", color = C.Sub, fontSize = 13.sp)
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp),
+                                verticalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                itemsIndexed(journalMessages) { _, item ->
+                                    Column(
+                                        Modifier.fillMaxWidth()
+                                            .background(Color(0xFFF4F8FF), RoundedCornerShape(11.dp))
+                                            .padding(9.dp),
+                                        verticalArrangement = Arrangement.spacedBy(3.dp)
+                                    ) {
+                                        Text(
+                                            "${item.sender} • " + SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.timestamp)),
+                                            color = C.Blue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(item.body, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { journalTarget = null }) { Text("Đóng") }
+                }
+            )
+        }
+
         if (askAutoGeminiConsent) {
             AlertDialog(
                 onDismissRequest = { askAutoGeminiConsent = false },
-                title = { Text("Bật Gemini tự động cho Theo dõi chat?") },
+                title = { Text("Bật ScamShield tự động hiểu ngữ cảnh?") },
                 text = {
                     Text(
                         "Sau khi có tin nhắn mới trong một cuộc trò chuyện bạn đã thêm theo dõi, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
@@ -420,7 +516,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         askAutoGeminiConsent = false
                         ConversationAiMonitor.setEnabled(c, true)
                         autoGeminiEnabled = true
-                        message = "Đã bật. Gemini sẽ phân tích khi có tin nhắn mới trong các cuộc trò chuyện đang theo dõi."
+                        message = "Đã bật. ScamShield AI sẽ phân tích khi có tin nhắn mới trong các cuộc trò chuyện đang theo dõi."
                     }) { Text("Đồng ý bật") }
                 },
                 dismissButton = {
@@ -433,7 +529,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             val selectedTarget = pendingGeminiTarget!!
             AlertDialog(
                 onDismissRequest = { pendingGeminiTarget = null },
-                title = { Text("Gửi nội dung cuộc trò chuyện cho Gemini?") },
+                title = { Text("Gửi nội dung cuộc trò chuyện cho ScamShield AI?") },
                 text = {
                     Text(
                         "ScamShield sẽ gửi tối đa 12 tin gần nhất của thread mới nhất đã theo dõi trong mục " +

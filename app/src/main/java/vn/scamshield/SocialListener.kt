@@ -38,6 +38,35 @@ class SocialListener : NotificationListenerService() {
     // Một thông báo MessagingStyle có thể được đăng lại nhiều lần với cả lịch sử cũ.
     // Cache có giới hạn ngăn phân tích/cảnh báo trùng mà không giữ nội dung tin nhắn trong RAM lâu dài.
     private val recentlySeen = LinkedHashMap<String, Long>()
+    // Chỉ giữ ngữ cảnh gần đây trong RAM để ghép các tin liên tiếp cùng một cuộc trò chuyện.
+    private val recentConversationContext = LinkedHashMap<String, MutableList<IncomingMessage>>()
+
+    @Synchronized
+    private fun appendConversationContext(key: String, item: IncomingMessage) {
+        if (item.sender == "Bạn" || item.body.isBlank()) return
+        val now = System.currentTimeMillis()
+        val messages = recentConversationContext.getOrPut(key) { mutableListOf() }
+        messages.removeAll { now - it.timestamp > 5 * 60 * 1000L }
+        if (messages.none { it.timestamp == item.timestamp && it.sender == item.sender && it.body == item.body }) {
+            messages += item
+        }
+        messages.sortBy { it.timestamp }
+        while (messages.size > 8) messages.removeAt(0)
+        while (recentConversationContext.size > 80) {
+            val iterator = recentConversationContext.entries.iterator()
+            if (iterator.hasNext()) { iterator.next(); iterator.remove() } else break
+        }
+    }
+
+    @Synchronized
+    private fun conversationContext(key: String, fallback: String): String {
+        val now = System.currentTimeMillis()
+        val messages = recentConversationContext[key] ?: return fallback
+        messages.removeAll { now - it.timestamp > 5 * 60 * 1000L }
+        return messages.joinToString("\n") { "${it.sender}: ${it.body}" }
+            .takeLast(3500)
+            .ifBlank { fallback }
+    }
 
     @Synchronized
     private fun markIfNew(key: String): Boolean {
@@ -98,13 +127,13 @@ class SocialListener : NotificationListenerService() {
             historic.forEach { item ->
                 val body = item.text?.toString()?.trim().orEmpty()
                 if (body.isNotBlank()) {
-                    captured += IncomingMessage(item.senderPerson?.name?.toString() ?: "Bạn", body, item.timestamp)
+                    captured += IncomingMessage(item.senderPerson?.name?.toString()?.takeIf { it.isNotBlank() } ?: title.ifBlank { conversationTitle }.ifBlank { "Người gửi" }, body, item.timestamp)
                 }
             }
             current.forEach { item ->
                 val body = item.text?.toString()?.trim().orEmpty()
                 if (body.isNotBlank()) {
-                    val entry = IncomingMessage(item.senderPerson?.name?.toString() ?: "Bạn", body, item.timestamp)
+                    val entry = IncomingMessage(item.senderPerson?.name?.toString()?.takeIf { it.isNotBlank() } ?: title.ifBlank { conversationTitle }.ifBlank { "Người gửi" }, body, item.timestamp)
                     captured += entry
                     // Ưu tiên tin mới nhất từ phía đối thoại; không để tin do chính người dùng gửi
                     // làm mất cảnh báo cho tin đến trong cùng một payload MessagingStyle.
@@ -136,11 +165,14 @@ class SocialListener : NotificationListenerService() {
         val uniqueMessages = captured.distinctBy {
             it.timestamp.toString() + "|" + it.sender + "|" + it.body
         }
-        // Lưu lịch sử MessagingStyle cục bộ nhưng chỉ cảnh báo tin mới nhất, tránh báo lại toàn bộ lịch sử.
+        // Lưu lịch sử đúng đối tượng đã chọn; cảnh báo cục bộ vẫn hoạt động với mọi ứng dụng được hỗ trợ.
+        var newestIncomingIsNew = false
         uniqueMessages.forEach { item ->
             val eventKey = conversationKey + "|" + item.timestamp + "|" +
                 item.sender + "|" + item.body.hashCode()
             if (!markIfNew(eventKey)) return@forEach
+            if (item == newestIncoming && item.sender != "Bạn") newestIncomingIsNew = true
+            appendConversationContext(conversationKey, item)
 
             val targetId = MonitorStore.captureSocial(
                 this,
@@ -151,29 +183,34 @@ class SocialListener : NotificationListenerService() {
                 conversationTitle.ifBlank { title },
                 conversationKey
             )
-            // Gemini context monitoring runs only for a tracked thread and only after explicit opt-in.
+            // Chỉ lập lịch AI cho đúng thread đã theo dõi và khi người dùng đã bật đồng ý.
             if (targetId != null && item.sender != "Bạn") {
                 ConversationAiMonitor.schedule(this, targetId, conversationKey)
             }
+        }
 
-            if (item != newestIncoming || item.sender == "Bạn") return@forEach
-            val risk = ScamDetector.analyze(item.body)
-            if (risk.level < 1) return@forEach
-            val alertTitle = (if (risk.level == 2) "🚨 Tin nhắn có dấu hiệu lừa đảo trên "
-                else "⚠️ Tin nhắn đáng ngờ trên ") + app
-            Store.log(
-                this,
-                if (risk.level == 2) 2 else 1,
-                alertTitle + " từ " + item.sender,
-                item.body
-            )
-            Notifier.show(
-                this,
-                alertTitle,
-                "Từ " + item.sender + ": " + risk.reasons.joinToString(", ") +
-                    ". Không bấm link, không chuyển tiền, không cung cấp OTP."
-            )
-            Alerter.fire(this, risk.level)
+        // Ghép tối đa 8 tin mới nhất trong 5 phút của đúng cuộc trò chuyện để không bỏ sót dấu hiệu chia nhỏ.
+        val newest = newestIncoming
+        if (newestIncomingIsNew && newest != null && newest.sender != "Bạn") {
+            val contextText = conversationContext(conversationKey, newest.body)
+            val risk = ScamDetector.analyze(contextText)
+            if (risk.level >= 1) {
+                val alertTitle = (if (risk.level == 2) "🚨 Tin nhắn có dấu hiệu lừa đảo trên "
+                    else "⚠️ Tin nhắn đáng ngờ trên ") + app
+                Store.log(
+                    this,
+                    if (risk.level == 2) 2 else 1,
+                    alertTitle + " từ " + newest.sender,
+                    newest.body
+                )
+                Notifier.show(
+                    this,
+                    alertTitle,
+                    "Từ " + newest.sender + ": " + risk.reasons.joinToString(", ") +
+                        ". Không bấm link, không chuyển tiền, không cung cấp OTP."
+                )
+                Alerter.fire(this, risk.level)
+            }
         }
     }
 }
