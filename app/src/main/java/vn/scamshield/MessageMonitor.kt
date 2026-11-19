@@ -2,7 +2,9 @@ package vn.scamshield
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -40,6 +42,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var socialAppPackage by remember { mutableStateOf("") }
     var appExpanded by remember { mutableStateOf(false) }
     var askNotificationAccess by remember { mutableStateOf(false) }
+    var screenMonitorEnabled by remember { mutableStateOf(ChatAccessibilityService.isMonitoringEnabled(c)) }
+    var askScreenAccessConsent by remember { mutableStateOf(false) }
     var journalTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
 
     val installedSocialApps = remember(c) {
@@ -57,6 +61,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     }
 
     val targets = remember(refresh) { MonitorStore.targets(c) }
+    val accessibilityServiceEnabled = remember(refresh) { ChatAccessibilityService.isServiceEnabled(c) }
     // Chỉ lấy COUNT và ba tin gần nhất của mỗi mục; không tải toàn bộ bảng 10.000 tin mỗi lần refresh.
     val targetMessageCounts = remember(refresh, targets) {
         targets.associate { it.id to MonitorStore.messageCount(c, it.id) }
@@ -194,6 +199,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 Button(
                     onClick = {
                         val ok = MonitorStore.addTarget(c, channel, identifier, if (channel == "social") socialAppPackage else "")
+                        ChatAccessibilityService.refreshPackageFilter(c)
                         message = if (ok) "Đã thêm đối tượng theo dõi. Dữ liệu mới sẽ được lưu cục bộ trên máy."
                             else "Không thêm được: hãy kiểm tra nội dung hoặc đối tượng đã tồn tại."
                         identifier = ""
@@ -261,6 +267,71 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             }
         }
 
+        Card(
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(18.dp),
+            modifier = Modifier.fillMaxWidth().border(1.dp, C.Stroke, RoundedCornerShape(18.dp))
+        ) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("Theo dõi nội dung chat đang mở", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    "Khi bạn mở đúng cuộc trò chuyện đã thêm, ScamShield có thể đọc văn bản bong bóng tin đến đang hiển thị qua Trợ năng Android. Không chụp ảnh màn hình, không đọc ô đang nhập hoặc trường mật khẩu. Chỉ văn bản khớp ứng dụng và tiêu đề chat đã chọn mới được lưu.",
+                    color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Bật đọc màn hình khi đang chat", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Text(
+                            when {
+                                screenMonitorEnabled && accessibilityServiceEnabled -> "Đang bật và sẵn sàng theo dõi chat đã chọn."
+                                screenMonitorEnabled -> "Đã bật trong ScamShield; cần bật dịch vụ Trợ năng ở Android."
+                                else -> "Đang tắt. Không đọc nội dung màn hình."
+                            },
+                            color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
+                        )
+                    }
+                    Switch(
+                        checked = screenMonitorEnabled,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                ChatAccessibilityService.setMonitoringEnabled(c, false)
+                                screenMonitorEnabled = false
+                                message = "Đã tạm dừng đọc nội dung chat trên màn hình."
+                            } else if (targets.none { it.channel == "social" && it.appPackage.isNotBlank() }) {
+                                message = "Hãy thêm ít nhất một người hoặc cuộc trò chuyện mạng xã hội trước."
+                            } else if (!ChatAccessibilityService.hasConsent(c)) {
+                                askScreenAccessConsent = true
+                            } else {
+                                ChatAccessibilityService.setMonitoringEnabled(c, true)
+                                screenMonitorEnabled = true
+                                if (!ChatAccessibilityService.isServiceEnabled(c)) {
+                                    c.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                } else {
+                                    message = "Đã bật đọc màn hình cho các cuộc trò chuyện đã chọn."
+                                }
+                            }
+                        }
+                    )
+                }
+                if (!accessibilityServiceEnabled) {
+                    OutlinedButton(
+                        onClick = { c.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.Accessibility, null)
+                        Spacer(Modifier.width(7.dp))
+                        Text("Mở cài đặt Trợ năng Android")
+                    }
+                } else {
+                    Text("Quyền Trợ năng Android đã bật. Có thể tắt quyền này trong Cài đặt Android hoặc tắt công tắc phía trên để dừng thu thập.", color = C.Mint, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+                Text(
+                    "Lưu ý: một số phiên bản Zalo/Messenger không công bố đầy đủ cấu trúc tin nhắn. Khi không xác định chắc cuộc trò chuyện hoặc chiều tin nhắn, ScamShield sẽ bỏ qua thay vì tự đoán. Trong chat nhóm, bản đầu có thể chưa xác định chính xác tên từng thành viên gửi tin.",
+                    color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp
+                )
+            }
+        }
+
         Text("Đối tượng đang theo dõi", color = C.Text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
         if (targets.isEmpty()) Text("Chưa có số điện thoại hoặc tài khoản nào.", color = C.Dim, fontSize = 13.sp)
         targets.forEach { target ->
@@ -312,6 +383,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     }
                     OutlinedButton(onClick = {
                         MonitorStore.removeTarget(c, target.id)
+                        ChatAccessibilityService.refreshPackageFilter(c)
                         journalTarget = null
                         message = "Đã xóa đối tượng và dữ liệu tin nhắn liên quan khỏi bộ theo dõi."
                         refresh++
@@ -338,7 +410,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Mỗi tin được ScamShield tự đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn có nghĩa là hiện chưa phát hiện dấu hiệu, không phải bảo đảm tuyệt đối.",
+                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Tin đọc từ màn hình dùng thời điểm ScamShield quan sát được, không nhất thiết là giờ gửi ban đầu. Mỗi tin được đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn không phải bảo đảm tuyệt đối.",
                             color = C.Sub, fontSize = 11.sp
                         )
                         if (journalMessages.isEmpty()) {
@@ -358,6 +430,10 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                         Text(
                                             "${item.sender} • " + SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.timestamp)),
                                             color = C.Blue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
+                                        )
+                                        Text(
+                                            when (item.channel) { "screen" -> "Nguồn: màn hình (ghi nhận lúc đọc)"; "social" -> "Nguồn: thông báo"; else -> "Nguồn: SMS" },
+                                            color = C.Sub, fontSize = 9.sp
                                         )
                                         Text(item.body, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
                                         val (verdict, verdictColor) = when (item.riskLevel) {
@@ -392,13 +468,39 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             )
         }
 
+        if (askScreenAccessConsent) {
+            AlertDialog(
+                onDismissRequest = { askScreenAccessConsent = false },
+                title = { Text("Cho phép đọc nội dung chat đang hiển thị?") },
+                text = {
+                    Text(
+                        "ScamShield sẽ dùng Trợ năng Android để nhận biết ứng dụng chat đang mở và đọc văn bản của các bong bóng tin đến đang hiển thị, nhưng chỉ khi tiêu đề khớp đúng người/cuộc trò chuyện bạn đã thêm theo dõi. Ứng dụng bỏ qua ô nhập, trường mật khẩu và không chụp ảnh màn hình. Văn bản được lưu cục bộ để chấm điểm và tạo nhật ký. " +
+                            "Nội dung chỉ được gửi lên máy chủ để Gemini phân tích nếu bạn bật công tắc ScamShield tự động hiểu ngữ cảnh riêng. Cấu trúc giao diện của từng ứng dụng có thể khiến một số tin bị bỏ sót. Bạn có thể dừng thu thập bằng công tắc này bất cứ lúc nào."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        askScreenAccessConsent = false
+                        ChatAccessibilityService.setConsent(c, true)
+                        ChatAccessibilityService.setMonitoringEnabled(c, true)
+                        screenMonitorEnabled = true
+                        c.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        message = "Hãy tìm ScamShield – Theo dõi chat trong danh sách Trợ năng và tự bật dịch vụ."
+                    }) { Text("Đồng ý và mở Cài đặt") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { askScreenAccessConsent = false }) { Text("Không đồng ý") }
+                }
+            )
+        }
+
         if (askAutoGeminiConsent) {
             AlertDialog(
                 onDismissRequest = { askAutoGeminiConsent = false },
                 title = { Text("Bật ScamShield tự động hiểu ngữ cảnh?") },
                 text = {
                     Text(
-                        "Sau khi có tin nhắn mới trong một cuộc trò chuyện bạn đã thêm theo dõi, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
+                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin đến đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
                             "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại; bạn có thể xem trạng thái đang chờ trong mục này. " +
                             "ScamShield không gửi toàn bộ lịch sử; một số mã OTP, mật khẩu, số điện thoại và dãy số dài sẽ được ẩn trước khi gửi. " +
                             "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức Gemini. " +

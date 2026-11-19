@@ -37,6 +37,12 @@
             <intent-filter><action android:name="android.intent.action.PHONE_STATE"/></intent-filter>
         </receiver>
         <service android:name=".ListenService" android:exported="false" android:foregroundServiceType="microphone"/>
+        <service android:name=".ChatAccessibilityService" android:exported="true"
+            android:label="ScamShield – Theo dõi chat"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService"/></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/scamshield_chat_accessibility"/>
+        </service>
         <service android:name=".SocialListener" android:exported="true" android:label="ScamShield VN"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>

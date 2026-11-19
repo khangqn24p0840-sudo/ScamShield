@@ -193,7 +193,7 @@ class SocialListener : NotificationListenerService() {
         val newest = newestIncoming
         if (newestIncomingIsNew && newest != null && newest.sender != "Bạn") {
             val contextText = conversationContext(conversationKey, newest.body)
-            val risk = ScamDetector.analyze(contextText)
+            val risk = ScamDetector.analyzeConversation(contextText)
             if (risk.level >= 1) {
                 val alertTitle = (if (risk.level == 2) "🚨 Tin nhắn có dấu hiệu lừa đảo trên "
                     else "⚠️ Tin nhắn đáng ngờ trên ") + app
