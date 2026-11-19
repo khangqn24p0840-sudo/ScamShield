@@ -63,6 +63,7 @@ class ChatAccessibilityService : AccessibilityService() {
     }
     private val recentlyCaptured = LinkedHashMap<String, Long>()
     private val recentlyAlerted = LinkedHashMap<String, Long>()
+    @Volatile private var allowedPackages: Set<String> = emptySet()
     private var pendingScan: Runnable? = null
 
     override fun onServiceConnected() {
@@ -78,6 +79,7 @@ class ChatAccessibilityService : AccessibilityService() {
             .map { it.appPackage }
             .distinct()
             .toList()
+        allowedPackages = packages.toSet()
         val info = serviceInfo
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
@@ -94,8 +96,7 @@ class ChatAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (!isMonitoringEnabled(this) || !hasConsent(this)) return
         val pkg = event?.packageName?.toString() ?: return
-        if (pkg !in SocialListener.apps) return
-        if (MonitorStore.targets(this).none { it.channel == "social" && it.appPackage == pkg }) return
+        if (pkg !in allowedPackages) return
 
         when (event.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
@@ -127,13 +128,15 @@ class ChatAccessibilityService : AccessibilityService() {
         val matchingTargets = MonitorStore.targets(this).filter {
             it.channel == "social" && it.appPackage == packageName
         }
-        val headerText = snapshot.nodes
-            .filter { it.bounds.top >= 0 && it.bounds.top <= (snapshot.screenHeight * 0.28f).toInt() }
-            .joinToString(" ") { it.value }
-            .let(::normalize)
-        val target = matchingTargets.firstOrNull {
-            val wanted = normalize(it.identifier)
-            wanted.isNotBlank() && headerText.contains(wanted)
+        val headerNodes = snapshot.nodes.filter {
+            it.bounds.top >= 0 && it.bounds.top <= (snapshot.screenHeight * 0.28f).toInt()
+        }
+        val target = matchingTargets.firstOrNull { candidate ->
+            val wanted = normalize(candidate.identifier)
+            wanted.isNotBlank() && headerNodes.any { header ->
+                val visibleTitle = normalize(header.value)
+                visibleTitle == wanted || visibleTitle.startsWith("$wanted ")
+            }
         } ?: return
 
         // Use the same conversation key convention as notification capture when the title is known.
@@ -274,6 +277,8 @@ class ChatAccessibilityService : AccessibilityService() {
                 runCatching { node.recycle() }
             }
         }
+
+        while (pending.isNotEmpty()) runCatching { pending.removeLast().recycle() }
 
         // Collapse duplicate parent/child labels while retaining the narrower text-node bounds.
         val deduplicated = result
