@@ -197,7 +197,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         message = if (ok) "Đã thêm đối tượng theo dõi. Dữ liệu mới sẽ được lưu cục bộ trên máy."
                             else "Không thêm được: hãy kiểm tra nội dung hoặc đối tượng đã tồn tại."
                         identifier = ""
-                        analysis = null
                         refresh++
                     },
                     enabled = identifier.trim().isNotEmpty() &&
