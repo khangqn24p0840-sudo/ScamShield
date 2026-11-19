@@ -14,6 +14,37 @@ object ScamDetector {
     fun norm(s: String) = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD)
         .replace(combiningMarks, "").replace('đ', 'd')
 
+    /**
+     * Conversation-level heuristics for gradual coercion/manipulation.
+     * Individual messages may be ordinary; only combinations raise the extra score.
+     */
+    fun analyzeConversation(text: String): Result {
+        val base = analyze(text)
+        val normalized = norm(text)
+        val trust = Regex("ban la nguoi duy nhat|chi co ban|tin tuong ban|chi tin minh|ban co the tin minh")
+            .containsMatchIn(normalized)
+        val secrecy = Regex("giu bi mat|dung noi voi ai|khong noi voi ai|khong ke voi ai|dung cho ai biet")
+            .containsMatchIn(normalized)
+        val urgency = Regex("quyet dinh trong hom nay|trong hom nay|chi con hom nay|mat co hoi|ngay lap tuc|khong con thoi gian")
+            .containsMatchIn(normalized)
+        val suppressCheck = Regex("dung tu kiem tra|khong can kiem tra|dung hoi ai|cu lam theo|lam theo huong dan|dung can nhac")
+            .containsMatchIn(normalized)
+        val action = Regex("chuyen tien|gui ma|cung cap otp|nhap ma|dat coc|dong phi")
+            .containsMatchIn(normalized)
+
+        val cueCount = listOf(trust, secrecy, urgency, suppressCheck).count { it }
+        val manipulationScore = when {
+            cueCount == 4 && secrecy && suppressCheck -> 60
+            cueCount >= 3 && secrecy && (urgency || suppressCheck) -> 45
+            cueCount >= 2 && secrecy && (urgency || suppressCheck || action) -> 30
+            else -> 0
+        }
+        if (manipulationScore == 0) return base
+
+        val reasons = (base.reasons + "Chuỗi hội thoại có dấu hiệu tạo tin tưởng, giữ bí mật, gây áp lực hoặc ngăn kiểm chứng").distinct()
+        return Result((base.score + manipulationScore).coerceAtMost(100), reasons)
+    }
+
     private val rules = listOf(
         Triple("cong an|vien kiem sat|toa an|co quan dieu tra|bo cong an|lenh bat|trieu tap", 40, "Giả danh cơ quan chức năng"),
         Triple("tai khoan.*(khoa|dong bang|tam ngung|bi han che)|xac thuc.*tai khoan", 30, "Dọa khóa/đóng băng tài khoản"),
