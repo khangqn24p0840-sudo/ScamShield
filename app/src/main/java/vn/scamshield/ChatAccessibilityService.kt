@@ -258,7 +258,7 @@ class ChatAccessibilityService : AccessibilityService() {
                 val isInput = node.isEditable ||
                     className.contains("EditText", ignoreCase = true) ||
                     className.contains("AutoCompleteTextView", ignoreCase = true)
-                if (isInput && bounds.bottom >= (height * 0.68f).toInt()) {
+                if (isInput && bounds.bottom >= (height * 0.45f).toInt()) {
                     hasComposer = true
                 }
 
