@@ -184,7 +184,7 @@ object MonitorStore {
             put("created_at", System.currentTimeMillis())
             put("app_package", if (channel == "social") appPackage else "")
         }
-        return db(c).insertWithOnConflict("targets", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
+        val inserted = db(c).insertWithOnConflict("targets", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L\n        if (inserted) ChatAccessibilityService.refreshPackageFilter(c)\n        return inserted
     }
 
     @Synchronized
@@ -343,6 +343,27 @@ object MonitorStore {
             packageName, stableKey, conversationTitle
         ))
         return if (inserted) target.id else null
+    }
+
+    /** Lưu tin đã đọc từ bong bóng chat đang hiển thị, chỉ cho target social + package khớp. */
+    fun captureScreenSocial(
+        c: Context,
+        targetId: String,
+        body: String,
+        packageName: String,
+        timestamp: Long,
+        conversationTitle: String,
+        conversationKey: String
+    ): Boolean {
+        val target = targets(c).firstOrNull {
+            it.id == targetId && it.channel == "social" && it.appPackage == packageName
+        } ?: return false
+        val inserted = saveMessage(c, MonitoredMessage(
+            "", target.id, "screen", "Tin đến · ${target.identifier}", body, timestamp,
+            packageName, conversationKey, conversationTitle
+        ))
+        if (inserted) ConversationAiMonitor.schedule(c, target.id, conversationKey)
+        return inserted
     }
 
     /** Nhập SMS đến của đúng số đã chọn. Quyền READ_SMS chỉ được hỏi khi người dùng bấm nhập. */
