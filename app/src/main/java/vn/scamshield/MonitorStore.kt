@@ -178,6 +178,8 @@ object MonitorStore {
 
     @Synchronized
     fun removeTarget(c: Context, targetId: String) {
+        // Hủy mọi lần gửi nền thuộc đối tượng trước khi xóa dữ liệu cục bộ.
+        ConversationAiMonitor.cancelTarget(c, targetId)
         val database = db(c)
         database.beginTransaction()
         try {
@@ -372,6 +374,20 @@ object MonitorStore {
             "SELECT conversation_key FROM messages WHERE target_id=? ORDER BY timestamp DESC LIMIT 1",
             arrayOf(targetId)
         ).use { if (it.moveToFirst()) it.getString(0).takeIf(String::isNotBlank) else null }
+
+    /** Các thread đã ghi nhận của một đối tượng, dùng để xóa trạng thái hàng đợi khi bỏ theo dõi. */
+    fun conversationKeys(c: Context, targetId: String): List<String> {
+        val result = mutableListOf<String>()
+        db(c).rawQuery(
+            "SELECT DISTINCT conversation_key FROM messages WHERE target_id=?",
+            arrayOf(targetId)
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                cursor.getString(0)?.takeIf { it.isNotBlank() }?.let(result::add)
+            }
+        }
+        return result
+    }
 
     /** Trả về transcript của một thread xác định; không trộn các chat khác cùng người gửi. */
     fun contextualText(
