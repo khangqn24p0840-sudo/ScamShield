@@ -22,6 +22,7 @@ object ScamDetector {
         Triple("\\botp\\b", 15, "Có nhắc đến mã OTP"),
         Triple("trung thuong|trung giai|nhan qua|qua tang|voucher mien phi", 35, "Lừa trúng thưởng"),
         Triple("viec nhe luong cao|lam nhiem vu|cong tac vien|hoa hong|chot don|tang don|tha tim|like video", 40, "Lừa tuyển việc làm online / nhiệm vụ"),
+        Triple("ung tien coc|tien coc|phi nhan viec|dat coc nhan viec|dong phi truoc|viec lam.{0,30}(coc|phi)", 40, "Yêu cầu đặt cọc / đóng phí trước khi nhận việc"),
         Triple("dau tu|loi nhuan|sinh loi|tien ao|usdt|crypto|cam ket lai|forex", 30, "Lừa đầu tư sinh lời"),
         Triple("giai ngan|duyet vay|vay nhanh|lai suat 0|phi ho so", 25, "Lừa vay tiền / thu phí trước"),
         Triple("vneid|dich vu cong|bhxh|tien dien|cuoc vien thong|cuc thue|bien ban phat", 20, "Giả mạo dịch vụ công / tiện ích"),
