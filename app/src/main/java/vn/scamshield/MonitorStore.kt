@@ -184,7 +184,9 @@ object MonitorStore {
             put("created_at", System.currentTimeMillis())
             put("app_package", if (channel == "social") appPackage else "")
         }
-        val inserted = db(c).insertWithOnConflict("targets", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L\n        if (inserted) ChatAccessibilityService.refreshPackageFilter(c)\n        return inserted
+        val inserted = db(c).insertWithOnConflict("targets", null, values, SQLiteDatabase.CONFLICT_IGNORE) != -1L
+        if (inserted) ChatAccessibilityService.refreshPackageFilter(c)
+        return inserted
     }
 
     @Synchronized
@@ -202,6 +204,7 @@ object MonitorStore {
         } finally {
             database.endTransaction()
         }
+        ChatAccessibilityService.refreshPackageFilter(c)
     }
 
     private fun assessUnknownMessages(database: SQLiteDatabase, targetId: String, limit: Int = 500) {
@@ -300,6 +303,20 @@ object MonitorStore {
         return inserted
     }
 
+    private fun hasRecentDuplicate(
+        c: Context,
+        targetId: String,
+        conversationKey: String,
+        body: String,
+        withinMs: Long = 120_000L
+    ): Boolean {
+        val since = System.currentTimeMillis() - withinMs
+        return db(c).rawQuery(
+            "SELECT 1 FROM messages WHERE target_id=? AND conversation_key=? AND body=? AND timestamp>=? LIMIT 1",
+            arrayOf(targetId, conversationKey, body, since.toString())
+        ).use { it.moveToFirst() }
+    }
+
     fun captureSms(c: Context, sender: String, body: String, timestamp: Long): Boolean {
         val normalized = Store.digits(sender)
         val target = targets(c).firstOrNull {
@@ -338,6 +355,7 @@ object MonitorStore {
         val stableKey = conversationKey.trim().ifBlank {
             packageName + "|" + conversationTitle.ifBlank { sender }
         }
+        if (hasRecentDuplicate(c, target.id, stableKey, body)) return null
         val inserted = saveMessage(c, MonitoredMessage(
             "", target.id, "social", sender.ifBlank { conversationTitle }, body, timestamp,
             packageName, stableKey, conversationTitle
@@ -358,6 +376,7 @@ object MonitorStore {
         val target = targets(c).firstOrNull {
             it.id == targetId && it.channel == "social" && it.appPackage == packageName
         } ?: return false
+        if (hasRecentDuplicate(c, target.id, conversationKey, body)) return false
         val inserted = saveMessage(c, MonitoredMessage(
             "", target.id, "screen", "Tin đến · ${target.identifier}", body, timestamp,
             packageName, conversationKey, conversationTitle
