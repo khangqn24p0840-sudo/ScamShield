@@ -326,7 +326,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     Text("Quyền Trợ năng Android đã bật. Có thể tắt quyền này trong Cài đặt Android hoặc tắt công tắc phía trên để dừng thu thập.", color = C.Mint, fontSize = 11.sp, lineHeight = 15.sp)
                 }
                 Text(
-                    "Lưu ý: một số phiên bản Zalo/Messenger không công bố đầy đủ cấu trúc tin nhắn. Khi không xác định chắc cuộc trò chuyện hoặc chiều tin nhắn, ScamShield sẽ bỏ qua thay vì tự đoán.",
+                    "Lưu ý: một số phiên bản Zalo/Messenger không công bố đầy đủ cấu trúc tin nhắn. Khi không xác định chắc cuộc trò chuyện hoặc chiều tin nhắn, ScamShield sẽ bỏ qua thay vì tự đoán. Trong chat nhóm, bản đầu có thể chưa xác định chính xác tên từng thành viên gửi tin.",
                     color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp
                 )
             }
