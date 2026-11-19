@@ -34,9 +34,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var identifier by remember { mutableStateOf("") }
     var refresh by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
-    var analysis by remember { mutableStateOf<Pair<String, Result>?>(null) }
-    var pendingGeminiTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
-    var geminiBusyTarget by remember { mutableStateOf<String?>(null) }
     var autoGeminiEnabled by remember { mutableStateOf(ConversationAiMonitor.isEnabled(c)) }
     var askAutoGeminiConsent by remember { mutableStateOf(false) }
     var importTargetId by remember { mutableStateOf("") }
@@ -64,28 +61,10 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     val targetMessageCounts = remember(refresh, targets) {
         targets.associate { it.id to MonitorStore.messageCount(c, it.id) }
     }
-    val targetRecentMessages = remember(refresh, targets) {
-        targets.associate { it.id to MonitorStore.recentMessages(c, it.id, 3) }
-    }
-    val targetConversationAnalyses = remember(refresh, targets) {
-        targets.associate { it.id to MonitorStore.latestConversationAnalysis(c, it.id) }
-    }
-    val targetPendingAnalyses = remember(refresh, targets) {
-        targets.associate { target ->
-            val key = MonitorStore.latestConversationKey(c, target.id)
-            target.id to (key?.let { ConversationAiMonitor.isPending(c, target.id, it) } == true)
-        }
-    }
-    val targetPendingErrors = remember(refresh, targets) {
-        targets.associate { target ->
-            val key = MonitorStore.latestConversationKey(c, target.id)
-            target.id to key?.let { ConversationAiMonitor.pendingError(c, target.id, it) }.orEmpty()
-        }
-    }
     val notificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
         c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     val journalMessages = remember(journalTarget?.id, refresh) {
-        journalTarget?.let { MonitorStore.messages(c, it.id).takeLast(500).asReversed() }.orEmpty()
+        journalTarget?.let { MonitorStore.messages(c, it.id).takeLast(500) }.orEmpty()
     }
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
@@ -134,34 +113,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             refresh++
         } else if (!granted) {
             message = "Bạn chưa cấp quyền đọc lịch sử SMS. ScamShield không thể nhập dữ liệu cũ."
-        }
-    }
-
-    fun requestGeminiAnalysis(target: MonitoredTarget) {
-        if (Store.str(c, "token").isBlank()) {
-            message = "Bạn cần đăng nhập ScamShield trước khi sử dụng phân tích Gemini."
-            return
-        }
-        val conversationKey = MonitorStore.latestConversationKey(c, target.id)
-        if (conversationKey.isNullOrBlank()) {
-            message = "Cuộc trò chuyện này chưa có nội dung để phân tích."
-            return
-        }
-        geminiBusyTarget = target.id
-        message = "Đang gửi ngữ cảnh của cuộc trò chuyện đã chọn cho Gemini…"
-        ConversationAiMonitor.analyzeNow(c, target.id, conversationKey) { result, error ->
-            geminiBusyTarget = null
-            if (result != null) {
-                message = "Gemini đã cập nhật đánh giá ngữ cảnh cho cuộc trò chuyện này."
-                refresh++
-            } else {
-                message = if (ConversationAiMonitor.isPending(c, target.id, conversationKey)) {
-                    "Server đang tạm thời không phản hồi. Yêu cầu đã được lưu trên thiết bị và sẽ tự gửi lại khi server hoạt động."
-                } else {
-                    error ?: "Gemini chưa phân tích được. Hãy thử lại sau."
-                }
-                refresh++
-            }
         }
     }
 
@@ -269,12 +220,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("• Bạn chọn ứng dụng và nhập chính xác tên người gửi hoặc tiêu đề nhóm/cuộc trò chuyện. Chỉ tin khớp ứng dụng và tên đã chọn mới được lưu vào hồ sơ theo dõi.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
-                Text("• Tin nhắn được lưu trên thiết bị. Mặc định Gemini không nhận nội dung chat; bạn có thể bật phân tích ngữ cảnh tự động bên dưới. Khi bật, Gemini chỉ nhận tối đa 12 tin gần nhất của đúng cuộc trò chuyện đã theo dõi sau khi có tin mới và qua thời gian chờ.",
+                Text("• Mỗi tin nhắn mới trong hồ sơ theo dõi được ScamShield tự đánh giá ngay trên thiết bị và lưu kết quả vào nhật ký. Cảnh báo cũng tự động xuất hiện khi phát hiện dấu hiệu. Nếu bật phân tích ngữ cảnh tự động, tối đa 12 tin gần nhất của đúng cuộc trò chuyện có thể được gửi tới máy chủ để AI hiểu thêm ngữ cảnh.",
                     color = C.Sub, fontSize = 12.sp, lineHeight = 17.sp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("ScamShield tự động hiểu ngữ cảnh", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                        Text("Chỉ áp dụng cho các cuộc chat đang theo dõi; có thể tắt bất cứ lúc nào.", color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp)
+                        Text("Tự động phân tích ngữ cảnh mới cho các cuộc chat đang theo dõi; có thể tắt bất cứ lúc nào.", color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp)
                     }
                     Switch(
                         checked = autoGeminiEnabled,
@@ -315,9 +266,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         if (targets.isEmpty()) Text("Chưa có số điện thoại hoặc tài khoản nào.", color = C.Dim, fontSize = 13.sp)
         targets.forEach { target ->
             val targetMessageCount = targetMessageCounts[target.id] ?: 0
-            val recentMessages = targetRecentMessages[target.id].orEmpty()
-            val conversationAnalysis = targetConversationAnalyses[target.id]
             Card(
+                onClick = { journalTarget = target },
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(17.dp),
                 modifier = Modifier.fillMaxWidth().border(1.dp, C.Stroke, RoundedCornerShape(17.dp))
@@ -343,17 +293,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                             color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
                         )
                     }
-                    if (targetPendingAnalyses[target.id] == true) {
-                        Text(
-                            "⏳ Đã lưu trên thiết bị • đang chờ máy chủ để tự gửi phân tích",
-                            color = Color(0xFFB87916), fontSize = 11.sp, lineHeight = 15.sp
-                        )
-                    } else if (!targetPendingErrors[target.id].isNullOrBlank()) {
-                        Text(
-                            "Chưa gửi được phân tích: " + targetPendingErrors[target.id],
-                            color = Color(0xFFB87916), fontSize = 11.sp, lineHeight = 15.sp
-                        )
-                    }
                     if (target.channel == "sms") {
                         OutlinedButton(
                             onClick = {
@@ -372,84 +311,20 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                             Text(if (smsPermission) "Nhập lịch sử SMS cũ" else "Cấp quyền và nhập lịch sử SMS")
                         }
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                val transcript = MonitorStore.contextualText(c, target.id, 30)
-                                analysis = target.id to ScamDetector.analyze(transcript)
-                                message = if (transcript.isBlank()) "Chưa có tin nhắn để phân tích." else
-                                    "Đã phân tích tối đa 30 tin gần nhất ngay trên thiết bị."
-                            },
-                            enabled = targetMessageCount > 0,
-                            modifier = Modifier.weight(1f)
-                        ) { Icon(Icons.Rounded.Psychology, null); Spacer(Modifier.width(5.dp)); Text("Phân tích ngữ cảnh") }
-                        OutlinedButton(onClick = {
-                            MonitorStore.removeTarget(c, target.id)
-                            if (analysis?.first == target.id) analysis = null
-                            message = "Đã xóa đối tượng và dữ liệu tin nhắn liên quan khỏi bộ theo dõi."
-                            refresh++
-                        }) { Icon(Icons.Rounded.Delete, null); Text("Xóa") }
-                    }
-                    OutlinedButton(
-                        onClick = { journalTarget = target },
-                        enabled = targetMessageCount > 0,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Rounded.History, null)
+                    OutlinedButton(onClick = {
+                        MonitorStore.removeTarget(c, target.id)
+                        journalTarget = null
+                        message = "Đã xóa đối tượng và dữ liệu tin nhắn liên quan khỏi bộ theo dõi."
+                        refresh++
+                    }) {
+                        Icon(Icons.Rounded.Delete, null)
                         Spacer(Modifier.width(7.dp))
-                        Text("Nhật ký tin nhắn đã theo dõi ($targetMessageCount)")
+                        Text("Xóa đối tượng")
                     }
-                    OutlinedButton(
-                        onClick = { pendingGeminiTarget = target },
-                        enabled = targetMessageCount > 0 && geminiBusyTarget != target.id,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(Icons.Rounded.AutoAwesome, null)
-                        Spacer(Modifier.width(7.dp))
-                        Text(if (geminiBusyTarget == target.id) "Đang phân tích bằng ScamShield AI…" else "Phân tích hội thoại bằng ScamShield AI")
-                    }
-                    recentMessages.asReversed().forEach { item ->
-                        Column(
-                            Modifier.fillMaxWidth().background(Color(0xFFF6F9FE), RoundedCornerShape(12.dp)).padding(9.dp),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            Text("${item.sender} • " + SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(item.timestamp)),
-                                color = C.Blue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                            Text(item.body, color = C.Text, fontSize = 12.sp, maxLines = 3)
-                        }
-                    }
-                    analysis?.takeIf { it.first == target.id }?.second?.let { ResultCard(it) }
-                    conversationAnalysis?.let { result ->
-                        val riskColor = when (result.riskLevel) {
-                            "HIGH" -> Color(0xFFFFE8E8)
-                            "MEDIUM" -> Color(0xFFFFF4DD)
-                            else -> Color(0xFFEAF7EF)
-                        }
-                        Card(
-                            colors = CardDefaults.cardColors(containerColor = riskColor),
-                            shape = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(
-                                    "ScamShield AI • ${result.riskLevel} • ${result.riskScore}/100",
-                                    color = C.Text, fontWeight = FontWeight.Bold, fontSize = 13.sp
-                                )
-                                Text(result.summary, color = C.Text, fontSize = 12.sp, lineHeight = 18.sp)
-                                result.evidence.forEach { evidence ->
-                                    Text("• $evidence", color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp)
-                                }
-                                if (result.recommendedAction.isNotBlank()) {
-                                    Text("Khuyến nghị: ${result.recommendedAction}", color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
-                                }
-                                Text(
-                                    "Độ tin cậy: ${result.confidence.lowercase()} • " +
-                                        SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(result.analyzedAt)),
-                                    color = C.Sub, fontSize = 10.sp
-                                )
-                            }
-                        }
-                    }
+                    Text(
+                        "Chạm vào thẻ này để xem nhật ký tin nhắn và kết quả đánh giá từng tin.",
+                        color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp
+                    )
                 }
             }
         }
@@ -464,7 +339,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "Lịch sử được lưu trên thiết bị. Hiển thị tối đa 500 tin mới nhất.",
+                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Mỗi tin được ScamShield tự đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn có nghĩa là hiện chưa phát hiện dấu hiệu, không phải bảo đảm tuyệt đối.",
                             color = C.Sub, fontSize = 11.sp
                         )
                         if (journalMessages.isEmpty()) {
@@ -486,6 +361,26 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                             color = C.Blue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
                                         )
                                         Text(item.body, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
+                                        val (verdict, verdictColor) = when (item.riskLevel) {
+                                            "DANGER" -> "NGUY HIỂM" to Color(0xFFC62828)
+                                            "SUSPICIOUS" -> "ĐÁNG NGỜ" to Color(0xFFB77900)
+                                            "SAFE" -> "AN TOÀN" to Color(0xFF23834D)
+                                            else -> "CHƯA ĐÁNH GIÁ" to C.Sub
+                                        }
+                                        Text(
+                                            "$verdict • ${item.riskScore}/100",
+                                            color = verdictColor,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        if (item.riskReasons.isNotEmpty()) {
+                                            Text(
+                                                item.riskReasons.joinToString(" • "),
+                                                color = C.Sub,
+                                                fontSize = 10.sp,
+                                                lineHeight = 14.sp
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -521,31 +416,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 },
                 dismissButton = {
                     TextButton(onClick = { askAutoGeminiConsent = false }) { Text("Hủy") }
-                }
-            )
-        }
-
-        if (pendingGeminiTarget != null) {
-            val selectedTarget = pendingGeminiTarget!!
-            AlertDialog(
-                onDismissRequest = { pendingGeminiTarget = null },
-                title = { Text("Gửi nội dung cuộc trò chuyện cho ScamShield AI?") },
-                text = {
-                    Text(
-                        "ScamShield sẽ gửi tối đa 12 tin gần nhất của thread mới nhất đã theo dõi trong mục " +
-                            selectedTarget.identifier + " lên máy chủ ScamShield để Gemini phân tích. Một số dữ liệu nhạy cảm dễ nhận diện sẽ được ẩn trước khi gửi. " +
-                            "Đây không phải thao tác tự động. Hãy hủy nếu nội dung có OTP, mật khẩu, thông tin ngân hàng " +
-                            "hoặc dữ liệu riêng tư của người khác."
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        pendingGeminiTarget = null
-                        requestGeminiAnalysis(selectedTarget)
-                    }) { Text("Đồng ý gửi và phân tích") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { pendingGeminiTarget = null }) { Text("Hủy") }
                 }
             )
         }
