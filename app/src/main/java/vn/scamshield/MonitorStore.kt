@@ -28,7 +28,10 @@ data class MonitoredMessage(
     val timestamp: Long,
     val appPackage: String = "",
     val conversationKey: String = "",
-    val conversationTitle: String = ""
+    val conversationTitle: String = "",
+    val riskScore: Int = 0,
+    val riskLevel: String = "UNKNOWN",
+    val riskReasons: List<String> = emptyList()
 )
 
 data class ConversationAnalysisResult(
@@ -50,7 +53,7 @@ object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 5) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 6) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
@@ -71,7 +74,10 @@ object MonitorStore {
                     timestamp INTEGER NOT NULL,
                     app_package TEXT NOT NULL DEFAULT '',
                     conversation_key TEXT NOT NULL DEFAULT '',
-                    conversation_title TEXT NOT NULL DEFAULT ''
+                    conversation_title TEXT NOT NULL DEFAULT '',
+                    risk_score INTEGER NOT NULL DEFAULT 0,
+                    risk_level TEXT NOT NULL DEFAULT 'UNKNOWN',
+                    risk_reasons TEXT NOT NULL DEFAULT '[]'
                 )"""
             )
             db.execSQL("CREATE INDEX idx_monitor_target_time ON messages(target_id, timestamp)")
@@ -93,6 +99,11 @@ object MonitorStore {
             }
             if (oldVersion < 4) createConversationAnalysisTable(db)
             if (oldVersion < 5) createConversationMemoryTable(db)
+            if (oldVersion < 6) {
+                db.execSQL("ALTER TABLE messages ADD COLUMN risk_score INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE messages ADD COLUMN risk_level TEXT NOT NULL DEFAULT 'UNKNOWN'")
+                db.execSQL("ALTER TABLE messages ADD COLUMN risk_reasons TEXT NOT NULL DEFAULT '[]'")
+            }
         }
 
         private fun createConversationMemoryTable(db: SQLiteDatabase) {
@@ -193,17 +204,41 @@ object MonitorStore {
         }
     }
 
+    private fun assessUnknownMessages(database: SQLiteDatabase, targetId: String, limit: Int = 500) {
+        val pending = mutableListOf<Pair<String, String>>()
+        database.rawQuery(
+            "SELECT id,body FROM messages WHERE target_id=? AND risk_level='UNKNOWN' ORDER BY timestamp DESC LIMIT ?",
+            arrayOf(targetId, limit.coerceIn(1, 500).toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) pending += cursor.getString(0) to cursor.getString(1)
+        }
+        pending.forEach { (id, body) ->
+            val assessment = ScamDetector.analyze(body)
+            val values = ContentValues().apply {
+                put("risk_score", assessment.score.coerceIn(0, 100))
+                put("risk_level", when (assessment.level) {
+                    2 -> "DANGER"
+                    1 -> "SUSPICIOUS"
+                    else -> "SAFE"
+                })
+                put("risk_reasons", JSONArray(assessment.reasons.take(8)).toString())
+            }
+            database.update("messages", values, "id=?", arrayOf(id))
+        }
+    }
+
     fun messages(c: Context, targetId: String? = null): List<MonitoredMessage> {
         val result = mutableListOf<MonitoredMessage>()
         val database = db(c)
+        if (targetId != null) assessUnknownMessages(database, targetId)
         val cursor = if (targetId == null) {
             database.rawQuery(
-                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title FROM messages ORDER BY timestamp ASC",
+                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title,risk_score,risk_level,risk_reasons FROM messages ORDER BY timestamp ASC",
                 null
             )
         } else {
             database.rawQuery(
-                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title FROM messages WHERE target_id=? ORDER BY timestamp ASC",
+                "SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title,risk_score,risk_level,risk_reasons FROM messages WHERE target_id=? ORDER BY timestamp ASC",
                 arrayOf(targetId)
             )
         }
@@ -215,7 +250,11 @@ object MonitorStore {
                     body = it.getString(4), timestamp = it.getLong(5),
                     appPackage = it.getString(6),
                     conversationKey = it.getString(7),
-                    conversationTitle = it.getString(8)
+                    conversationTitle = it.getString(8),
+                    riskScore = it.getInt(9),
+                    riskLevel = it.getString(10),
+                    riskReasons = runCatching { JSONArray(it.getString(11)) }.getOrElse { JSONArray() }
+                        .let { array -> (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf(String::isNotBlank) } }
                 )
             }
         }
@@ -223,7 +262,7 @@ object MonitorStore {
     }
 
     @Synchronized
-    private fun saveMessage(c: Context, item: MonitoredMessage): Boolean {
+    private fun saveMessage(c: Context, item: MonitoredMessage, assess: Boolean = true): Boolean {
         if (item.body.isBlank()) return false
         val key = sha256(
             item.channel + "|" + item.targetId + "|" + item.timestamp + "|" +
@@ -239,6 +278,16 @@ object MonitorStore {
             put("app_package", item.appPackage.take(120))
             put("conversation_key", item.conversationKey.take(300))
             put("conversation_title", item.conversationTitle.take(180))
+            // Đánh giá ngay trên thiết bị và lưu cùng tin nhắn; không tải nội dung lên server tại đây.
+            val assessment = if (assess) ScamDetector.analyze(item.body) else null
+            put("risk_score", assessment?.score?.coerceIn(0, 100) ?: 0)
+            put("risk_level", when (assessment?.level) {
+                2 -> "DANGER"
+                1 -> "SUSPICIOUS"
+                0 -> "SAFE"
+                else -> "UNKNOWN"
+            })
+            put("risk_reasons", JSONArray(assessment?.reasons?.take(8) ?: emptyList<String>()).toString())
         }
         val database = db(c)
         val inserted = database.insertWithOnConflict(
@@ -251,18 +300,19 @@ object MonitorStore {
         return inserted
     }
 
-    fun captureSms(c: Context, sender: String, body: String, timestamp: Long) {
+    fun captureSms(c: Context, sender: String, body: String, timestamp: Long): Boolean {
         val normalized = Store.digits(sender)
         val target = targets(c).firstOrNull {
             it.channel == "sms" && normalized.length >= 7 &&
                 Store.digits(it.identifier) == normalized
-        } ?: return
+        } ?: return false
         val conversationKey = "sms|" + normalized
         val inserted = saveMessage(c, MonitoredMessage(
             "", target.id, "sms", sender, body, timestamp,
             conversationKey = conversationKey, conversationTitle = sender
         ))
         if (inserted) ConversationAiMonitor.schedule(c, target.id, conversationKey)
+        return true
     }
 
     fun captureSocial(
@@ -325,7 +375,7 @@ object MonitorStore {
                     if (saveMessage(c, MonitoredMessage(
                         "", target.id, "sms", address, body, timestamp,
                         conversationKey = "sms|" + digits, conversationTitle = address
-                    ))) imported++
+                    ), assess = imported < 500)) imported++
                 }
             }
         }
@@ -346,7 +396,7 @@ object MonitorStore {
         ).use { if (it.moveToFirst()) it.getString(0) else null } ?: return emptyList()
         val result = mutableListOf<MonitoredMessage>()
         database.rawQuery(
-            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title
+            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title,risk_score,risk_level,risk_reasons
                FROM messages WHERE target_id=? AND conversation_key=? ORDER BY timestamp DESC LIMIT ?""",
             arrayOf(targetId, threadKey, limit.coerceIn(1, 50).toString())
         ).use { cursor ->
@@ -356,7 +406,11 @@ object MonitorStore {
                     channel = cursor.getString(2), sender = cursor.getString(3),
                     body = cursor.getString(4), timestamp = cursor.getLong(5),
                     appPackage = cursor.getString(6), conversationKey = cursor.getString(7),
-                    conversationTitle = cursor.getString(8)
+                    conversationTitle = cursor.getString(8),
+                    riskScore = cursor.getInt(9),
+                    riskLevel = cursor.getString(10),
+                    riskReasons = runCatching { JSONArray(cursor.getString(11)) }.getOrElse { JSONArray() }
+                        .let { array -> (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf(String::isNotBlank) } }
                 )
             }
         }
@@ -413,7 +467,7 @@ object MonitorStore {
     ): List<MonitoredMessage> {
         val result = mutableListOf<MonitoredMessage>()
         db(c).rawQuery(
-            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title
+            """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title,risk_score,risk_level,risk_reasons
                FROM messages
                WHERE target_id=? AND conversation_key=?
                ORDER BY timestamp DESC LIMIT ?""",
@@ -425,7 +479,11 @@ object MonitorStore {
                     channel = cursor.getString(2), sender = cursor.getString(3),
                     body = cursor.getString(4), timestamp = cursor.getLong(5),
                     appPackage = cursor.getString(6), conversationKey = cursor.getString(7),
-                    conversationTitle = cursor.getString(8)
+                    conversationTitle = cursor.getString(8),
+                    riskScore = cursor.getInt(9),
+                    riskLevel = cursor.getString(10),
+                    riskReasons = runCatching { JSONArray(cursor.getString(11)) }.getOrElse { JSONArray() }
+                        .let { array -> (0 until array.length()).mapNotNull { index -> array.optString(index).takeIf(String::isNotBlank) } }
                 )
             }
         }

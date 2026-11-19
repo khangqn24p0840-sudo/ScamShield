@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
@@ -85,6 +86,52 @@ private data class ChatLine(
     val pending: Boolean = false,
     val imageUri: Uri? = null
 )
+
+/** Lưu lịch sử chatbot cục bộ; chỉ các nội dung người dùng chủ động gửi mới được chuyển lên server. */
+private object ChatHistoryStore {
+    private const val PREFS = "scamshield_chatbot_history"
+    private const val KEY_LINES = "lines"
+    private const val MAX_LINES = 120
+
+    fun load(c: Context, welcome: String): List<ChatLine> {
+        val raw = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_LINES, null)
+            ?: return listOf(ChatLine(fromUser = false, text = welcome))
+        return runCatching {
+            val array = org.json.JSONArray(raw)
+            val restored = (0 until array.length()).mapNotNull { index ->
+                val item = array.optJSONObject(index) ?: return@mapNotNull null
+                val fromUser = item.optBoolean("fromUser", false)
+                val image = item.optBoolean("image", false)
+                var text = item.optString("text")
+                if (item.optBoolean("pending", false)) {
+                    text = "Yêu cầu phân tích trước đó bị gián đoạn. Bạn có thể gửi lại nội dung."
+                } else if (image && text.isBlank()) {
+                    text = "Ảnh đã được gửi trong phiên trò chuyện trước."
+                }
+                if (text.isBlank()) null else ChatLine(fromUser = fromUser, text = text)
+            }.takeLast(MAX_LINES)
+            if (restored.isEmpty()) listOf(ChatLine(fromUser = false, text = welcome)) else restored
+        }.getOrElse { listOf(ChatLine(fromUser = false, text = welcome)) }
+    }
+
+    fun save(c: Context, lines: List<ChatLine>) {
+        val array = org.json.JSONArray()
+        lines.takeLast(MAX_LINES).forEach { line ->
+            val text = if (line.pending) {
+                "Yêu cầu phân tích trước đó bị gián đoạn. Bạn có thể gửi lại nội dung."
+            } else line.text
+            array.put(
+                org.json.JSONObject()
+                    .put("fromUser", line.fromUser)
+                    .put("text", text.take(5000))
+                    .put("image", line.imageUri != null)
+                    .put("pending", false)
+            )
+        }
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putString(KEY_LINES, array.toString()).apply()
+    }
+}
 
 private val ChatGreen = Color(0xFF2679E7)
 private val ChatGreenDeep = Color(0xFF1756B8)
@@ -153,8 +200,9 @@ fun ChatbotLauncher(c: Context, h: Hooks) {
 @Composable
 fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) {
     BackHandler(enabled = visible) { onClose() }
+    val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     if (visible) {
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().imePadding()) {
             Box(
                 Modifier.fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.28f))
@@ -165,11 +213,11 @@ fun ChatbotOverlay(c: Context, h: Hooks, visible: Boolean, onClose: () -> Unit) 
                 onPickImage = h.pickImage,
                 onClose = onClose,
                 modifier = Modifier.align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 88.dp)
+                    .padding(end = 12.dp, bottom = if (imeVisible) 8.dp else 88.dp)
                     .widthIn(max = 390.dp)
                     .fillMaxWidth(0.94f)
                     .heightIn(max = 520.dp)
-                    .fillMaxHeight(0.84f)
+                    .fillMaxHeight(if (imeVisible) 0.96f else 0.84f)
             )
         }
     }
@@ -541,8 +589,17 @@ private fun FloatingChatbotButton(onClick: () -> Unit, modifier: Modifier = Modi
 @Composable
 private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
     val welcome = "Chào bạn! Mình là trợ lý ScamShield. Hãy gửi nội dung tin nhắn, lời thoại hoặc đường link đáng ngờ để mình phân tích dấu hiệu lừa đảo và gợi ý cách xử lý.\n\nKhông gửi OTP, mật khẩu hoặc thông tin cá nhân nhé."
-    val lines = remember { mutableStateListOf(ChatLine(fromUser = false, text = welcome)) }
+    val lines = remember(c) {
+        mutableStateListOf<ChatLine>().apply { addAll(ChatHistoryStore.load(c, welcome)) }
+    }
     val listState = rememberLazyListState()
+    val historySnapshot = lines.toList()
+    LaunchedEffect(historySnapshot) {
+        ChatHistoryStore.save(c, historySnapshot)
+    }
+    DisposableEffect(c) {
+        onDispose { ChatHistoryStore.save(c, lines.toList()) }
+    }
     var draft by remember { mutableStateOf("") }
     var selectedImage by remember { mutableStateOf<Uri?>(null) }
     var busy by remember { mutableStateOf(false) }
