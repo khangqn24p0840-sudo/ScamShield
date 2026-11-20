@@ -167,6 +167,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
                 FaceLevel.HIGH -> C.Bad
                 FaceLevel.SUSPICIOUS -> C.Warn
                 FaceLevel.OK -> C.Mint
+                FaceLevel.INSUFFICIENT -> C.Warn
                 else -> Color.White
             }
             Text(v.headline, color = col, fontWeight = FontWeight.Bold, fontSize = 15.sp)
