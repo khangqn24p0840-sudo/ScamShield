@@ -52,6 +52,7 @@ class Hooks(
     val enableCalls: () -> Unit, val enableSms: () -> Unit, val enableProtection: () -> Unit,
     val toggleListen: () -> Unit,
     val pickImage: () -> Unit,
+    val pickVideo: () -> Unit, val cancelVideoScan: () -> Unit,
     val startFace: () -> Unit, val stopFace: () -> Unit,
     val openOverlay: () -> Unit, val openSocial: () -> Unit,
     val aiMsg: () -> String, val setAiMsg: (String) -> Unit
