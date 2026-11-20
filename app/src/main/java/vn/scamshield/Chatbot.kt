@@ -917,7 +917,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
             val aiAnswered = result?.optBoolean("ai", false) == true
             val reply = if (code in 200..299 && rawReply.isNotBlank()) {
                 if (aiAnswered) rawReply
-                else "⚠️ Máy chủ chưa nhận được câu trả lời từ AI; đây là phản hồi dự phòng, không phải kết luận của Groq.\\n\\n$rawReply"
+                else "⚠️ Máy chủ chưa nhận được câu trả lời từ AI; đây là phản hồi dự phòng, không phải kết luận của Groq.\n\n$rawReply"
             } else {
                 "Mình chưa kết nối được trợ lý AI. ${err(result)}"
             }
