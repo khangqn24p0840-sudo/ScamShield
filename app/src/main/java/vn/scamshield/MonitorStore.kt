@@ -48,7 +48,7 @@ data class ConversationAnalysisResult(
     val lastMessageTimestamp: Long
 )
 
-/** Lưu riêng trên thiết bị. Không tự đồng bộ nội dung tin nhắn lên máy chủ. */
+/** Lưu nội dung gốc trên thiết bị; chỉ đồng bộ tối đa 12 tin gần nhất khi người dùng bật đồng ý phân tích ngữ cảnh. */
 object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
 
