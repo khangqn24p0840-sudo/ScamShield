@@ -895,7 +895,7 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
         // Gửi lịch sử gần nhất để backend/Groq có thể hiểu các câu hỏi nối tiếp.
         // Bỏ dòng người dùng hiện tại vì nó đã được gửi riêng trong trường "message".
         val history = org.json.JSONArray()
-        lines.dropLast(1).filterNot { it.pending }.takeLast(10).forEach { line ->
+        lines.dropLast(2).filterNot { it.pending }.takeLast(10).forEach { line ->
             val historyText = when {
                 line.imageUri != null -> line.text.ifBlank { "[Người dùng đã gửi ảnh]" }
                 else -> line.text
