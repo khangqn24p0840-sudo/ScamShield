@@ -27,6 +27,22 @@ android {
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
 }
+
+/*
+ * The two model files live at the repository root so model training/export does not
+ * pollute the app module. Copy only these explicit files into generated Android assets.
+ */
+val generatedDeepfakeAssets = layout.buildDirectory.dir("generated/deepfakeAssets")
+val copyDeepfakeAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("deepfake_model.tflite"))
+    from(rootProject.file("deepfake_config.json"))
+    into(generatedDeepfakeAssets)
+}
+android.sourceSets.getByName("main").assets.srcDir(generatedDeepfakeAssets)
+tasks.named("preBuild").configure {
+    dependsOn(copyDeepfakeAssets)
+}
+
 dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.work:work-runtime-ktx:2.9.0")

@@ -279,7 +279,14 @@ private fun FamilyConversation(c: Context, room: FamilyRoom, onBack: () -> Unit,
                 Text(room.name, color = FamilyText, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                 Text("${room.memberCount} thành viên", color = FamilyMuted, fontSize = 11.sp)
             }
-            IconButton(onClick = onInvite) { Icon(Icons.Rounded.GroupAdd, "Mời người thân", tint = FamilyGreen) }
+            TextButton(
+                onClick = onInvite,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Rounded.GroupAdd, null, tint = FamilyGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(5.dp))
+                Text("Tạo mã mời", color = FamilyGreen, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
             IconButton(onClick = { refresh++ }) { Icon(Icons.Rounded.Refresh, "Làm mới", tint = FamilyGreen) }
         }
         HorizontalDivider(color = FamilyBorder)

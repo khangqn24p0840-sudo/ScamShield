@@ -44,6 +44,9 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) { aiMsg = "Không đọc được ảnh" }
     }
+    private val videoPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) VideoFileScanner.start(this, uri)
+    }
     private val captureL = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == RESULT_OK && r.data != null)
             androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, ScreenFaceService::class.java).putExtra("code", r.resultCode).putExtra("data", r.data))
@@ -62,7 +65,24 @@ class MainActivity : ComponentActivity() {
                 else recL.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
             },
             pickImage = { picker.launch("image/*") },
-            startFace = { captureL.launch(getSystemService(android.media.projection.MediaProjectionManager::class.java).createScreenCaptureIntent()) },
+            pickVideo = {
+                if (FaceBus.running) {
+                    VideoScanBus.state = VideoScanBus.state.copy(
+                        status = "Hãy dừng kiểm tra video call trước khi quét video thư viện."
+                    )
+                } else videoPicker.launch(arrayOf("video/*"))
+            },
+            cancelVideoScan = { VideoFileScanner.cancel() },
+            startFace = {
+                if (VideoScanBus.state.running) {
+                    VideoScanBus.state = VideoScanBus.state.copy(
+                        status = "Hãy dừng quét video thư viện trước khi kiểm tra video call."
+                    )
+                } else captureL.launch(
+                    getSystemService(android.media.projection.MediaProjectionManager::class.java)
+                        .createScreenCaptureIntent()
+                )
+            },
             stopFace = { stopService(Intent(this, ScreenFaceService::class.java)); FaceBus.running = false },
             openOverlay = { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },
             openSocial = { startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },

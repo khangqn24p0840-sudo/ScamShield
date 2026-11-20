@@ -135,28 +135,50 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     }
 }
 
-@Composable fun FacePanel(onStart: () -> Unit, onStop: () -> Unit) {
+@Composable fun FacePanel(
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onPickVideo: () -> Unit,
+    onCancelVideo: () -> Unit
+) {
     val v = FaceBus.verdict
+    val scan = VideoScanBus.state
+
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.Videocam, C.Cyan)
             Column {
                 Text("Kiểm tra video call giả mạo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
-                Text("Tính năng thử nghiệm", color = C.Dim, fontSize = 11.sp)
+                Text("Phân tích trực tiếp trên thiết bị", color = C.Dim, fontSize = 11.sp)
             }
         }
-        Text("Khi đang video call, bật chế độ này: app quan sát màn hình, đo các chỉ báo trên khuôn mặt và cảnh báo nếu nghi giả mạo. Chỉ xử lý trong máy, không lưu hình. Kết quả chỉ là chỉ báo, không phải kết luận.",
-            fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
+        Text(
+            "Khi đang video call, bật chế độ này để ScamShield quan sát màn hình sau khi bạn cấp quyền. Ảnh chỉ được xử lý trong bộ nhớ và không lưu lại.",
+            fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp
+        )
         if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
         else GoldButton("Bắt đầu kiểm tra video call", leading = Icons.Rounded.PlayArrow, onClick = onStart)
+        Text(
+            if (FaceBus.running) FaceBus.modelStatus else "Model AI sẽ được kiểm tra khi bạn bắt đầu phiên",
+            fontSize = 11.sp, color = if (FaceBus.modelAvailable) C.Mint else C.Dim
+        )
         if (FaceBus.running && v != null) {
-            val col = when (v.level) { FaceLevel.HIGH -> C.Bad; FaceLevel.SUSPICIOUS -> C.Warn; FaceLevel.OK -> C.Mint; else -> Color.White }
+            val col = when (v.level) {
+                FaceLevel.HIGH -> C.Bad
+                FaceLevel.SUSPICIOUS -> C.Warn
+                FaceLevel.OK -> C.Mint
+                FaceLevel.INSUFFICIENT -> C.Warn
+                else -> Color.White
+            }
             Text(v.headline, color = col, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             if (v.progress < 1f) {
                 Text("Tiến độ thu thập: ${(v.progress * 100).toInt()}%", fontSize = 12.sp, color = C.Sub)
                 ScoreBar(v.progress, C.Cyan)
+            } else if (v.level == FaceLevel.INSUFFICIENT) {
+                Text("Không hiển thị điểm vì chưa đủ bằng chứng phân tích.", fontSize = 12.sp, color = C.Warn)
             } else {
-                Text("Điểm rủi ro: ${(v.probability * 100).toInt()}% • ${"%.0f".format(v.fps)} khung/giây", fontSize = 12.sp, color = C.Sub)
+                Text("Điểm rủi ro chỉ báo: ${(v.probability * 100).toInt()}% • ${"%.0f".format(v.fps)} khung/giây",
+                    fontSize = 12.sp, color = C.Sub)
                 ScoreBar(v.probability.toFloat(), col)
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -168,6 +190,57 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
                 }
             }
             if (v.advice.isNotEmpty()) Text(v.advice, fontSize = 12.sp, color = C.Dim, lineHeight = 16.sp)
+        }
+    }
+
+    Glass {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconBadge(Icons.Rounded.VideoLibrary, C.Violet)
+            Column {
+                Text("Quét video trong thư viện", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
+                Text("Chọn video có sẵn trên điện thoại", color = C.Dim, fontSize = 11.sp)
+            }
+        }
+        Text(
+            "Video được phân tích trực tiếp trên thiết bị. ScamShield lấy mẫu tối đa 120 khung hình, nhận diện khuôn mặt rồi tổng hợp dấu hiệu theo thời gian. Video không được tải lên máy chủ.",
+            fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp
+        )
+        if (scan.running) {
+            Text(scan.status, color = C.Cyan, fontSize = 13.sp)
+            ScoreBar(scan.progress, C.Cyan)
+            Text("Đã xử lý ${scan.framesProcessed}/${scan.totalFrames} khung hình • Có mặt: ${scan.faceFrames}",
+                color = C.Dim, fontSize = 11.sp)
+            DangerButton("Hủy quét", leading = Icons.Rounded.Stop, onClick = onCancelVideo)
+        } else {
+            GoldButton("Chọn video để quét", leading = Icons.Rounded.VideoLibrary, onClick = onPickVideo)
+            if (scan.status.isNotBlank()) Text(scan.status, color = C.Sub, fontSize = 12.sp)
+        }
+        if (scan.modelStatus.isNotBlank()) {
+            Text(scan.modelStatus, color = if (scan.modelAvailable) C.Mint else C.Dim, fontSize = 11.sp)
+        }
+        if (scan.verdict != null) {
+            val result = scan.verdict!!
+            val col = when (result.level) {
+                FaceLevel.HIGH -> C.Bad
+                FaceLevel.SUSPICIOUS -> C.Warn
+                FaceLevel.OK -> C.Mint
+                FaceLevel.INSUFFICIENT -> C.Warn
+                else -> C.Warn
+            }
+            Text(result.headline, color = col, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            if (result.level == FaceLevel.OK || result.level == FaceLevel.SUSPICIOUS || result.level == FaceLevel.HIGH) {
+                Text("Điểm rủi ro chỉ báo: ${(result.probability * 100).toInt()}%",
+                    color = C.Sub, fontSize = 12.sp)
+                ScoreBar(result.probability.toFloat(), col)
+            }
+            Text("Khung hình có khuôn mặt: ${scan.faceFrames}/${scan.framesProcessed}",
+                color = C.Sub, fontSize = 12.sp)
+            Text(
+                if (scan.modelAvailable) "Đã sử dụng model AI trên thiết bị."
+                else "Chưa nạp được model AI; kết quả chỉ dựa trên chỉ báo cơ bản.",
+                color = if (scan.modelAvailable) C.Mint else C.Warn, fontSize = 11.sp
+            )
+            if (result.advice.isNotBlank()) Text(result.advice, color = C.Dim, fontSize = 12.sp, lineHeight = 16.sp)
         }
     }
 }
