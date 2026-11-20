@@ -8,6 +8,7 @@ import android.graphics.Bitmap
  */
 interface DeepfakeClassifier {
     val isAvailable: Boolean
+    val status: String get() = if (isAvailable) "Model AI đã sẵn sàng" else "Model AI chưa khả dụng"
     /** Xác suất khuôn mặt là giả (0..1), hoặc null nếu không đánh giá được. */
     fun fakeProbability(face: Bitmap): Float?
     /** Giải phóng tài nguyên model nếu adapter có nắm giữ tài nguyên native. */
