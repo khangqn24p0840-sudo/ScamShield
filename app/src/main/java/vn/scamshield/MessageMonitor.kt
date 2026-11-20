@@ -569,7 +569,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 title = { Text("Cho phép đọc nội dung chat đang hiển thị?") },
                 text = {
                     Text(
-                        "ScamShield sẽ dùng Trợ năng Android để nhận biết ứng dụng chat đang mở và đọc văn bản của các bong bóng tin đến đang hiển thị, nhưng chỉ khi tiêu đề khớp đúng người/cuộc trò chuyện bạn đã thêm theo dõi. Ứng dụng bỏ qua ô nhập, trường mật khẩu và không chụp ảnh màn hình. Văn bản được lưu cục bộ để chấm điểm và tạo nhật ký. " +
+                        "ScamShield sẽ dùng Trợ năng Android để nhận biết ứng dụng chat đang mở và đọc văn bản của các bong bóng tin nhắn đến và đi đang hiển thị, nhưng chỉ khi tiêu đề khớp đúng người/cuộc trò chuyện bạn đã thêm theo dõi. Ứng dụng bỏ qua ô nhập, trường mật khẩu và không chụp ảnh màn hình. Văn bản được lưu cục bộ để chấm điểm và tạo nhật ký. " +
                             "Nội dung chỉ được gửi lên máy chủ để AI phân tích nếu bạn bật công tắc ScamShield tự động hiểu ngữ cảnh riêng. Cấu trúc giao diện của từng ứng dụng có thể khiến một số tin bị bỏ sót. Bạn có thể dừng thu thập bằng công tắc này bất cứ lúc nào."
                     )
                 },
@@ -595,10 +595,10 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 title = { Text("Bật ScamShield tự động hiểu ngữ cảnh?") },
                 text = {
                     Text(
-                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin đến đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới AI của máy chủ ScamShield (Groq). " +
+                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin nhắn đến và đi đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới AI của máy chủ ScamShield (Groq). " +
                             "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại; bạn có thể xem trạng thái đang chờ trong mục này. " +
                             "ScamShield không gửi toàn bộ lịch sử; một số mã OTP, mật khẩu, số điện thoại và dãy số dài sẽ được ẩn trước khi gửi. " +
-                            "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức Gemini. " +
+                            "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức sử dụng của nhà cung cấp AI đang cấu hình. " +
                             "Bạn có thể tắt tính năng này bất cứ lúc nào; thao tác đó sẽ hủy các yêu cầu đang chờ."
                     )
                 },
