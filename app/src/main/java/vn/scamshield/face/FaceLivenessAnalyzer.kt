@@ -59,6 +59,13 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
         val box = boxIndicator(faces)
         val model = modelIndicator(faces)
         val inds = listOfNotNull(blink, jitter, blend, box, model)
+        if (inds.isEmpty()) {
+            return FaceVerdict(
+                FaceLevel.INSUFFICIENT, 0.0, 1f, emptyList(), fps,
+                "Chưa đủ dữ liệu để đánh giá khuôn mặt",
+                "Video không cung cấp đủ tín hiệu để đánh giá đáng tin cậy. Hãy thử video rõ hơn hoặc xác minh người gọi qua một kênh độc lập."
+            )
+        }
 
         var logit = BIAS
         for (i in inds) logit += (WEIGHTS[i.id] ?: 0.0) * i.score
