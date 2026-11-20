@@ -41,6 +41,10 @@ object ConversationAiMonitor {
 
     fun setEnabled(c: Context, enabled: Boolean) {
         Store.putFlag(c, ENABLED_KEY, enabled)
+        // Đồng bộ trạng thái đồng ý để trang quản trị biết tài khoản có cho phép theo dõi chat hay không.
+        if (Store.str(c, "token").isNotBlank()) {
+            Api.call(c, "POST", "/api/monitor/consent", JSONObject().put("enabled", enabled)) { _, _ -> }
+        }
         if (!enabled) {
             cancelPending()
             WorkManager.getInstance(c.applicationContext).cancelAllWorkByTag(WORK_TAG)
@@ -309,12 +313,18 @@ object ConversationAiMonitor {
                         .put("sender", redactSensitiveText(item.sender).take(100))
                         .put("text", safeText)
                         .put("timestamp", item.timestamp)
+                        .put("source", item.channel)
                 )
             }
         }
         if (payloadMessages.length() == 0) return null
         val previousMemory = MonitorStore.conversationMemory(c, targetId, conversationKey) ?: JSONObject()
+        val latest = messages.lastOrNull()
         return JSONObject()
+            .put("target_id", targetId)
+            .put("conversation_key", conversationKey)
+            .put("conversation_title", latest?.conversationTitle.orEmpty())
+            .put("app_package", latest?.appPackage.orEmpty())
             .put("messages", payloadMessages)
             .put("memory", previousMemory)
     }
