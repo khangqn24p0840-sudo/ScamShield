@@ -69,7 +69,8 @@ object VideoFileScanner {
                 status = if (modelAvailable) "Đang phân tích bằng AI trên thiết bị…" else
                     "Đang quét chỉ báo cơ bản; model AI chưa khả dụng",
                 totalFrames = samples,
-                modelAvailable = modelAvailable
+                modelAvailable = modelAvailable,
+                modelStatus = observer.modelStatus
             ))
 
             var processed = 0
@@ -116,6 +117,7 @@ object VideoFileScanner {
                     totalFrames = samples,
                     faceFrames = faceFrames,
                     modelAvailable = modelAvailable,
+                    modelStatus = observer.modelStatus,
                     verdict = verdict
                 ))
             }
