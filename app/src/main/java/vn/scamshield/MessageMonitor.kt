@@ -287,7 +287,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Theo dõi nội dung chat đang mở", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "Khi bạn mở đúng cuộc trò chuyện đã thêm, ScamShield có thể đọc văn bản bong bóng tin đến đang hiển thị qua Trợ năng Android. Không chụp ảnh màn hình, không đọc ô đang nhập hoặc trường mật khẩu. Chỉ văn bản khớp ứng dụng và tiêu đề chat đã chọn mới được lưu.",
+                    "Khi bạn mở đúng cuộc trò chuyện đã thêm, ScamShield có thể đọc văn bản bong bóng tin nhắn đến và đi đang hiển thị qua Trợ năng Android. Không chụp ảnh màn hình, không đọc ô đang nhập hoặc trường mật khẩu. Chỉ văn bản khớp ứng dụng và tiêu đề chat đã chọn mới được lưu.",
                     color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
