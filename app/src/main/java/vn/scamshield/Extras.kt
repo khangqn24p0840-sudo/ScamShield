@@ -159,8 +159,8 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
         else GoldButton("Bắt đầu kiểm tra video call", leading = Icons.Rounded.PlayArrow, onClick = onStart)
         Text(
-            if (FaceBus.modelAvailable) "Model AI: đã nạp" else "Model AI: chưa khả dụng; chỉ báo cơ bản không thay thế được kết quả AI",
-            fontSize = 11.sp, color = if (FaceBus.modelAvailable) C.Mint else C.Warn
+            if (FaceBus.running) FaceBus.modelStatus else "Model AI sẽ được kiểm tra khi bạn bắt đầu phiên",
+            fontSize = 11.sp, color = if (FaceBus.modelAvailable) C.Mint else C.Dim
         )
         if (FaceBus.running && v != null) {
             val col = when (v.level) {
@@ -174,6 +174,8 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
             if (v.progress < 1f) {
                 Text("Tiến độ thu thập: ${(v.progress * 100).toInt()}%", fontSize = 12.sp, color = C.Sub)
                 ScoreBar(v.progress, C.Cyan)
+            } else if (v.level == FaceLevel.INSUFFICIENT) {
+                Text("Không hiển thị điểm vì chưa đủ bằng chứng phân tích.", fontSize = 12.sp, color = C.Warn)
             } else {
                 Text("Điểm rủi ro chỉ báo: ${(v.probability * 100).toInt()}% • ${"%.0f".format(v.fps)} khung/giây",
                     fontSize = 12.sp, color = C.Sub)
@@ -210,8 +212,11 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
                 color = C.Dim, fontSize = 11.sp)
             DangerButton("Hủy quét", leading = Icons.Rounded.Stop, onClick = onCancelVideo)
         } else {
-            GoldButton("Chọn video để quét", leading = Icons.Rounded.VideoFile, onClick = onPickVideo)
+            GoldButton("Chọn video để quét", leading = Icons.Rounded.VideoLibrary, onClick = onPickVideo)
             if (scan.status.isNotBlank()) Text(scan.status, color = C.Sub, fontSize = 12.sp)
+        }
+        if (scan.modelStatus.isNotBlank()) {
+            Text(scan.modelStatus, color = if (scan.modelAvailable) C.Mint else C.Dim, fontSize = 11.sp)
         }
         if (scan.verdict != null) {
             val result = scan.verdict!!
