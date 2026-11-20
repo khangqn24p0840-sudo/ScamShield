@@ -148,7 +148,7 @@ class ChatAccessibilityService : AccessibilityService() {
             .asSequence()
             .filter { node ->
                 node.value.length in 2..800 &&
-                    node.bounds.top >= (snapshot.screenHeight * 0.10f).toInt() &&
+                    node.bounds.top >= (snapshot.screenHeight * 0.08f).toInt() &&
                     node.bounds.bottom <= (snapshot.screenHeight * 0.88f).toInt() &&
                     node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt() &&
                     node.bounds.left >= (snapshot.screenWidth * 0.02f).toInt() &&
