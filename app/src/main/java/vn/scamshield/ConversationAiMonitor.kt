@@ -39,12 +39,27 @@ object ConversationAiMonitor {
 
     fun isEnabled(c: Context): Boolean = Store.flag(c, ENABLED_KEY)
 
+    /**
+     * Đồng bộ đồng ý lên server cả với tài khoản đã bật tính năng trước khi cài bản cập nhật.
+     * Marker theo fingerprint token + trạng thái, tránh gọi lặp ở mỗi sự kiện chat.
+     */
+    private fun syncConsent(c: Context, enabled: Boolean) {
+        val token = Store.str(c, "token")
+        if (token.isBlank()) return
+        val marker = sha256("$token|$enabled")
+        val markerKey = "monitor_consent_sync_marker"
+        val pendingKey = "monitor_consent_sync_pending"
+        if (Store.str(c, markerKey) == marker || Store.str(c, pendingKey) == marker) return
+        Store.putStr(c, pendingKey, marker)
+        Api.call(c, "POST", "/api/monitor/consent", JSONObject().put("enabled", enabled)) { code, _ ->
+            if (code in 200..299) Store.putStr(c, markerKey, marker)
+            if (Store.str(c, pendingKey) == marker) Store.putStr(c, pendingKey, "")
+        }
+    }
+
     fun setEnabled(c: Context, enabled: Boolean) {
         Store.putFlag(c, ENABLED_KEY, enabled)
-        // Đồng bộ trạng thái đồng ý để trang quản trị biết tài khoản có cho phép theo dõi chat hay không.
-        if (Store.str(c, "token").isNotBlank()) {
-            Api.call(c, "POST", "/api/monitor/consent", JSONObject().put("enabled", enabled)) { _, _ -> }
-        }
+        syncConsent(c, enabled)
         if (!enabled) {
             cancelPending()
             WorkManager.getInstance(c.applicationContext).cancelAllWorkByTag(WORK_TAG)
@@ -71,6 +86,7 @@ object ConversationAiMonitor {
     fun schedule(c: Context, targetId: String, conversationKey: String) {
         val app = c.applicationContext
         if (!isEnabled(app) || Store.str(app, "token").isBlank()) return
+        syncConsent(app, true)
         val id = threadId(targetId, conversationKey)
         val task = Runnable {
             synchronized(this) { pending.remove(id) }
