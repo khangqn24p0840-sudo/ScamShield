@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import java.text.Normalizer
@@ -26,6 +27,7 @@ class ChatAccessibilityService : AccessibilityService() {
         private const val PREF_CONSENT = "screen_chat_accessibility_consent"
         private const val PREF_ENABLED = "screen_chat_monitor_enabled"
         private const val EMPTY_PACKAGE_SENTINEL = "vn.scamshield.no_selected_chat_app"
+        private const val TAG = "ScamShieldChatScan"
 
         @Volatile private var activeService: ChatAccessibilityService? = null
 
@@ -95,7 +97,12 @@ class ChatAccessibilityService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (!isMonitoringEnabled(this) || !hasConsent(this)) return
+        val monitoring = isMonitoringEnabled(this)
+        val consent = hasConsent(this)
+        if (!monitoring || !consent) {
+            Log.d(TAG, "Ignore accessibility event: monitoring=$monitoring consent=$consent")
+            return
+        }
         val pkg = event?.packageName?.toString() ?: return
         if (pkg !in allowedPackages) return
 
@@ -116,15 +123,27 @@ class ChatAccessibilityService : AccessibilityService() {
     }
 
     private fun scanSelectedConversation(packageName: String) {
-        if (!isMonitoringEnabled(this) || !hasConsent(this)) return
-        val root = findAppWindowRoot(packageName) ?: return
+        val monitoring = isMonitoringEnabled(this)
+        val consent = hasConsent(this)
+        if (!monitoring || !consent) {
+            Log.d(TAG, "Scan stopped: monitoring=$monitoring consent=$consent")
+            return
+        }
+        val root = findAppWindowRoot(packageName)
+        if (root == null) {
+            Log.w(TAG, "No accessibility root for package=$packageName")
+            return
+        }
         if (root.packageName?.toString() != packageName) {
+            Log.w(TAG, "Accessibility root package mismatch for package=$packageName")
             runCatching { root.recycle() }
             return
         }
 
         val snapshot = collectVisibleText(root)
-        if (!snapshot.hasComposer) return
+        // Some chat apps expose a custom composer that is not reported as an editable node.
+        // The selected conversation title below is the actual thread-scope guard.
+        Log.d(TAG, "Snapshot package=$packageName nodes=${snapshot.nodes.size} composer=${snapshot.hasComposer}")
 
         val matchingTargets = MonitorStore.targets(this).filter {
             it.channel == "social" && it.appPackage == packageName
@@ -138,7 +157,12 @@ class ChatAccessibilityService : AccessibilityService() {
                 val visibleTitle = normalize(header.value)
                 visibleTitle == wanted || visibleTitle.startsWith("$wanted ")
             }
-        } ?: return
+        }
+        if (target == null) {
+            Log.w(TAG, "No selected conversation matched; targets=${matchingTargets.size} headerNodes=${headerNodes.size}")
+            return
+        }
+        Log.d(TAG, "Matched selected conversation targetId=${target.id}")
 
         // Use the same conversation key convention as notification capture when the title is known.
         val conversationKey = packageName + "|" + target.identifier.trim().lowercase(Locale.ROOT)
@@ -166,7 +190,10 @@ class ChatAccessibilityService : AccessibilityService() {
             }
             .distinctBy { normalize(it.value) }
             .toList()
-        if (visibleMessages.isEmpty()) return
+        if (visibleMessages.isEmpty()) {
+            Log.d(TAG, "Matched conversation but no readable message nodes were found")
+            return
+        }
 
         val nowElapsed = SystemClock.elapsedRealtime()
         val newMessages = visibleMessages.filter { item ->
@@ -198,6 +225,7 @@ class ChatAccessibilityService : AccessibilityService() {
                         )
                     ) inserted++
                 }
+                Log.i(TAG, "Screen capture result: visible=${newMessages.size} inserted=$inserted")
                 if (inserted == 0) return@execute
 
                 val recent = MonitorStore.recentMessages(this, target.id, conversationKey, 8)
@@ -275,8 +303,15 @@ class ChatAccessibilityService : AccessibilityService() {
                 }
 
                 if (node.isVisibleToUser && !node.isPassword && !isInput && !bounds.isEmpty) {
-                    val value = node.text?.toString()?.trim().orEmpty()
-                    if (value.length in 2..800) result += VisibleText(value, Rect(bounds))
+                    // Zalo and other chat apps may expose labels through contentDescription
+                    // instead of text. Read both, then let the existing deduplication collapse repeats.
+                    val values = listOfNotNull(
+                        node.text?.toString()?.trim(),
+                        node.contentDescription?.toString()?.trim()
+                    ).filter { it.length in 2..800 }.distinct()
+                    values.forEach { value ->
+                        result += VisibleText(value, Rect(bounds))
+                    }
                 }
 
                 for (index in 0 until node.childCount) {
