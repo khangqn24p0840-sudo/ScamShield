@@ -9,8 +9,7 @@ import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
-import kotlin.math.max
-
+ 
 /**
  * TFLite adapter driven by the repository's deepfake_config.json.
  *
@@ -25,17 +24,23 @@ class TfliteDeepfakeClassifier(context: Context) : DeepfakeClassifier {
         val inputSize: Int,
         val inputType: DataType,
         val outputCount: Int,
-        val outputType: DataType,
         val normalization: String,
         val outputContract: String,
         val fakeClassIndex: Int
     )
 
-    private val runtime: RuntimeModel? = load(context.applicationContext)
-    val status: String = if (runtime != null) "Model Deepfake đã sẵn sàng" else "Không thể nạp model Deepfake"
+    private data class LoadResult(val runtime: RuntimeModel?, val error: String?)
+
+    private val loaded = load(context.applicationContext)
+    private val runtime: RuntimeModel? = loaded.runtime
+    override val status: String = if (runtime != null) {
+        "Model Deepfake đã sẵn sàng"
+    } else {
+        "Không thể nạp model Deepfake: ${loaded.error ?: "không rõ nguyên nhân"}"
+    }
     override val isAvailable: Boolean get() = runtime != null
 
-    private fun load(context: Context): RuntimeModel? {
+    private fun load(context: Context): LoadResult {
         return try {
             val config = context.assets.open(CONFIG_FILE).bufferedReader().use { JSONObject(it.readText()) }
             val inputSize = config.optInt("input_size", 224)
@@ -73,16 +78,19 @@ class TfliteDeepfakeClassifier(context: Context) : DeepfakeClassifier {
                 require(outputCount in 1..2) { "Model output must contain one or two values" }
                 require(output.dataType() == DataType.FLOAT32) { "Unsupported output tensor type" }
                 if (outputCount == 2) require(fakeIndex in 0..1) { "Invalid fake class index" }
-                RuntimeModel(
-                    interpreter, inputSize, input.dataType(), outputCount,
-                    output.dataType(), normalization, outputContract, fakeIndex
+                LoadResult(
+                    RuntimeModel(
+                        interpreter, inputSize, input.dataType(), outputCount,
+                        normalization, outputContract, fakeIndex
+                    ),
+                    null
                 )
             } catch (e: Exception) {
                 interpreter.close()
                 throw e
             }
-        } catch (_: Exception) {
-            null
+        } catch (e: Exception) {
+            LoadResult(null, e.message?.take(160) ?: e.javaClass.simpleName)
         }
     }
 
