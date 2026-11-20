@@ -223,7 +223,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
                 else -> C.Warn
             }
             Text(result.headline, color = col, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            if (result.level != FaceLevel.NO_FACE && result.level != FaceLevel.ANALYZING) {
+            if (result.level == FaceLevel.OK || result.level == FaceLevel.SUSPICIOUS || result.level == FaceLevel.HIGH) {
                 Text("Điểm rủi ro chỉ báo: ${(result.probability * 100).toInt()}%",
                     color = C.Sub, fontSize = 12.sp)
                 ScoreBar(result.probability.toFloat(), col)
