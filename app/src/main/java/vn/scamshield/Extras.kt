@@ -48,8 +48,8 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
             return buildString {
                 append("Chưa có kết quả phân tích rủi ro lừa đảo bằng AI.")
                 val note = j.optString("note").trim()
-                if (note.isNotBlank()) append("\\n").append(note)
-                append("\\nKhông xem ảnh này là an toàn chỉ vì chưa phân tích được.")
+                if (note.isNotBlank()) append("\n").append(note)
+                append("\nKhông xem ảnh này là an toàn chỉ vì chưa phân tích được.")
             }
         }
         val verdict = when (j.optString("scam_verdict")) {
@@ -59,20 +59,20 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         }
         return buildString {
             append(verdict).append(" (").append(score).append("/100)")
-            if (reasons.isNotEmpty()) append("\\nDấu hiệu:\\n").append(reasons.joinToString("\\n") { "• $it" })
+            if (reasons.isNotEmpty()) append("\nDấu hiệu:\n").append(reasons.joinToString("\n") { "• $it" })
             val note = j.optString("note").trim()
-            if (note.isNotBlank()) append("\\n").append(note)
+            if (note.isNotBlank()) append("\n").append(note)
             val action = j.optString("recommended_action").trim()
-            if (action.isNotBlank()) append("\\nKhuyến nghị: ").append(action)
+            if (action.isNotBlank()) append("\nKhuyến nghị: ").append(action)
             if (j.optString("fake_verdict").isNotBlank()) {
                 val integrity = when (j.optString("fake_verdict")) {
                     "likely_fake" -> "Ảnh có dấu hiệu bị chỉnh sửa/ghép."
                     "uncertain" -> "Chưa xác định được tính nguyên vẹn của ảnh."
                     else -> "Không thấy dấu hiệu chỉnh sửa rõ ràng."
                 }
-                append("\\n").append(integrity)
+                append("\n").append(integrity)
             }
-            append("\\nLưu ý: không thể xác minh chủ tài khoản ngân hàng hoặc nội dung mã QR chỉ từ hình ảnh.")
+            append("\nLưu ý: không thể xác minh chủ tài khoản ngân hàng hoặc nội dung mã QR chỉ từ hình ảnh.")
         }
     }
 
@@ -82,7 +82,7 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         "uncertain" -> "Chưa chắc chắn"
         else -> "Nhiều khả năng ảnh thật"
     }
-    return "$v (${(j.optDouble("score") * 100).toInt()}%)\\n${j.optString("note")}"
+    return "$v (${(j.optDouble("score") * 100).toInt()}%)\n${j.optString("note")}"
 }
 
 @Composable fun SurveyPanel(c: Context) {
