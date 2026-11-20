@@ -39,6 +39,11 @@ object ConversationAiMonitor {
 
     fun isEnabled(c: Context): Boolean = Store.flag(c, ENABLED_KEY)
 
+    /** Đồng bộ trạng thái hiện có khi app mở lại, không cần đợi tin nhắn mới. */
+    fun syncCurrentConsent(c: Context) {
+        syncConsent(c.applicationContext, isEnabled(c))
+    }
+
     /**
      * Đồng bộ đồng ý lên server cả với tài khoản đã bật tính năng trước khi cài bản cập nhật.
      * Marker theo fingerprint token + trạng thái, tránh gọi lặp ở mỗi sự kiện chat.
