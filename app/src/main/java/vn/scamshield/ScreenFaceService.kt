@@ -104,15 +104,23 @@ class ScreenFaceService : Service() {
             }
             val pl = img.planes[0]
             val pad = pl.rowStride - pl.pixelStride * img.width
-            wide = Bitmap.createBitmap(
+            val wideFrame = Bitmap.createBitmap(
                 img.width + pad / pl.pixelStride, img.height, Bitmap.Config.ARGB_8888
             )
-            wide.copyPixelsFromBuffer(pl.buffer)
-            bmp = if (wide.width != img.width) {
-                Bitmap.createBitmap(wide, 0, 0, img.width, img.height).also { wide.recycle(); wide = null }
-            } else wide.also { wide = null }
+            wide = wideFrame
+            wideFrame.copyPixelsFromBuffer(pl.buffer)
+            val frameBitmap = if (wideFrame.width != img.width) {
+                Bitmap.createBitmap(wideFrame, 0, 0, img.width, img.height).also {
+                    wideFrame.recycle()
+                    wide = null
+                }
+            } else {
+                wide = null
+                wideFrame
+            }
+            bmp = frameBitmap
 
-            analyzer.add(observer!!.observe(bmp, now))
+            analyzer.add(observer!!.observe(frameBitmap, now))
             if (now - lastEval >= 1000) {
                 lastEval = now
                 val v = analyzer.evaluate()
