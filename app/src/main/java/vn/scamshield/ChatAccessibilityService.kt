@@ -57,7 +57,7 @@ class ChatAccessibilityService : AccessibilityService() {
         }
     }
 
-    private data class VisibleText(val value: String, val bounds: Rect)
+    private data class VisibleText(val value: String, val bounds: Rect, val className: String)
     private data class VisibleMessage(val value: String, val sender: String)
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -171,20 +171,35 @@ class ChatAccessibilityService : AccessibilityService() {
         val visibleMessages = snapshot.nodes
             .asSequence()
             .filter { node ->
-                node.value.length in 2..800 &&
+                val isWideZaloMessageRow =
+                    node.className == "android.view.ViewGroup" &&
+                        node.bounds.width() >= (snapshot.screenWidth * 0.88f).toInt()
+                val insideMessageArea =
                     node.bounds.top >= (snapshot.screenHeight * 0.08f).toInt() &&
-                    node.bounds.bottom <= (snapshot.screenHeight * 0.88f).toInt() &&
-                    node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt() &&
-                    node.bounds.left >= (snapshot.screenWidth * 0.02f).toInt() &&
-                    node.bounds.right <= (snapshot.screenWidth * 0.98f).toInt() &&
+                        node.bounds.bottom <= (snapshot.screenHeight * 0.98f).toInt()
+                val hasExpectedHorizontalBounds = isWideZaloMessageRow ||
+                    (
+                        node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt() &&
+                            node.bounds.left >= (snapshot.screenWidth * 0.02f).toInt() &&
+                            node.bounds.right <= (snapshot.screenWidth * 0.98f).toInt()
+                    )
+
+                node.value.length in 2..800 &&
+                    insideMessageArea &&
+                    hasExpectedHorizontalBounds &&
                     !isCommonUiText(node.value)
             }
             .sortedWith(compareBy<VisibleText> { it.bounds.top }.thenBy { it.bounds.left })
             .map { node ->
-                val sender = if (node.bounds.centerX() >= (snapshot.screenWidth * 0.56f).toInt()) {
-                    "Bạn"
-                } else {
-                    "Tin đến · ${target.identifier}"
+                val isWideZaloMessageRow =
+                    node.className == "android.view.ViewGroup" &&
+                        node.bounds.width() >= (snapshot.screenWidth * 0.88f).toInt()
+                // Zalo exposes these message rows as full-width ViewGroups, so their
+                // horizontal center cannot reliably identify which participant sent them.
+                val sender = when {
+                    isWideZaloMessageRow -> "Tin nhắn · ${target.identifier}"
+                    node.bounds.centerX() >= (snapshot.screenWidth * 0.56f).toInt() -> "Bạn"
+                    else -> "Tin đến · ${target.identifier}"
                 }
                 VisibleMessage(node.value.trim(), sender)
             }
@@ -310,7 +325,7 @@ class ChatAccessibilityService : AccessibilityService() {
                         node.contentDescription?.toString()?.trim()
                     ).filter { it.length in 2..800 }.distinct()
                     values.forEach { value ->
-                        result += VisibleText(value, Rect(bounds))
+                        result += VisibleText(value, Rect(bounds), className)
                     }
                 }
 
