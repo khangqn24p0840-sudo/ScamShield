@@ -34,8 +34,55 @@ fun fmtText(code: Int, j: JSONObject?): String {
 
 fun fmtMedia(code: Int, j: JSONObject?): String {
     if (code !in 200..299 || j == null) return "Lỗi: " + err(j)
-    val v = when (j.optString("verdict")) { "likely_fake" -> "Nhiều khả năng ảnh bị làm giả"; "uncertain" -> "Chưa chắc chắn"; else -> "Nhiều khả năng ảnh thật" }
-    return "$v (${(j.optDouble("score") * 100).toInt()}%)\n${j.optString("note")}"
+
+    // API mới trả riêng nguy cơ lừa đảo và dấu hiệu ảnh bị chỉnh sửa.
+    // Không gắn nhãn "an toàn" khi model Vision chưa thực sự phân tích được.
+    if (j.has("scam_score")) {
+        val aiAvailable = j.optBoolean("ai", false)
+        val score = j.optInt("scam_score", 0).coerceIn(0, 100)
+        val reasonsJson = j.optJSONArray("scam_reasons") ?: JSONArray()
+        val reasons = (0 until reasonsJson.length()).mapNotNull { index ->
+            reasonsJson.optString(index).takeIf { it.isNotBlank() }
+        }
+        if (!aiAvailable) {
+            return buildString {
+                append("Chưa có kết quả phân tích rủi ro lừa đảo bằng AI.")
+                val note = j.optString("note").trim()
+                if (note.isNotBlank()) append("\\n").append(note)
+                append("\\nKhông xem ảnh này là an toàn chỉ vì chưa phân tích được.")
+            }
+        }
+        val verdict = when (j.optString("scam_verdict")) {
+            "likely_scam" -> "NGUY CƠ LỪA ĐẢO CAO"
+            "suspicious" -> "CÓ DẤU HIỆU ĐÁNG NGỜ"
+            else -> "CHƯA THẤY DẤU HIỆU LỪA ĐẢO RÕ RÀNG"
+        }
+        return buildString {
+            append(verdict).append(" (").append(score).append("/100)")
+            if (reasons.isNotEmpty()) append("\\nDấu hiệu:\\n").append(reasons.joinToString("\\n") { "• $it" })
+            val note = j.optString("note").trim()
+            if (note.isNotBlank()) append("\\n").append(note)
+            val action = j.optString("recommended_action").trim()
+            if (action.isNotBlank()) append("\\nKhuyến nghị: ").append(action)
+            if (j.optString("fake_verdict").isNotBlank()) {
+                val integrity = when (j.optString("fake_verdict")) {
+                    "likely_fake" -> "Ảnh có dấu hiệu bị chỉnh sửa/ghép."
+                    "uncertain" -> "Chưa xác định được tính nguyên vẹn của ảnh."
+                    else -> "Không thấy dấu hiệu chỉnh sửa rõ ràng."
+                }
+                append("\\n").append(integrity)
+            }
+            append("\\nLưu ý: không thể xác minh chủ tài khoản ngân hàng hoặc nội dung mã QR chỉ từ hình ảnh.")
+        }
+    }
+
+    // Tương thích với backend cũ trước khi cập nhật server.
+    val v = when (j.optString("verdict")) {
+        "likely_fake" -> "Nhiều khả năng ảnh bị làm giả"
+        "uncertain" -> "Chưa chắc chắn"
+        else -> "Nhiều khả năng ảnh thật"
+    }
+    return "$v (${(j.optDouble("score") * 100).toInt()}%)\\n${j.optString("note")}"
 }
 
 @Composable fun SurveyPanel(c: Context) {
