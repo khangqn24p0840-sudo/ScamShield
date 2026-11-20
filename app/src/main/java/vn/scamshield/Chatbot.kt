@@ -890,12 +890,36 @@ private fun ChatbotPanel(c: Context, onPickImage: () -> Unit, onClose: () -> Uni
 
         busy = true
         robotMood = RobotMood.ANALYZING
-        lines.add(ChatLine(fromUser = false, text = "Mình đang phân tích nội dung…", pending = true))
-        Api.call(c, "POST", "/api/analyze/text", JSONObject().put("text", message)) { code, result ->
-            val reply = if (code in 200..299 && result != null) {
-                fmtText(code, result)
+        lines.add(ChatLine(fromUser = false, text = "Mình đang suy nghĩ…", pending = true))
+
+        // Gửi lịch sử gần nhất để backend/Groq có thể hiểu các câu hỏi nối tiếp.
+        // Bỏ dòng người dùng hiện tại vì nó đã được gửi riêng trong trường "message".
+        val history = org.json.JSONArray()
+        lines.dropLast(2).filterNot { it.pending }.takeLast(10).forEach { line ->
+            val historyText = when {
+                line.imageUri != null -> line.text.ifBlank { "[Người dùng đã gửi ảnh]" }
+                else -> line.text
+            }.trim()
+            if (historyText.isNotBlank()) {
+                history.put(
+                    JSONObject()
+                        .put("role", if (line.fromUser) "user" else "assistant")
+                        .put("text", historyText.take(1200))
+                )
+            }
+        }
+        val payload = JSONObject()
+            .put("message", message)
+            .put("history", history)
+
+        Api.call(c, "POST", "/api/chat", payload) { code, result ->
+            val rawReply = result?.optString("reply")?.trim().orEmpty()
+            val aiAnswered = result?.optBoolean("ai", false) == true
+            val reply = if (code in 200..299 && rawReply.isNotBlank()) {
+                if (aiAnswered) rawReply
+                else "⚠️ Máy chủ chưa nhận được câu trả lời từ AI; đây là phản hồi dự phòng, không phải kết luận của Groq.\n\n$rawReply"
             } else {
-                "Mình chưa phân tích được nội dung này. ${err(result)}"
+                "Mình chưa kết nối được trợ lý AI. ${err(result)}"
             }
             val pendingIndex = lines.indexOfLast { it.pending }
             if (pendingIndex >= 0) {
@@ -1263,9 +1287,7 @@ internal object ChatIntent {
         if (n.length >= 40) return null
         if (hasKeyword && words.size >= 4) return null
 
-        return pick(
-            "Mình chưa rõ ý bạn lắm 😅 Nếu bạn có tin nhắn, lời thoại hay đường link đáng ngờ thì dán vào đây, mình sẽ phân tích giúp nhé.",
-            "Bạn nói rõ hơn một chút được không? Hoặc cứ gửi nội dung đáng ngờ, mình sẽ kiểm tra ngay."
-        )
+        // Nội dung chưa được xử lý bằng câu trả lời nhanh phải đi tới trợ lý AI trên server.
+        return null
     }
 }

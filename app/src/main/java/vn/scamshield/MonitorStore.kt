@@ -371,14 +371,16 @@ object MonitorStore {
         packageName: String,
         timestamp: Long,
         conversationTitle: String,
-        conversationKey: String
+        conversationKey: String,
+        senderLabel: String = ""
     ): Boolean {
         val target = targets(c).firstOrNull {
             it.id == targetId && it.channel == "social" && it.appPackage == packageName
         } ?: return false
         if (hasRecentDuplicate(c, target.id, conversationKey, body)) return false
+        val sender = senderLabel.trim().ifBlank { "Tin đến · ${target.identifier}" }
         val inserted = saveMessage(c, MonitoredMessage(
-            "", target.id, "screen", "Tin đến · ${target.identifier}", body, timestamp,
+            "", target.id, "screen", sender, body, timestamp,
             packageName, conversationKey, conversationTitle
         ))
         if (inserted) ConversationAiMonitor.schedule(c, target.id, conversationKey)

@@ -36,8 +36,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var identifier by remember { mutableStateOf("") }
     var refresh by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("") }
-    var autoGeminiEnabled by remember { mutableStateOf(ConversationAiMonitor.isEnabled(c)) }
-    var askAutoGeminiConsent by remember { mutableStateOf(false) }
+    var autoContextEnabled by remember { mutableStateOf(ConversationAiMonitor.isEnabled(c)) }
+    var askAutoContextConsent by remember { mutableStateOf(false) }
     var importTargetId by remember { mutableStateOf("") }
     var socialAppPackage by remember { mutableStateOf("") }
     var appExpanded by remember { mutableStateOf(false) }
@@ -45,6 +45,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var screenMonitorEnabled by remember { mutableStateOf(ChatAccessibilityService.isMonitoringEnabled(c)) }
     var askScreenAccessConsent by remember { mutableStateOf(false) }
     var journalTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
+    var aiAnalysisLoading by remember { mutableStateOf(false) }
+    var aiAnalysisMessage by remember { mutableStateOf("") }
 
     val installedSocialApps = remember(c) {
         SocialListener.apps.entries.mapNotNull { (pkg, _) ->
@@ -70,6 +72,29 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         c.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
     val journalMessages = remember(journalTarget?.id, refresh) {
         journalTarget?.let { MonitorStore.messages(c, it.id).takeLast(500) }.orEmpty()
+    }
+    val journalAnalysis = remember(journalTarget?.id, refresh) {
+        journalTarget?.let { MonitorStore.latestConversationAnalysis(c, it.id) }
+    }
+    val journalConversationKey = remember(journalTarget?.id, refresh) {
+        journalTarget?.let { MonitorStore.latestConversationKey(c, it.id) }
+    }
+    val journalAiPending = remember(journalTarget?.id, refresh, journalConversationKey) {
+        journalTarget?.let { target ->
+            journalConversationKey?.let { key -> ConversationAiMonitor.isPending(c, target.id, key) }
+        } ?: false
+    }
+    val journalAiPendingError = remember(journalTarget?.id, refresh, journalConversationKey) {
+        journalTarget?.let { target ->
+            journalConversationKey?.let { key -> ConversationAiMonitor.pendingError(c, target.id, key) }
+        }.orEmpty()
+    }
+    val journalLatestTimestamp = remember(journalTarget?.id, refresh) {
+        journalTarget?.let { MonitorStore.latestConversationKey(c, it.id) }?.let { key ->
+            journalTarget?.let { target ->
+                MonitorStore.recentMessages(c, target.id, key, 1).lastOrNull()?.timestamp
+            }
+        } ?: 0L
     }
     val smsPermission = remember(c, refresh) {
         c.checkSelfPermission(Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
@@ -233,16 +258,16 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         Text("Tự động phân tích ngữ cảnh mới cho các cuộc chat đang theo dõi; có thể tắt bất cứ lúc nào.", color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp)
                     }
                     Switch(
-                        checked = autoGeminiEnabled,
+                        checked = autoContextEnabled,
                         onCheckedChange = { enabled ->
                             if (!enabled) {
                                 ConversationAiMonitor.setEnabled(c, false)
-                                autoGeminiEnabled = false
+                                autoContextEnabled = false
                                 message = "Đã tắt ScamShield tự động hiểu ngữ cảnh."
                             } else if (Store.str(c, "token").isBlank()) {
                                 message = "Bạn cần đăng nhập ScamShield trước khi bật phân tích ngữ cảnh tự động."
                             } else {
-                                askAutoGeminiConsent = true
+                                askAutoContextConsent = true
                             }
                         }
                     )
@@ -275,7 +300,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Theo dõi nội dung chat đang mở", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Text(
-                    "Khi bạn mở đúng cuộc trò chuyện đã thêm, ScamShield có thể đọc văn bản bong bóng tin đến đang hiển thị qua Trợ năng Android. Không chụp ảnh màn hình, không đọc ô đang nhập hoặc trường mật khẩu. Chỉ văn bản khớp ứng dụng và tiêu đề chat đã chọn mới được lưu.",
+                    "Khi bạn mở đúng cuộc trò chuyện đã thêm, ScamShield có thể đọc văn bản bong bóng tin nhắn đến và đi đang hiển thị qua Trợ năng Android. Không chụp ảnh màn hình, không đọc ô đang nhập hoặc trường mật khẩu. Chỉ văn bản khớp ứng dụng và tiêu đề chat đã chọn mới được lưu.",
                     color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -337,7 +362,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         targets.forEach { target ->
             val targetMessageCount = targetMessageCounts[target.id] ?: 0
             Card(
-                onClick = { journalTarget = target },
+                onClick = { journalTarget = target; aiAnalysisMessage = "" },
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(17.dp),
                 modifier = Modifier.fillMaxWidth().border(1.dp, C.Stroke, RoundedCornerShape(17.dp))
@@ -408,11 +433,98 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 onDismissRequest = { journalTarget = null },
                 title = { Text("Nhật ký tin nhắn • ${selectedJournalTarget.identifier}") },
                 text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "Lịch sử sắp xếp theo thời gian từ cũ đến mới. Tin đọc từ màn hình dùng thời điểm ScamShield quan sát được, không nhất thiết là giờ gửi ban đầu. Mỗi tin được đánh giá trên thiết bị; tối đa 500 tin gần nhất. Nhãn An toàn không phải bảo đảm tuyệt đối.",
+                            "Tin nhắn được lưu trên thiết bị và sắp xếp từ cũ đến mới. Điểm từng tin là đánh giá cục bộ; phần dưới là phân tích ngữ cảnh từ AI máy chủ.",
                             color = C.Sub, fontSize = 11.sp
                         )
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                Modifier.fillMaxWidth().padding(11.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("PHÂN TÍCH NGỮ CẢNH BẰNG AI", color = C.Blue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                if (journalAnalysis == null) {
+                                    Text(
+                                        if (journalAiPending) "Đang chờ máy chủ phân tích tối đa 12 tin gần nhất của cuộc trò chuyện này..."
+                                        else if (autoContextEnabled)
+                                            "Chưa có kết quả AI cho cuộc trò chuyện này. Khi có tin mới được ghi nhận, chế độ tự động sẽ gửi tối đa 12 tin gần nhất để phân tích."
+                                        else
+                                            "Chưa có kết quả AI. Bạn có thể bật tự động hiểu ngữ cảnh hoặc bấm nút phân tích bên dưới.",
+                                        color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
+                                    )
+                                    if (journalAiPendingError.isNotBlank()) {
+                                        Text("Trạng thái: $journalAiPendingError", color = Color(0xFFB77900), fontSize = 10.sp, lineHeight = 14.sp)
+                                    }
+                                } else {
+                                    val stale = journalLatestTimestamp > journalAnalysis.lastMessageTimestamp
+                                    val levelText = when {
+                                        journalAnalysis.riskScore >= 70 -> "NGUY CƠ CAO"
+                                        journalAnalysis.riskScore >= 35 -> "ĐÁNG NGỜ"
+                                        else -> "CHƯA THẤY RỦI RO RÕ RÀNG"
+                                    }
+                                    val levelColor = when {
+                                        journalAnalysis.riskScore >= 70 -> Color(0xFFC62828)
+                                        journalAnalysis.riskScore >= 35 -> Color(0xFFB77900)
+                                        else -> Color(0xFF23834D)
+                                    }
+                                    Text("$levelText • ${journalAnalysis.riskScore}/100", color = levelColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(journalAnalysis.summary, color = C.Text, fontSize = 12.sp, lineHeight = 17.sp)
+                                    journalAnalysis.evidence.forEach { evidence ->
+                                        Text("• $evidence", color = C.Sub, fontSize = 11.sp, lineHeight = 15.sp)
+                                    }
+                                    if (journalAnalysis.recommendedAction.isNotBlank()) {
+                                        Text("Khuyến nghị: ${journalAnalysis.recommendedAction}", color = C.Text, fontSize = 11.sp, lineHeight = 16.sp)
+                                    }
+                                    Text(
+                                        "Độ tin cậy: ${journalAnalysis.confidence} · ${journalAnalysis.messageCount} tin · ${SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(journalAnalysis.analyzedAt))}",
+                                        color = C.Sub, fontSize = 9.sp
+                                    )
+                                    if (stale) {
+                                        Text("Có tin mới hơn kết quả này. Hãy phân tích lại để cập nhật ngữ cảnh.", color = Color(0xFFB77900), fontSize = 10.sp)
+                                    }
+                                }
+                                if (aiAnalysisMessage.isNotBlank()) {
+                                    Text(aiAnalysisMessage, color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = {
+                                        val key = MonitorStore.latestConversationKey(c, selectedJournalTarget.id)
+                                        if (key.isNullOrBlank()) {
+                                            aiAnalysisMessage = "Chưa có tin nhắn được lưu để phân tích."
+                                        } else {
+                                            aiAnalysisLoading = true
+                                            aiAnalysisMessage = "Đang gửi tối đa 12 tin gần nhất (đã lọc một số dữ liệu nhạy cảm) tới máy chủ ScamShield..."
+                                            ConversationAiMonitor.analyzeNow(c, selectedJournalTarget.id, key) { result, error ->
+                                                aiAnalysisLoading = false
+                                                aiAnalysisMessage = error ?: if (result != null) "Đã cập nhật kết quả phân tích ngữ cảnh." else "Chưa nhận được kết quả AI."
+                                                refresh++
+                                            }
+                                        }
+                                    },
+                                    enabled = !aiAnalysisLoading && journalMessages.isNotEmpty(),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    if (aiAnalysisLoading) {
+                                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Đang phân tích...")
+                                    } else {
+                                        Icon(Icons.Rounded.AutoAwesome, null)
+                                        Spacer(Modifier.width(7.dp))
+                                        Text("Phân tích ngữ cảnh ngay")
+                                    }
+                                }
+                                Text(
+                                    "Chỉ gửi transcript khi bạn bấm phân tích hoặc đã bật công tắc tự động. Nội dung được xử lý theo cấu hình AI của máy chủ.",
+                                    color = C.Sub, fontSize = 9.sp, lineHeight = 13.sp
+                                )
+                            }
+                        }
                         if (journalMessages.isEmpty()) {
                             Text("Chưa có tin nhắn được lưu.", color = C.Sub, fontSize = 13.sp)
                         } else {
@@ -474,8 +586,8 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 title = { Text("Cho phép đọc nội dung chat đang hiển thị?") },
                 text = {
                     Text(
-                        "ScamShield sẽ dùng Trợ năng Android để nhận biết ứng dụng chat đang mở và đọc văn bản của các bong bóng tin đến đang hiển thị, nhưng chỉ khi tiêu đề khớp đúng người/cuộc trò chuyện bạn đã thêm theo dõi. Ứng dụng bỏ qua ô nhập, trường mật khẩu và không chụp ảnh màn hình. Văn bản được lưu cục bộ để chấm điểm và tạo nhật ký. " +
-                            "Nội dung chỉ được gửi lên máy chủ để Gemini phân tích nếu bạn bật công tắc ScamShield tự động hiểu ngữ cảnh riêng. Cấu trúc giao diện của từng ứng dụng có thể khiến một số tin bị bỏ sót. Bạn có thể dừng thu thập bằng công tắc này bất cứ lúc nào."
+                        "ScamShield sẽ dùng Trợ năng Android để nhận biết ứng dụng chat đang mở và đọc văn bản của các bong bóng tin nhắn đến và đi đang hiển thị, nhưng chỉ khi tiêu đề khớp đúng người/cuộc trò chuyện bạn đã thêm theo dõi. Ứng dụng bỏ qua ô nhập, trường mật khẩu và không chụp ảnh màn hình. Văn bản được lưu cục bộ để chấm điểm và tạo nhật ký. " +
+                            "Nội dung chỉ được gửi lên máy chủ để AI phân tích nếu bạn bật công tắc ScamShield tự động hiểu ngữ cảnh riêng. Cấu trúc giao diện của từng ứng dụng có thể khiến một số tin bị bỏ sót. Bạn có thể dừng thu thập bằng công tắc này bất cứ lúc nào."
                     )
                 },
                 confirmButton = {
@@ -494,29 +606,29 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             )
         }
 
-        if (askAutoGeminiConsent) {
+        if (askAutoContextConsent) {
             AlertDialog(
-                onDismissRequest = { askAutoGeminiConsent = false },
+                onDismissRequest = { askAutoContextConsent = false },
                 title = { Text("Bật ScamShield tự động hiểu ngữ cảnh?") },
                 text = {
                     Text(
-                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin đến đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
+                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin nhắn đến và đi đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới AI của máy chủ ScamShield (Groq). " +
                             "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại; bạn có thể xem trạng thái đang chờ trong mục này. " +
                             "ScamShield không gửi toàn bộ lịch sử; một số mã OTP, mật khẩu, số điện thoại và dãy số dài sẽ được ẩn trước khi gửi. " +
-                            "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức Gemini. " +
+                            "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức sử dụng của nhà cung cấp AI đang cấu hình. " +
                             "Bạn có thể tắt tính năng này bất cứ lúc nào; thao tác đó sẽ hủy các yêu cầu đang chờ."
                     )
                 },
                 confirmButton = {
                     TextButton(onClick = {
-                        askAutoGeminiConsent = false
+                        askAutoContextConsent = false
                         ConversationAiMonitor.setEnabled(c, true)
-                        autoGeminiEnabled = true
+                        autoContextEnabled = true
                         message = "Đã bật. ScamShield AI sẽ phân tích khi có tin nhắn mới trong các cuộc trò chuyện đang theo dõi."
                     }) { Text("Đồng ý bật") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { askAutoGeminiConsent = false }) { Text("Hủy") }
+                    TextButton(onClick = { askAutoContextConsent = false }) { Text("Hủy") }
                 }
             )
         }
