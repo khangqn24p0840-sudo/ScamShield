@@ -16,6 +16,7 @@ object FaceBus {
     var running by mutableStateOf(false)
     var verdict by mutableStateOf<FaceVerdict?>(null)
     var modelAvailable by mutableStateOf(false)
+    var modelStatus by mutableStateOf("Model chưa được khởi tạo")
 }
 
 /** Biến một khung hình thành FaceObservation. Ảnh chỉ tồn tại trong RAM khi đang phân tích. */
@@ -31,6 +32,7 @@ class FaceObserver(
             .build()
     )
     val isModelAvailable: Boolean get() = classifier.isAvailable
+    val modelStatus: String get() = classifier.status
     private var lastModelAt = Long.MIN_VALUE / 2
 
     fun observe(b: Bitmap, ts: Long): FaceObservation {
