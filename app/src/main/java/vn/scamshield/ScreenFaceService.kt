@@ -83,6 +83,7 @@ class ScreenFaceService : Service() {
 
         observer = FaceObserver(this, TfliteDeepfakeClassifier(this))
         FaceBus.modelAvailable = observer?.isModelAvailable == true
+        FaceBus.modelStatus = observer?.modelStatus ?: "Không thể khởi tạo model"
         startAt = SystemClock.elapsedRealtime()
         FaceBus.verdict = null
         FaceBus.running = true
@@ -150,6 +151,7 @@ class ScreenFaceService : Service() {
     override fun onDestroy() {
         FaceBus.running = false
         FaceBus.modelAvailable = false
+        FaceBus.modelStatus = "Phiên kiểm tra đã dừng"
         reader?.setOnImageAvailableListener(null, null)
         vd?.release()
         proj?.stop()
