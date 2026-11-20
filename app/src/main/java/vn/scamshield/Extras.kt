@@ -76,13 +76,20 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
         }
     }
 
-    // Tương thích với backend cũ trước khi cập nhật server.
-    val v = when (j.optString("verdict")) {
-        "likely_fake" -> "Nhiều khả năng ảnh bị làm giả"
-        "uncertain" -> "Chưa chắc chắn"
-        else -> "Nhiều khả năng ảnh thật"
+    // Backend cũ chỉ trả đánh giá tính nguyên vẹn ảnh, không đánh giá nguy cơ lừa đảo.
+    // Không được diễn giải "ảnh có vẻ thật" thành "nội dung chuyển tiền an toàn".
+    val integrity = when (j.optString("verdict")) {
+        "likely_fake" -> "Có dấu hiệu ảnh bị chỉnh sửa/ghép"
+        "uncertain" -> "Chưa xác định được tính nguyên vẹn của ảnh"
+        else -> "Chưa thấy dấu hiệu chỉnh sửa rõ ràng"
     }
-    return "$v (${(j.optDouble("score") * 100).toInt()}%)\n${j.optString("note")}"
+    return buildString {
+        append("Đánh giá ảnh: ").append(integrity)
+        append(" (").append((j.optDouble("score") * 100).toInt()).append("%)")
+        val note = j.optString("note").trim()
+        if (note.isNotBlank()) append("\\n").append(note)
+        append("\\nMáy chủ hiện chưa đánh giá nguy cơ lừa đảo trong nội dung ảnh. Không dùng kết quả này để xác nhận QR, tài khoản hoặc yêu cầu chuyển tiền là an toàn.")
+    }
 }
 
 @Composable fun SurveyPanel(c: Context) {
