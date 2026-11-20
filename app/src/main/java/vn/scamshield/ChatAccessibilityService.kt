@@ -133,9 +133,12 @@ class ChatAccessibilityService : AccessibilityService() {
         }
         val target = matchingTargets.firstOrNull { candidate ->
             val wanted = normalize(candidate.identifier)
+            val wantedWords = wanted.split(" ").filter { it.isNotBlank() }.toSet()
             wanted.isNotBlank() && headerNodes.any { header ->
                 val visibleTitle = normalize(header.value)
-                visibleTitle == wanted || visibleTitle.startsWith("$wanted ")
+                val visibleWords = visibleTitle.split(" ").filter { it.isNotBlank() }.toSet()
+                visibleTitle == wanted || visibleTitle.startsWith("$wanted ") ||
+                    (wantedWords.size > 1 && visibleWords == wantedWords)
             }
         } ?: return
 

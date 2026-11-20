@@ -92,7 +92,11 @@ class MainActivity : ComponentActivity() {
             )) { ShieldApp(this@MainActivity, hooks) }
         }
     }
-    override fun onResume() { super.onResume(); tick++ }
+    override fun onResume() {
+        super.onResume()
+        ConversationAiMonitor.syncCurrentConsent(this)
+        tick++
+    }
 
     private val recL = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         tick++; if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startListen()

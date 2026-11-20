@@ -500,11 +500,12 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                 title = { Text("Bật ScamShield tự động hiểu ngữ cảnh?") },
                 text = {
                     Text(
-                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin đến đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới Google Gemini. " +
-                            "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại; bạn có thể xem trạng thái đang chờ trong mục này. " +
+                        "Sau khi có nội dung mới trong một cuộc trò chuyện bạn đã thêm theo dõi, bao gồm nội dung đọc từ thông báo hoặc bong bóng tin đến đang hiển thị trên màn hình khi bạn bật Trợ năng, ScamShield sẽ đợi khoảng 15 giây rồi gửi tối đa 12 tin gần nhất của đúng cuộc trò chuyện đó qua máy chủ tới nhà cung cấp AI đang cấu hình. " +
+                            "Nếu server tạm tắt hoặc mất kết nối, yêu cầu sẽ được giữ trên thiết bị và tự gửi lại khi server hoạt động trở lại. " +
                             "ScamShield không gửi toàn bộ lịch sử; một số mã OTP, mật khẩu, số điện thoại và dãy số dài sẽ được ẩn trước khi gửi. " +
-                            "Nội dung có thể vẫn chứa thông tin riêng tư, và việc phân tích sẽ sử dụng hạn mức Gemini. " +
-                            "Bạn có thể tắt tính năng này bất cứ lúc nào; thao tác đó sẽ hủy các yêu cầu đang chờ."
+                            "LƯU Ý THỬ NGHIỆM: các tin nhắn đã gửi sẽ được lưu trên máy chủ ScamShield để hiển thị trong trang quản trị cho quản trị viên dự án. " +
+                            "Nội dung vẫn có thể chứa thông tin riêng tư và việc phân tích sử dụng hạn mức của nhà cung cấp AI. Chỉ bật cho cuộc trò chuyện mà bạn có quyền theo dõi và đã thông báo cho người tham gia. " +
+                            "Bạn có thể tắt tính năng này bất cứ lúc nào; thao tác đó sẽ dừng các lần đồng bộ và hủy những yêu cầu đang chờ. Dữ liệu đã đồng bộ trước đó không tự động bị xóa."
                     )
                 },
                 confirmButton = {

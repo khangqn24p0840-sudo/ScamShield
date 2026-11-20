@@ -39,8 +39,32 @@ object ConversationAiMonitor {
 
     fun isEnabled(c: Context): Boolean = Store.flag(c, ENABLED_KEY)
 
+    /** Đồng bộ trạng thái hiện có khi app mở lại, không cần đợi tin nhắn mới. */
+    fun syncCurrentConsent(c: Context) {
+        syncConsent(c.applicationContext, isEnabled(c))
+    }
+
+    /**
+     * Đồng bộ đồng ý lên server cả với tài khoản đã bật tính năng trước khi cài bản cập nhật.
+     * Marker theo fingerprint token + trạng thái, tránh gọi lặp ở mỗi sự kiện chat.
+     */
+    private fun syncConsent(c: Context, enabled: Boolean) {
+        val token = Store.str(c, "token")
+        if (token.isBlank()) return
+        val marker = sha256("$token|$enabled")
+        val markerKey = "monitor_consent_sync_marker"
+        val pendingKey = "monitor_consent_sync_pending"
+        if (Store.str(c, markerKey) == marker || Store.str(c, pendingKey) == marker) return
+        Store.putStr(c, pendingKey, marker)
+        Api.call(c, "POST", "/api/monitor/consent", JSONObject().put("enabled", enabled)) { code, _ ->
+            if (code in 200..299) Store.putStr(c, markerKey, marker)
+            if (Store.str(c, pendingKey) == marker) Store.putStr(c, pendingKey, "")
+        }
+    }
+
     fun setEnabled(c: Context, enabled: Boolean) {
         Store.putFlag(c, ENABLED_KEY, enabled)
+        syncConsent(c, enabled)
         if (!enabled) {
             cancelPending()
             WorkManager.getInstance(c.applicationContext).cancelAllWorkByTag(WORK_TAG)
@@ -67,6 +91,7 @@ object ConversationAiMonitor {
     fun schedule(c: Context, targetId: String, conversationKey: String) {
         val app = c.applicationContext
         if (!isEnabled(app) || Store.str(app, "token").isBlank()) return
+        syncConsent(app, true)
         val id = threadId(targetId, conversationKey)
         val task = Runnable {
             synchronized(this) { pending.remove(id) }
@@ -309,12 +334,18 @@ object ConversationAiMonitor {
                         .put("sender", redactSensitiveText(item.sender).take(100))
                         .put("text", safeText)
                         .put("timestamp", item.timestamp)
+                        .put("source", item.channel)
                 )
             }
         }
         if (payloadMessages.length() == 0) return null
         val previousMemory = MonitorStore.conversationMemory(c, targetId, conversationKey) ?: JSONObject()
+        val latest = messages.lastOrNull()
         return JSONObject()
+            .put("target_id", targetId)
+            .put("conversation_key", conversationKey)
+            .put("conversation_title", latest?.conversationTitle.orEmpty())
+            .put("app_package", latest?.appPackage.orEmpty())
             .put("messages", payloadMessages)
             .put("memory", previousMemory)
     }
