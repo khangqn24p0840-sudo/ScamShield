@@ -169,7 +169,7 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
     }
 
     private fun modelIndicator(f: List<FaceObservation>): FaceIndicator? {
-        val m = f.takeLast(40).mapNotNull { it.modelFakeProb }
+        val m = f.mapNotNull { it.modelFakeProb }
         if (m.size < 5) return null
         val mean = m.average()
         val score = ((mean - 0.35) / 0.45).coerceIn(0.0, 1.0)
