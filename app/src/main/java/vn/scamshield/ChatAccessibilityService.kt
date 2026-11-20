@@ -56,6 +56,7 @@ class ChatAccessibilityService : AccessibilityService() {
     }
 
     private data class VisibleText(val value: String, val bounds: Rect)
+    private data class VisibleMessage(val value: String, val sender: String)
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val scanner = Executors.newSingleThreadExecutor { runnable ->
@@ -141,32 +142,42 @@ class ChatAccessibilityService : AccessibilityService() {
 
         // Use the same conversation key convention as notification capture when the title is known.
         val conversationKey = packageName + "|" + target.identifier.trim().lowercase(Locale.ROOT)
-        val incomingBodies = snapshot.nodes
+        // Thu thập cả tin đến (bên trái) và tin đi (bên phải) đang hiển thị.
+        // Không đọc ô nhập: collectVisibleText đã loại bỏ mọi node editable/password.
+        val visibleMessages = snapshot.nodes
             .asSequence()
             .filter { node ->
                 node.value.length in 2..800 &&
-                    node.bounds.top >= (snapshot.screenHeight * 0.16f).toInt() &&
+                    node.bounds.top >= (snapshot.screenHeight * 0.10f).toInt() &&
                     node.bounds.bottom <= (snapshot.screenHeight * 0.88f).toInt() &&
                     node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt() &&
-                    node.bounds.centerX() < (snapshot.screenWidth * 0.50f).toInt() &&
+                    node.bounds.left >= (snapshot.screenWidth * 0.02f).toInt() &&
+                    node.bounds.right <= (snapshot.screenWidth * 0.98f).toInt() &&
                     !isCommonUiText(node.value)
             }
             .sortedWith(compareBy<VisibleText> { it.bounds.top }.thenBy { it.bounds.left })
-            .map { it.value.trim() }
-            .distinctBy(::normalize)
+            .map { node ->
+                val sender = if (node.bounds.centerX() >= (snapshot.screenWidth * 0.56f).toInt()) {
+                    "Bạn"
+                } else {
+                    "Tin đến · ${target.identifier}"
+                }
+                VisibleMessage(node.value.trim(), sender)
+            }
+            .distinctBy { normalize(it.value) }
             .toList()
-        if (incomingBodies.isEmpty()) return
+        if (visibleMessages.isEmpty()) return
 
         val nowElapsed = SystemClock.elapsedRealtime()
-        val newBodies = incomingBodies.filter { body ->
+        val newMessages = visibleMessages.filter { item ->
             markIfNew(
                 recentlyCaptured,
-                target.id + "|" + normalize(body),
+                target.id + "|" + normalize(item.value),
                 nowElapsed,
                 2 * 60 * 1000L
             )
         }
-        if (newBodies.isEmpty()) return
+        if (newMessages.isEmpty()) return
 
         val observedAt = System.currentTimeMillis()
         val title = target.identifier
@@ -174,15 +185,16 @@ class ChatAccessibilityService : AccessibilityService() {
             scanner.execute {
                 if (!isMonitoringEnabled(this) || !hasConsent(this)) return@execute
                 var inserted = 0
-                newBodies.forEachIndexed { index, body ->
+                newMessages.forEachIndexed { index, item ->
                     if (MonitorStore.captureScreenSocial(
                             this,
                             target.id,
-                            body,
+                            item.value,
                             packageName,
                             observedAt + index,
                             title,
-                            conversationKey
+                            conversationKey,
+                            item.sender
                         )
                     ) inserted++
                 }
