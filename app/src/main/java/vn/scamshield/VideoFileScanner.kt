@@ -5,6 +5,7 @@ import android.net.Uri
 import android.media.MediaMetadataRetriever
 import android.os.Handler
 import android.os.Looper
+import vn.scamshield.face.FaceBus
 import vn.scamshield.face.FaceLivenessAnalyzer
 import vn.scamshield.face.FaceObserver
 import vn.scamshield.face.TfliteDeepfakeClassifier
@@ -27,6 +28,12 @@ object VideoFileScanner {
     @Synchronized
     fun start(context: Context, uri: Uri) {
         if (VideoScanBus.state.running) return
+        if (FaceBus.running) {
+            VideoScanBus.state = VideoScanBus.state.copy(
+                status = "Hãy dừng kiểm tra video call trước khi quét video thư viện."
+            )
+            return
+        }
         cancelled.set(false)
         VideoScanBus.state = VideoScanState(running = true, status = "Đang đọc video…")
         worker = Thread({
