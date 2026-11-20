@@ -249,7 +249,7 @@ object ConversationAiMonitor {
         onComplete: (ConversationAnalysisResult?, String?) -> Unit
     ) {
         if (Store.str(c, "token").isBlank()) {
-            onComplete(null, "Bạn cần đăng nhập ScamShield để dùng Gemini.")
+            onComplete(null, "Bạn cần đăng nhập ScamShield để dùng trợ lý AI.")
             return
         }
 
@@ -267,7 +267,7 @@ object ConversationAiMonitor {
         Api.call(c, "POST", "/api/monitor/conversation", payload) { code, response ->
             if (code !in 200..299 || response == null) {
                 val error = response?.optString("error")?.takeIf { it.isNotBlank() }
-                    ?: "Gemini chưa phân tích được cuộc trò chuyện. Hãy thử lại sau."
+                    ?: "AI của ScamShield chưa phân tích được cuộc trò chuyện. Hãy thử lại sau."
                 if (isRetryable(code) && isEnabled(c)) {
                     queueForRetryIfEnabled(c, targetId, conversationKey)
                     onComplete(null, "Máy chủ đang tạm thời không phản hồi. Đã lưu yêu cầu trên thiết bị và sẽ tự gửi lại khi máy chủ hoạt động.")
@@ -391,9 +391,9 @@ object ConversationAiMonitor {
         if (!crossedHigh && !crossedMedium) return
 
         val title = if (crossedHigh) {
-            "🚨 Gemini phát hiện diễn biến chat rủi ro cao"
+            "🚨 ScamShield AI phát hiện diễn biến chat rủi ro cao"
         } else {
-            "⚠️ Gemini phát hiện dấu hiệu đáng ngờ trong chat"
+            "⚠️ ScamShield AI phát hiện dấu hiệu đáng ngờ trong chat"
         }
         val details = buildString {
             append(result.summary.ifBlank { "Cuộc trò chuyện có dấu hiệu cần kiểm tra." })
