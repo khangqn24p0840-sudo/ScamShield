@@ -13,6 +13,7 @@ data class VideoScanState(
     val totalFrames: Int = 0,
     val faceFrames: Int = 0,
     val modelAvailable: Boolean = false,
+    val modelStatus: String = "",
     val verdict: FaceVerdict? = null
 )
 
