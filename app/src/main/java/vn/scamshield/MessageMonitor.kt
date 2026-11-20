@@ -76,6 +76,19 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     val journalAnalysis = remember(journalTarget?.id, refresh) {
         journalTarget?.let { MonitorStore.latestConversationAnalysis(c, it.id) }
     }
+    val journalConversationKey = remember(journalTarget?.id, refresh) {
+        journalTarget?.let { MonitorStore.latestConversationKey(c, it.id) }
+    }
+    val journalAiPending = remember(journalTarget?.id, refresh, journalConversationKey) {
+        journalTarget?.let { target ->
+            journalConversationKey?.let { key -> ConversationAiMonitor.isPending(c, target.id, key) }
+        } ?: false
+    }
+    val journalAiPendingError = remember(journalTarget?.id, refresh, journalConversationKey) {
+        journalTarget?.let { target ->
+            journalConversationKey?.let { key -> ConversationAiMonitor.pendingError(c, target.id, key) }
+        }.orEmpty()
+    }
     val journalLatestTimestamp = remember(journalTarget?.id, refresh) {
         journalTarget?.let { MonitorStore.latestConversationKey(c, it.id) }?.let { key ->
             journalTarget?.let { target ->
@@ -437,12 +450,16 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                 Text("PHÂN TÍCH NGỮ CẢNH BẰNG AI", color = C.Blue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 if (journalAnalysis == null) {
                                     Text(
-                                        if (autoContextEnabled)
+                                        if (journalAiPending) "Đang chờ máy chủ phân tích tối đa 12 tin gần nhất của cuộc trò chuyện này..."
+                                        else if (autoContextEnabled)
                                             "Chưa có kết quả AI cho cuộc trò chuyện này. Khi có tin mới được ghi nhận, chế độ tự động sẽ gửi tối đa 12 tin gần nhất để phân tích."
                                         else
                                             "Chưa có kết quả AI. Bạn có thể bật tự động hiểu ngữ cảnh hoặc bấm nút phân tích bên dưới.",
                                         color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
                                     )
+                                    if (journalAiPendingError.isNotBlank()) {
+                                        Text("Trạng thái: $journalAiPendingError", color = Color(0xFFB77900), fontSize = 10.sp, lineHeight = 14.sp)
+                                    }
                                 } else {
                                     val stale = journalLatestTimestamp > journalAnalysis.lastMessageTimestamp
                                     val levelText = when {
