@@ -45,8 +45,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
     var screenMonitorEnabled by remember { mutableStateOf(ChatAccessibilityService.isMonitoringEnabled(c)) }
     var askScreenAccessConsent by remember { mutableStateOf(false) }
     var journalTarget by remember { mutableStateOf<MonitoredTarget?>(null) }
-    var aiAnalysisLoading by remember { mutableStateOf(false) }
-    var aiAnalysisMessage by remember { mutableStateOf("") }
 
     val installedSocialApps = remember(c) {
         SocialListener.apps.entries.mapNotNull { (pkg, _) ->
@@ -362,7 +360,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
         targets.forEach { target ->
             val targetMessageCount = targetMessageCounts[target.id] ?: 0
             Card(
-                onClick = { journalTarget = target; aiAnalysisMessage = "" },
+                onClick = { journalTarget = target },
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(17.dp),
                 modifier = Modifier.fillMaxWidth().border(1.dp, C.Stroke, RoundedCornerShape(17.dp))
@@ -454,7 +452,7 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                         else if (autoContextEnabled)
                                             "Chưa có kết quả AI cho cuộc trò chuyện này. Khi có tin mới được ghi nhận, chế độ tự động sẽ gửi tối đa 12 tin gần nhất để phân tích."
                                         else
-                                            "Chưa có kết quả AI. Bạn có thể bật tự động hiểu ngữ cảnh hoặc bấm nút phân tích bên dưới.",
+                                            "Chưa có kết quả AI. Hãy bật tự động hiểu ngữ cảnh để ScamShield tự phân tích khi ghi nhận tin nhắn mới.",
                                         color = C.Sub, fontSize = 11.sp, lineHeight = 16.sp
                                     )
                                     if (journalAiPendingError.isNotBlank()) {
@@ -486,37 +484,6 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                                     )
                                     if (stale) {
                                         Text("Có tin mới hơn kết quả này. Hãy phân tích lại để cập nhật ngữ cảnh.", color = Color(0xFFB77900), fontSize = 10.sp)
-                                    }
-                                }
-                                if (aiAnalysisMessage.isNotBlank()) {
-                                    Text(aiAnalysisMessage, color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp)
-                                }
-                                OutlinedButton(
-                                    onClick = {
-                                        val key = MonitorStore.latestConversationKey(c, selectedJournalTarget.id)
-                                        if (key.isNullOrBlank()) {
-                                            aiAnalysisMessage = "Chưa có tin nhắn được lưu để phân tích."
-                                        } else {
-                                            aiAnalysisLoading = true
-                                            aiAnalysisMessage = "Đang gửi tối đa 12 tin gần nhất (đã lọc một số dữ liệu nhạy cảm) tới máy chủ ScamShield..."
-                                            ConversationAiMonitor.analyzeNow(c, selectedJournalTarget.id, key) { result, error ->
-                                                aiAnalysisLoading = false
-                                                aiAnalysisMessage = error ?: if (result != null) "Đã cập nhật kết quả phân tích ngữ cảnh." else "Chưa nhận được kết quả AI."
-                                                refresh++
-                                            }
-                                        }
-                                    },
-                                    enabled = !aiAnalysisLoading && journalMessages.isNotEmpty(),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    if (aiAnalysisLoading) {
-                                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Đang phân tích...")
-                                    } else {
-                                        Icon(Icons.Rounded.AutoAwesome, null)
-                                        Spacer(Modifier.width(7.dp))
-                                        Text("Phân tích ngữ cảnh ngay")
                                     }
                                 }
                                 Text(
