@@ -219,6 +219,9 @@ fun fmtVideo(code: Int, j: JSONObject?): String {
                 }
             }
             if (v.advice.isNotEmpty()) Text(v.advice, fontSize = 12.sp, color = C.Dim, lineHeight = 16.sp)
+        } else if (FaceBus.running) {
+            Text("ScamShield đang quan sát màn hình. Chưa có đủ dữ liệu để đánh giá — không xem cuộc gọi là an toàn.",
+                fontSize = 12.sp, color = C.Warn, lineHeight = 17.sp)
         }
     }
 }
