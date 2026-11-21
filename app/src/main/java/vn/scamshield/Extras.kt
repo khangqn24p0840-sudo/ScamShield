@@ -93,11 +93,13 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
 }
 
 fun fmtVideo(code: Int, j: JSONObject?): String {
-    if (code !in 200..299 || j == null) return "Chưa phân tích được video: " + err(j)
+    if (j == null) return "Chưa phân tích được video: Không nhận được phản hồi từ máy chủ."
+    val apiVerdict = j.optString("verdict")
+    if (code !in 200..299 && apiVerdict != "unverified") return "Chưa phân tích được video: " + err(j)
     val frames = j.optInt("frames_analyzed", 0)
     val confidence = j.optString("confidence", "LOW").uppercase()
     val note = j.optString("note").trim()
-    val verdict = when (j.optString("verdict")) {
+    val verdict = when (apiVerdict) {
         "likely_fake" -> "NGHI NGỜ VIDEO GIẢ MẠO"
         "suspicious" -> "VIDEO CÓ DẤU HIỆU ĐÁNG NGỜ"
         "no_obvious_signs" -> "CHƯA THẤY DẤU HIỆU GIẢ MẠO RÕ RÀNG"
@@ -171,7 +173,7 @@ fun fmtVideo(code: Int, j: JSONObject?): String {
                 Text("Phân tích video có sẵn hoặc theo dõi video call", color = C.Dim, fontSize = 11.sp)
             }
         }
-        Text("Video được lấy tối đa 8 khung hình đại diện để AI đối chiếu. Chỉ các khung hình đã nén được gửi lên máy chủ; không gửi âm thanh hay toàn bộ video. Kết quả là chỉ báo, không phải xác minh danh tính.",
+        Text("Cần đăng nhập để phân tích video. App lấy tối đa 8 khung hình đại diện; chỉ các khung đã nén được gửi tới máy chủ AI, không gửi âm thanh hay toàn bộ video. Kết quả chỉ là chỉ báo, không xác minh danh tính.",
             fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
         GoldButton("Chọn video từ thư viện (1–30 giây)", leading = Icons.Rounded.VideoLibrary) {
             onVideoMessage("")
