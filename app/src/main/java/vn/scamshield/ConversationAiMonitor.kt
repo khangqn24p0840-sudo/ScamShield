@@ -1,8 +1,7 @@
 package vn.scamshield
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
+import android.util.Log
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -31,31 +30,22 @@ object ConversationAiMonitor {
     private const val RETRY_DELAY_SECONDS = 25L
     private const val PENDING_PREFIX = "monitor_ai_pending_"
     private const val ERROR_PREFIX = "monitor_ai_pending_error_"
+    private const val TAG = "ScamShieldAIQueue"
 
     enum class QueueResult { DONE, RETRY }
-
-    private val handler = Handler(Looper.getMainLooper())
-    private val pending = mutableMapOf<String, Runnable>()
 
     fun isEnabled(c: Context): Boolean = Store.flag(c, ENABLED_KEY)
 
     fun setEnabled(c: Context, enabled: Boolean) {
         Store.putFlag(c, ENABLED_KEY, enabled)
         if (!enabled) {
-            cancelPending()
             WorkManager.getInstance(c.applicationContext).cancelAllWorkByTag(WORK_TAG)
             MonitorStore.targets(c).forEach { target ->
-                MonitorStore.latestConversationKey(c, target.id)?.let { key ->
+                MonitorStore.conversationKeys(c, target.id).forEach { key ->
                     setPending(c, target.id, key, false)
                 }
             }
         }
-    }
-
-    @Synchronized
-    fun cancelPending() {
-        pending.values.forEach(handler::removeCallbacks)
-        pending.clear()
     }
 
     fun isPending(c: Context, targetId: String, conversationKey: String): Boolean =
@@ -64,56 +54,43 @@ object ConversationAiMonitor {
     fun pendingError(c: Context, targetId: String, conversationKey: String): String =
         Store.str(c, ERROR_PREFIX + threadId(targetId, conversationKey))
 
+    /**
+     * Xếp lịch bền vững bằng WorkManager. Lịch 15 giây vẫn còn sau khi tiến trình app
+     * bị Android thu hồi; tin nhắn mới cùng cuộc trò chuyện được gom vào một transcript.
+     */
     fun schedule(c: Context, targetId: String, conversationKey: String) {
         val app = c.applicationContext
-        if (!isEnabled(app) || Store.str(app, "token").isBlank()) return
-        val id = threadId(targetId, conversationKey)
-        val task = Runnable {
-            synchronized(this) { pending.remove(id) }
-            runAutoAnalysis(app, targetId, conversationKey)
-        }
-        synchronized(this) {
-            pending.remove(id)?.let(handler::removeCallbacks)
-            pending[id] = task
-            handler.postDelayed(task, DEBOUNCE_MS)
-        }
-    }
-
-    private fun runAutoAnalysis(c: Context, targetId: String, conversationKey: String) {
-        if (!isEnabled(c) || Store.str(c, "token").isBlank()) return
-        if (MonitorStore.targets(c).none { it.id == targetId }) return
-
-        val now = System.currentTimeMillis()
-        val threadId = threadId(targetId, conversationKey)
-        val lastThreadRequest = Store.str(c, "monitor_ai_thread_request_$threadId").toLongOrNull() ?: 0L
-        val lastGlobalRequest = Store.str(c, "monitor_ai_global_request").toLongOrNull() ?: 0L
-        val remaining = maxOf(
-            THREAD_COOLDOWN_MS - (now - lastThreadRequest),
-            GLOBAL_COOLDOWN_MS - (now - lastGlobalRequest)
-        )
-        if (remaining > 0L) {
-            val task = Runnable {
-                synchronized(this) { pending.remove(threadId) }
-                runAutoAnalysis(c, targetId, conversationKey)
-            }
-            synchronized(this) {
-                pending.remove(threadId)?.let(handler::removeCallbacks)
-                pending[threadId] = task
-                handler.postDelayed(task, remaining)
-            }
+        if (!isEnabled(app) || Store.str(app, "token").isBlank()) {
+            Log.d(TAG, "Auto AI skipped: disabled or not signed in")
             return
         }
+        if (MonitorStore.targets(app).none { it.id == targetId }) {
+            Log.w(TAG, "Auto AI skipped: monitored target no longer exists")
+            return
+        }
+        setPending(app, targetId, conversationKey, true)
+        val request = buildRequest(
+            app, targetId, conversationKey,
+            TimeUnit.MILLISECONDS.toSeconds(DEBOUNCE_MS)
+        )
+        WorkManager.getInstance(app).enqueueUniqueWork(
+            uniqueWorkName(targetId, conversationKey),
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+        Log.i(TAG, "Auto AI queued: target=$targetId delayMs=$DEBOUNCE_MS")
+    }
 
-        val latest = MonitorStore.recentMessages(c, targetId, conversationKey, MESSAGE_LIMIT)
-        if (latest.isEmpty()) return
-        val lastTimestamp = latest.last().timestamp
-        val lastAnalyzed = Store.str(c, "monitor_ai_last_analyzed_$threadId").toLongOrNull() ?: 0L
-        if (lastTimestamp <= lastAnalyzed) return
-
-        // Chỉ đánh dấu thời điểm yêu cầu; mốc đã phân tích chỉ được cập nhật sau khi server trả kết quả hợp lệ.
-        Store.putStr(c, "monitor_ai_thread_request_$threadId", now.toString())
-        Store.putStr(c, "monitor_ai_global_request", now.toString())
-        enqueue(c, targetId, conversationKey)
+    private fun enqueueFollowUp(c: Context, targetId: String, conversationKey: String) {
+        if (!isEnabled(c) || Store.str(c, "token").isBlank()) return
+        setPending(c, targetId, conversationKey, true)
+        val request = buildRequest(c, targetId, conversationKey, 0L)
+        WorkManager.getInstance(c).enqueueUniqueWork(
+            uniqueWorkName(targetId, conversationKey),
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            request
+        )
+        Log.i(TAG, "Auto AI follow-up queued: target=$targetId")
     }
 
     /** Hàng đợi có thể được gọi sau lần gửi thủ công thất bại, nhưng chỉ khi người dùng đã bật tự động. */
@@ -215,6 +192,32 @@ object ConversationAiMonitor {
             return QueueResult.DONE
         }
 
+        // Giới hạn tần suất được kiểm tra và ghi nguyên tử trước khi gửi, kể cả khi
+        // WorkManager chạy nhiều cuộc trò chuyện gần như cùng lúc.
+        val now = System.currentTimeMillis()
+        val waitMs = synchronized(this) {
+            val lastThreadRequest =
+                Store.str(c, "monitor_ai_thread_request_$id").toLongOrNull() ?: 0L
+            val lastGlobalRequest =
+                Store.str(c, "monitor_ai_global_request").toLongOrNull() ?: 0L
+            val remaining = maxOf(
+                THREAD_COOLDOWN_MS - (now - lastThreadRequest),
+                GLOBAL_COOLDOWN_MS - (now - lastGlobalRequest)
+            )
+            if (remaining > 0L) {
+                remaining
+            } else {
+                Store.putStr(c, "monitor_ai_thread_request_$id", now.toString())
+                Store.putStr(c, "monitor_ai_global_request", now.toString())
+                0L
+            }
+        }
+        if (waitMs > 0L) {
+            Log.d(TAG, "Auto AI rate limited: retry in ${waitMs}ms target=$targetId")
+            return QueueResult.RETRY
+        }
+
+        Log.i(TAG, "Auto AI sending: target=$targetId messages=${messages.size}")
         val (code, response) = Api.callBlocking(
             c, "POST", "/api/monitor/conversation", payload
         )
@@ -238,6 +241,15 @@ object ConversationAiMonitor {
 
         Store.putStr(c, "monitor_ai_last_analyzed_$id", result.lastMessageTimestamp.toString())
         setPending(c, targetId, conversationKey, false)
+
+        // Nếu có tin mới đến trong lúc request đang chạy, xếp thêm một lượt thay vì
+        // để sự kiện schedule bị bỏ qua bởi unique work đang hoạt động.
+        val newestAfterAnalysis = MonitorStore.recentMessages(c, targetId, conversationKey, 1)
+            .lastOrNull()?.timestamp ?: 0L
+        if (newestAfterAnalysis > result.lastMessageTimestamp) {
+            enqueueFollowUp(c, targetId, conversationKey)
+        }
+        Log.i(TAG, "Auto AI complete: target=$targetId score=${result.riskScore} messages=${result.messageCount}")
         return QueueResult.DONE
     }
 
