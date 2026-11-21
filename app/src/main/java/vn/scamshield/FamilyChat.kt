@@ -3,12 +3,15 @@ package vn.scamshield
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Send
@@ -54,7 +58,11 @@ private data class FamilyRoom(
 )
 private data class FamilyMessage(
     val id: String, val sender: String, val body: String,
-    val createdAt: Long, val mine: Boolean
+    val createdAt: Long, val mine: Boolean,
+    val readByCount: Int = 0, val recipientCount: Int = 0
+)
+private data class FamilyMember(
+    val id: String, val name: String, val role: String, val mine: Boolean
 )
 
 private fun parseFamilyRooms(j: JSONObject?): List<FamilyRoom> {
@@ -72,9 +80,25 @@ private fun parseFamilyMessages(j: JSONObject?): List<FamilyMessage> {
         val o = a.optJSONObject(i) ?: return@mapNotNull null
         val body = o.optString("body", o.optString("text", ""))
         if (body.isBlank()) return@mapNotNull null
-        FamilyMessage(o.optString("id", i.toString()), o.optString("sender_name", "Thành viên"),
-            body, o.optLong("created_at", o.optLong("ts")), o.optBoolean("mine"))
+        FamilyMessage(
+            o.optString("id", i.toString()), o.optString("sender_name", "Thành viên"),
+            body, o.optLong("created_at", o.optLong("ts")), o.optBoolean("mine"),
+            o.optInt("read_by_count"), o.optInt("recipient_count")
+        )
     }
+}
+private fun parseFamilyMembers(j: JSONObject?): List<FamilyMember> {
+    val a = j?.optJSONArray("members") ?: return emptyList()
+    return (0 until a.length()).mapNotNull { i ->
+        val o = a.optJSONObject(i) ?: return@mapNotNull null
+        val id = o.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+        FamilyMember(id, o.optString("name", "Thành viên"), o.optString("role", "member"), o.optBoolean("mine"))
+    }
+}
+private fun familyRoleLabel(role: String): String = when (role) {
+    "owner" -> "Trưởng nhóm"
+    "admin" -> "Quản trị viên"
+    else -> "Thành viên"
 }
 private fun familyError(code: Int, j: JSONObject?): String = when {
     code == -1 -> "Không kết nối được máy chủ. Hãy kiểm tra mạng và máy chủ ScamShield."
@@ -86,6 +110,11 @@ private fun familyClock(ts: Long): String {
     if (ts <= 0L) return ""
     val ms = if (ts < 10_000_000_000L) ts * 1000L else ts
     return SimpleDateFormat("HH:mm", Locale("vi", "VN")).format(Date(ms))
+}
+private fun familyDateTime(ts: Long): String {
+    if (ts <= 0L) return "7 ngày"
+    val ms = if (ts < 10_000_000_000L) ts * 1000L else ts
+    return SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("vi", "VN")).format(Date(ms))
 }
 
 @Composable
@@ -100,8 +129,11 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
     var roomName by remember { mutableStateOf("") }
     var inviteInput by remember { mutableStateOf("") }
     var inviteCode by remember { mutableStateOf("") }
+    var inviteExpiresAt by remember { mutableLongStateOf(0L) }
+    var inviteMaxUses by remember { mutableIntStateOf(20) }
     var inviteOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var roomsRequestInFlight by remember { mutableStateOf(false) }
 
     BackHandler(enabled = room != null || createOpen || joinOpen || inviteOpen) {
         when {
@@ -113,8 +145,10 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
     }
 
     fun loadRooms() {
-        if (!logged) return
+        if (!logged || roomsRequestInFlight) return
+        roomsRequestInFlight = true
         Api.call(c, "GET", "/api/family/chats", null) { code, json ->
+            roomsRequestInFlight = false
             if (code in 200..299 && json != null) { rooms = parseFamilyRooms(json); error = "" }
             else error = familyError(code, json)
         }
@@ -176,20 +210,46 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Gửi mã này cho người thân để họ tham gia nhóm.", color = FamilyMuted, fontSize = 13.sp)
                 Text(inviteCode, color = FamilyGreenDark, fontWeight = FontWeight.ExtraBold, fontSize = 25.sp, letterSpacing = 2.sp)
+                Text(
+                    "Có hiệu lực đến ${familyDateTime(inviteExpiresAt)} • Tối đa $inviteMaxUses lượt. Tạo mã mới sẽ thu hồi mã trước đó.",
+                    color = FamilyMuted, fontSize = 11.sp, lineHeight = 16.sp
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = {
-                val clip = c.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clip.setPrimaryClip(ClipData.newPlainText("Mã mời gia đình", inviteCode))
-                Toast.makeText(c, "Đã sao chép mã mời", Toast.LENGTH_SHORT).show()
-                inviteOpen = false
-            }) {
-                Icon(Icons.Rounded.ContentCopy, null, tint = FamilyGreen, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(5.dp)); Text("Sao chép", color = FamilyGreen)
+            Row {
+                TextButton(onClick = {
+                    val share = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT,
+                            "Mã mời nhóm gia đình ScamShield: $inviteCode\nHạn dùng: ${familyDateTime(inviteExpiresAt)}")
+                    }
+                    c.startActivity(Intent.createChooser(share, "Chia sẻ mã mời").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }) { Text("Chia sẻ", color = FamilyGreen) }
+                TextButton(onClick = {
+                    val clip = c.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clip.setPrimaryClip(ClipData.newPlainText("Mã mời gia đình", inviteCode))
+                    Toast.makeText(c, "Đã sao chép mã mời", Toast.LENGTH_SHORT).show()
+                }) {
+                    Icon(Icons.Rounded.ContentCopy, null, tint = FamilyGreen, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(5.dp)); Text("Sao chép", color = FamilyGreen)
+                }
             }
         },
-        dismissButton = { TextButton(onClick = { inviteOpen = false }) { Text("Đóng", color = FamilyMuted) } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = {
+                    val selected = room
+                    if (selected != null) Api.call(c, "DELETE", "/api/family/chats/${selected.id}/invites", null) { code, json ->
+                        if (code in 200..299) {
+                            inviteOpen = false
+                            Toast.makeText(c, "Đã thu hồi mã mời đang hoạt động", Toast.LENGTH_SHORT).show()
+                        } else error = familyError(code, json)
+                    }
+                }) { Text("Thu hồi mã", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { inviteOpen = false }) { Text("Đóng", color = FamilyMuted) }
+            }
+        },
         containerColor = Color.White
     )
 
@@ -199,6 +259,8 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
             Api.call(c, "POST", "/api/family/chats/${selected.id}/invite", null) { code, json ->
                 if (code in 200..299 && json != null) {
                     inviteCode = json.optString("invite_code", json.optString("code"))
+                    inviteExpiresAt = json.optLong("expires_at")
+                    inviteMaxUses = json.optInt("max_uses", 20)
                     if (inviteCode.isNotBlank()) inviteOpen = true else error = "Máy chủ chưa trả về mã mời."
                 } else error = familyError(code, json)
             }
@@ -246,23 +308,76 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
 @Composable
 private fun FamilyConversation(c: Context, room: FamilyRoom, onBack: () -> Unit, onInvite: () -> Unit) {
     var messages by remember(room.id) { mutableStateOf<List<FamilyMessage>>(emptyList()) }
+    var members by remember(room.id) { mutableStateOf<List<FamilyMember>>(emptyList()) }
     var draft by remember(room.id) { mutableStateOf("") }
     var error by remember(room.id) { mutableStateOf("") }
     var refresh by remember(room.id) { mutableIntStateOf(0) }
     var sending by remember(room.id) { mutableStateOf(false) }
     var loading by remember(room.id) { mutableStateOf(true) }
+    var requestInFlight by remember(room.id) { mutableStateOf(false) }
+    var membersOpen by remember(room.id) { mutableStateOf(false) }
+    var memberBusy by remember(room.id) { mutableStateOf(false) }
+    var pendingRemove by remember(room.id) { mutableStateOf<FamilyMember?>(null) }
     val listState = rememberLazyListState()
+    val myRole = members.firstOrNull { it.mine }?.role ?: "member"
+    val canInvite = myRole == "owner" || myRole == "admin"
+    val canManageMembers = canInvite
 
     BackHandler { onBack() }
 
-    fun loadMessages() {
-        Api.call(c, "GET", "/api/family/chats/${room.id}/messages?limit=50", null) { code, json ->
-            loading = false
-            if (code in 200..299 && json != null) { messages = parseFamilyMessages(json); error = "" }
-            else error = familyError(code, json)
+    fun loadMembers() {
+        Api.call(c, "GET", "/api/family/chats/${room.id}/members", null) { code, json ->
+            if (code in 200..299 && json != null) {
+                members = parseFamilyMembers(json)
+                error = ""
+            } else {
+                error = familyError(code, json)
+            }
         }
     }
 
+    fun loadMessages() {
+        if (requestInFlight) return
+        requestInFlight = true
+        val afterId = messages.lastOrNull()?.id?.toLongOrNull() ?: 0L
+        Api.call(c, "GET", "/api/family/chats/${room.id}/messages?limit=50&after_id=$afterId", null) { code, json ->
+            requestInFlight = false
+            loading = false
+            if (code in 200..299 && json != null) {
+                val incoming = parseFamilyMessages(json)
+                messages = if (afterId == 0L) {
+                    incoming
+                } else if (incoming.isNotEmpty()) {
+                    (messages + incoming).distinctBy { it.id }.takeLast(100)
+                } else {
+                    messages
+                }
+                val receipts = json.optJSONArray("read_receipts")
+                if (receipts != null) {
+                    val receiptMap = (0 until receipts.length()).mapNotNull { i ->
+                        val item = receipts.optJSONObject(i) ?: return@mapNotNull null
+                        val id = item.optString("id").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                        id to (item.optInt("read_by_count") to item.optInt("recipient_count"))
+                    }.toMap()
+                    if (receiptMap.isNotEmpty()) {
+                        messages = messages.map { message ->
+                            val receipt = receiptMap[message.id]
+                            if (message.mine && receipt != null) message.copy(
+                                readByCount = receipt.first, recipientCount = receipt.second
+                            ) else message
+                        }
+                    }
+                }
+                error = ""
+            } else {
+                error = familyError(code, json)
+            }
+        }
+    }
+
+    LaunchedEffect(room.id) {
+        loadMembers()
+    }
     LaunchedEffect(room.id, refresh) {
         loadMessages()
         while (true) { delay(6000); loadMessages() }
@@ -271,15 +386,102 @@ private fun FamilyConversation(c: Context, room: FamilyRoom, onBack: () -> Unit,
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
+    if (membersOpen) AlertDialog(
+        onDismissRequest = { if (!memberBusy) membersOpen = false },
+        title = { Text("Thành viên nhóm", color = FamilyText) },
+        text = {
+            Column(
+                Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Text("${members.size} thành viên • Quyền được quản lý theo vai trò", color = FamilyMuted, fontSize = 11.sp)
+                members.forEach { member ->
+                    Row(
+                        Modifier.fillMaxWidth().background(FamilyCanvas, RoundedCornerShape(12.dp)).padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(member.name + if (member.mine) " (Bạn)" else "",
+                                color = FamilyText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(familyRoleLabel(member.role), color = FamilyMuted, fontSize = 11.sp)
+                        }
+                        if (canManageMembers && !member.mine && member.role != "owner") {
+                            if (myRole == "owner") {
+                                TextButton(enabled = !memberBusy, onClick = {
+                                    memberBusy = true
+                                    val nextRole = if (member.role == "admin") "member" else "admin"
+                                    Api.call(c, "PATCH",
+                                        "/api/family/chats/${room.id}/members/${member.id}",
+                                        JSONObject().put("role", nextRole)
+                                    ) { code, json ->
+                                        memberBusy = false
+                                        if (code in 200..299) loadMembers() else error = familyError(code, json)
+                                    }
+                                }) {
+                                    Text(if (member.role == "admin") "Hạ quyền" else "Cấp admin",
+                                        fontSize = 11.sp, color = FamilyGreen)
+                                }
+                            }
+                            if (member.role == "member" || myRole == "owner") {
+                                TextButton(enabled = !memberBusy, onClick = { pendingRemove = member }) {
+                                    Text("Xóa", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                                }
+                            }
+                        }
+                    }
+                }
+                if (members.isEmpty()) Text("Chưa tải được danh sách thành viên.", color = FamilyMuted, fontSize = 12.sp)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { loadMembers() }, enabled = !memberBusy) { Text("Làm mới", color = FamilyGreen) }
+        },
+        dismissButton = { TextButton(onClick = { membersOpen = false }) { Text("Đóng", color = FamilyMuted) } },
+        containerColor = Color.White
+    )
+
+    pendingRemove?.let { target ->
+        AlertDialog(
+            onDismissRequest = { if (!memberBusy) pendingRemove = null },
+            title = { Text("Xóa thành viên?") },
+            text = { Text("Bạn có chắc muốn xóa ${target.name} khỏi nhóm này không? Người đó sẽ không thể xem tin nhắn mới.") },
+            confirmButton = {
+                TextButton(enabled = !memberBusy, onClick = {
+                    memberBusy = true
+                    Api.call(c, "DELETE", "/api/family/chats/${room.id}/members/${target.id}", null) { code, json ->
+                        memberBusy = false
+                        pendingRemove = null
+                        if (code in 200..299) loadMembers() else error = familyError(code, json)
+                    }
+                }) { Text("Xóa thành viên", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { pendingRemove = null }) { Text("Hủy", color = FamilyMuted) } },
+            containerColor = Color.White
+        )
+    }
+
     Column(Modifier.fillMaxSize().background(FamilyCanvas)) {
         Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Quay lại", tint = FamilyGreen) }
             Column(Modifier.weight(1f)) {
                 Text(room.name, color = FamilyText, fontSize = 16.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text("${room.memberCount} thành viên", color = FamilyMuted, fontSize = 11.sp)
+                Text("${if (members.isNotEmpty()) members.size else room.memberCount} thành viên",
+                    color = FamilyMuted, fontSize = 11.sp)
             }
-            IconButton(onClick = onInvite) { Icon(Icons.Rounded.GroupAdd, "Mời người thân", tint = FamilyGreen) }
+            IconButton(onClick = { membersOpen = true; loadMembers() }) {
+                Icon(Icons.Rounded.Group, "Thành viên", tint = FamilyGreen)
+            }
+            if (canInvite) TextButton(
+                onClick = onInvite,
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Rounded.GroupAdd, null, tint = FamilyGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Tạo mã mời", color = FamilyGreen, fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1)
+            }
             IconButton(onClick = { refresh++ }) { Icon(Icons.Rounded.Refresh, "Làm mới", tint = FamilyGreen) }
         }
         HorizontalDivider(color = FamilyBorder)
@@ -316,7 +518,7 @@ private fun FamilyConversation(c: Context, room: FamilyRoom, onBack: () -> Unit,
                 enabled = draft.isNotBlank() && !sending,
                 onClick = {
                     val text = draft.trim()
-                    if (text.isNotBlank()) {
+                    if (text.isNotBlank() && !sending) {
                         sending = true
                         Api.call(c, "POST", "/api/family/chats/${room.id}/messages", JSONObject().put("body", text)) { code, json ->
                             sending = false
@@ -368,6 +570,16 @@ private fun FamilyBubble(m: FamilyMessage) {
             Text(m.body, color = FamilyText, fontSize = 13.sp, lineHeight = 18.sp)
             if (m.createdAt > 0L) Text(familyClock(m.createdAt), color = FamilyMuted, fontSize = 9.sp,
                 modifier = Modifier.align(Alignment.End).padding(top = 3.dp))
+            if (m.mine) {
+                val readLabel = when {
+                    m.recipientCount <= 0 -> "Đã gửi"
+                    m.readByCount >= m.recipientCount -> "Đã xem"
+                    m.readByCount > 0 -> "Đã xem ${m.readByCount}/${m.recipientCount}"
+                    else -> "Đã gửi"
+                }
+                Text(readLabel, color = if (m.readByCount > 0) FamilyGreen else FamilyMuted,
+                    fontSize = 9.sp, modifier = Modifier.align(Alignment.End))
+            }
         }
     }
 }
