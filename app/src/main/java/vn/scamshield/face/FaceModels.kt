@@ -1,6 +1,6 @@
 package vn.scamshield.face
 
-enum class FaceLevel { NO_FACE, ANALYZING, OK, SUSPICIOUS, HIGH }
+enum class FaceLevel { NO_FACE, ANALYZING, UNVERIFIED, OK, SUSPICIOUS, HIGH }
 
 /** Số đo của MỘT khung hình video. Chỉ chứa số liệu, không lưu ảnh. */
 data class FaceObservation(
