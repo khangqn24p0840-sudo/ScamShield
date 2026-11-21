@@ -7,13 +7,11 @@ android {
         // Android 9 Pie (API 28) is the minimum supported Android version.
         minSdk = 28
         targetSdk = 34
-        versionCode = 24
-        versionName = "4.19"
+        versionCode = 25
+        versionName = "4.20"
 
-        // Android phones/tablets use ARM; do not package emulator-only x86 native libraries.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
+        // Do not force ARM-only packaging: include every ABI supplied by dependencies,
+        // so physical ARM devices and compatible x86/x86_64 Android emulators can install.
     }
     buildTypes {
         getByName("debug") {
