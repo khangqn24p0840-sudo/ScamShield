@@ -146,8 +146,9 @@ class SocialListener : NotificationListenerService() {
             }
         }
 
-        // Fallback cho ứng dụng không dùng MessagingStyle hoặc Android cũ.
-        if (captured.isEmpty()) {
+        // Fallback cả khi ứng dụng chỉ cung cấp lịch sử MessagingStyle nhưng không có
+        // tin hiện tại. Một số phiên bản Zalo/Messenger đặt tin mới ở EXTRA_TEXT/EXTRA_BIG_TEXT.
+        if (newestIncoming == null) {
             val body = (
                 extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
                     ?: extras.getCharSequence(Notification.EXTRA_TEXT)
@@ -156,8 +157,14 @@ class SocialListener : NotificationListenerService() {
                     ?: ""
                 ).toString().trim()
             if (body.isNotBlank()) {
-                val fallback = IncomingMessage(title.ifBlank { conversationTitle }, body, sbn.postTime)
-                captured += fallback
+                val fallback = IncomingMessage(
+                    title.ifBlank { conversationTitle }.ifBlank { "Người gửi" },
+                    body,
+                    sbn.postTime
+                )
+                if (captured.none { it.sender == fallback.sender && it.body == fallback.body }) {
+                    captured += fallback
+                }
                 newestIncoming = fallback
             }
         }
