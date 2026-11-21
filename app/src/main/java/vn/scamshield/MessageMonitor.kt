@@ -323,6 +323,11 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
                         color = if (Store.str(c, "token").isNotBlank() && autoContextEnabled) C.Mint else C.Warn,
                         fontSize = 11.sp, fontWeight = FontWeight.SemiBold
                     )
+                    Text(
+                        "Hiển thị cảnh báo: " + if (notificationPermissionGranted) "ĐÃ CẤP QUYỀN" else "CHƯA CẤP QUYỀN",
+                        color = if (notificationPermissionGranted) C.Mint else C.Warn,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                    )
                     if (!SocialListener.enabled(c)) {
                         Text(
                             "Hãy cấp quyền Truy cập thông báo để nhận tin mới khi Android tạo thông báo cho cuộc chat.",
