@@ -47,9 +47,23 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
         val fps = if (span > 0) (faces.size - 1) * 1000.0 / span else 0.0
         val progress = (span.toFloat() / cfg.minObserveMs).coerceIn(0f, 1f)
         if (span < cfg.minObserveMs) {
+            // Phân tích sơ bộ từ 3 giây nếu đã có đủ khung hình. Chỉ phát cảnh báo,
+            // tuyệt đối không kết luận OK khi chưa quan sát đủ lâu.
+            val earlyIndicators = if (span >= 3_000L && faces.size >= 12) {
+                listOfNotNull(jitterIndicator(faces), blendIndicator(faces), boxIndicator(faces), modelIndicator(faces))
+            } else emptyList()
+            val strongEarlySignals = earlyIndicators.count { it.score >= 0.65 }
+            if (strongEarlySignals >= 2) {
+                return FaceVerdict(
+                    FaceLevel.SUSPICIOUS, 0.55, progress, earlyIndicators, fps,
+                    "Phát hiện sớm nhiều dấu hiệu bất thường",
+                    "Chưa thể xác định đây là deepfake, nhưng bạn nên thận trọng. Không cung cấp OTP, không chuyển tiền và hãy xác minh người gọi qua một kênh khác.\n" + tips()
+                )
+            }
             return FaceVerdict(
-                FaceLevel.ANALYZING, 0.0, progress, emptyList(), fps,
-                "Đang phân tích khuôn mặt… ${(progress * 100).toInt()}%", ""
+                FaceLevel.ANALYZING, 0.0, progress, earlyIndicators, fps,
+                "Đang phân tích khuôn mặt… ${(progress * 100).toInt()}%",
+                "Chưa đủ dữ liệu để đánh giá. Không xem trạng thái này là an toàn."
             )
         }
 
@@ -62,13 +76,13 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
 
         var logit = BIAS
         for (i in inds) logit += (WEIGHTS[i.id] ?: 0.0) * i.score
-        if (profilePassed(faces, box, blend)) logit -= 0.6
         val p = 1.0 / (1.0 + exp(-logit))
 
         val flagged = inds.count { it.score >= 0.4 }
         var level = when {
             p >= cfg.highAt -> FaceLevel.HIGH
             p >= cfg.suspiciousAt -> FaceLevel.SUSPICIOUS
+            model == null -> FaceLevel.UNVERIFIED
             else -> FaceLevel.OK
         }
         // Không bao giờ kết luận mức cao chỉ dựa trên một chỉ báo
@@ -83,9 +97,13 @@ class FaceLivenessAnalyzer(private val cfg: Config = Config()) {
                 "Có dấu hiệu bất thường, hãy kiểm tra thêm",
                 "Hãy thử:\n" + tips()
             )
+            FaceLevel.UNVERIFIED -> Pair(
+                "Chưa thể xác minh video là thật",
+                "Bộ phân loại deepfake chuyên dụng chưa hoạt động trên thiết bị này. Các chỉ báo cơ bản không đủ để xác nhận người trong video là thật. Hãy xác minh qua số liên hệ đã lưu."
+            )
             else -> Pair(
-                "Chưa thấy dấu hiệu bất thường",
-                "Không công cụ nào chắc chắn 100%. Nếu bị yêu cầu chuyển tiền hoặc đưa OTP, hãy gọi lại bằng số đã lưu để xác minh."
+                "Chưa thấy dấu hiệu giả mạo rõ ràng",
+                "Đây không phải bằng chứng người trong video là thật. Không công cụ nào chắc chắn 100%. Nếu bị yêu cầu chuyển tiền hoặc đưa OTP, hãy gọi lại bằng số đã lưu để xác minh."
             )
         }
         return FaceVerdict(level, p, 1f, inds, fps, headline, advice)
