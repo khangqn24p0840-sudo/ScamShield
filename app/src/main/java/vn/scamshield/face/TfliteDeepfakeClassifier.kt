@@ -74,15 +74,16 @@ class TfliteDeepfakeClassifier(context: Context) : DeepfakeClassifier {
                 }
             }
 
-            descriptor = context.assets.openFd(MODEL_FILE)
-            val mapped = FileInputStream(descriptor.fileDescriptor).channel.use { channel ->
+            val assetDescriptor = context.assets.openFd(MODEL_FILE)
+            descriptor = assetDescriptor
+            val mapped = FileInputStream(assetDescriptor.fileDescriptor).channel.use { channel ->
                 channel.map(
                     FileChannel.MapMode.READ_ONLY,
-                    descriptor.startOffset,
-                    descriptor.declaredLength
+                    assetDescriptor.startOffset,
+                    assetDescriptor.declaredLength
                 )
             }
-            descriptor.close()
+            assetDescriptor.close()
             descriptor = null
 
             interpreter = Interpreter(mapped, Interpreter.Options().setNumThreads(2))
