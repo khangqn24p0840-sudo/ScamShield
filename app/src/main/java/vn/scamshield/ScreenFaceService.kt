@@ -20,7 +20,7 @@ class ScreenFaceService : Service() {
     private var ht: HandlerThread? = null
     private var observer: FaceObserver? = null
     private val analyzer = FaceLivenessAnalyzer()
-    private val gate = FaceAlertGate()
+    private val gate = FaceAlertGate(suspiciousHoldMs = 3_000)
     private var lastFrame = 0L; private var lastEval = 0L; private var startAt = 0L
 
     override fun onBind(i: Intent?): IBinder? = null
