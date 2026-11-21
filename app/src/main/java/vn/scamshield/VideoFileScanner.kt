@@ -190,16 +190,18 @@ object VideoFileScanner {
             )
             val targetWidth = max(1, (sourceWidth * scale).roundToInt())
             val targetHeight = max(1, (sourceHeight * scale).roundToInt())
-            try {
-                return retriever.getScaledFrameAtTime(
+            val scaled = try {
+                retriever.getScaledFrameAtTime(
                     timeUs,
                     MediaMetadataRetriever.OPTION_CLOSEST,
                     targetWidth,
                     targetHeight
                 )
             } catch (_: Exception) {
-                // Some vendor codecs do not support scaled extraction; use the fallback.
+                null
             }
+            if (scaled != null) return scaled
+            // Some vendor codecs return null for scaled extraction; use the full-frame fallback.
         }
 
         val original = retriever.getFrameAtTime(
