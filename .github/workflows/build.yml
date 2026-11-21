@@ -2,7 +2,7 @@ name: Build APK
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/deepfake-performance-optimization]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -41,7 +41,6 @@ jobs:
           echo "$HOME/.rive/bin" >> "$GITHUB_PATH"
           echo "Rive CLI installed."
 
-
       - name: Verify and render Rive robot source
         run: |
           mkdir -p dist
@@ -78,6 +77,23 @@ jobs:
           mkdir -p dist
           cp "$APK" dist/ScamShield.apk
           echo "version=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Validate APK signature, manifest, and native ABIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          APKSIGNER=$(find "$SDK_ROOT/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          AAPT=$(find "$SDK_ROOT/build-tools" -type f -name aapt | sort -V | tail -n 1)
+          test -n "$APKSIGNER"
+          test -n "$AAPT"
+          echo "=== APK signature ==="
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          echo "=== APK manifest ==="
+          "$AAPT" dump badging "$APK" | grep -E "^(package:|sdkVersion:|targetSdkVersion:|native-code:)"
+          echo "=== Packaged native ABIs ==="
+          unzip -Z1 "$APK" | awk -F/ '$1 == "lib" && NF > 2 {print $2}' | sort -u
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

@@ -4,15 +4,14 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "vn.scamshield"
-        minSdk = 24
+        // Android 9 Pie (API 28) is the minimum supported Android version.
+        minSdk = 28
         targetSdk = 34
-        versionCode = 23
-        versionName = "4.18"
+        versionCode = 25
+        versionName = "4.20"
 
-        // Android phones/tablets use ARM; do not package emulator-only x86 native libraries.
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
+        // Do not force ARM-only packaging: include every ABI supplied by dependencies,
+        // so physical ARM devices and compatible x86/x86_64 Android emulators can install.
     }
     buildTypes {
         getByName("debug") {
@@ -26,6 +25,11 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
+
+    // TFLite is memory-mapped by the runtime; keep the model asset uncompressed in the APK.
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 /*
