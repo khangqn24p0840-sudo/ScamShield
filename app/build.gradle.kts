@@ -6,8 +6,8 @@ android {
         applicationId = "vn.scamshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 23
-        versionName = "4.18"
+        versionCode = 24
+        versionName = "4.19"
 
         // Android phones/tablets use ARM; do not package emulator-only x86 native libraries.
         ndk {
