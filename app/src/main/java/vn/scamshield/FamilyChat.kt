@@ -133,6 +133,7 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
     var inviteMaxUses by remember { mutableIntStateOf(20) }
     var inviteOpen by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    var roomsRequestInFlight by remember { mutableStateOf(false) }
 
     BackHandler(enabled = room != null || createOpen || joinOpen || inviteOpen) {
         when {
@@ -144,8 +145,10 @@ fun FamilyChatScreen(c: Context, onBack: () -> Unit) {
     }
 
     fun loadRooms() {
-        if (!logged) return
+        if (!logged || roomsRequestInFlight) return
+        roomsRequestInFlight = true
         Api.call(c, "GET", "/api/family/chats", null) { code, json ->
+            roomsRequestInFlight = false
             if (code in 200..299 && json != null) { rooms = parseFamilyRooms(json); error = "" }
             else error = familyError(code, json)
         }
@@ -470,8 +473,14 @@ private fun FamilyConversation(c: Context, room: FamilyRoom, onBack: () -> Unit,
             IconButton(onClick = { membersOpen = true; loadMembers() }) {
                 Icon(Icons.Rounded.Group, "Thành viên", tint = FamilyGreen)
             }
-            if (canInvite) IconButton(onClick = onInvite) {
-                Icon(Icons.Rounded.GroupAdd, "Tạo mã mời", tint = FamilyGreen)
+            if (canInvite) TextButton(
+                onClick = onInvite,
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 6.dp)
+            ) {
+                Icon(Icons.Rounded.GroupAdd, null, tint = FamilyGreen, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Tạo mã mời", color = FamilyGreen, fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
             IconButton(onClick = { refresh++ }) { Icon(Icons.Rounded.Refresh, "Làm mới", tint = FamilyGreen) }
         }
