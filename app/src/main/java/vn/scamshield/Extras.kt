@@ -92,6 +92,26 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     }
 }
 
+fun fmtVideo(code: Int, j: JSONObject?): String {
+    if (code !in 200..299 || j == null) return "Chưa phân tích được video: " + err(j)
+    val frames = j.optInt("frames_analyzed", 0)
+    val confidence = j.optString("confidence", "LOW").uppercase()
+    val note = j.optString("note").trim()
+    val verdict = when (j.optString("verdict")) {
+        "likely_fake" -> "NGHI NGỜ VIDEO GIẢ MẠO"
+        "suspicious" -> "VIDEO CÓ DẤU HIỆU ĐÁNG NGỜ"
+        "no_obvious_signs" -> "CHƯA THẤY DẤU HIỆU GIẢ MẠO RÕ RÀNG"
+        else -> "CHƯA THỂ XÁC MINH VIDEO"
+    }
+    return buildString {
+        append(verdict)
+        if (frames > 0) append("\\nĐã đối chiếu ").append(frames).append(" khung hình")
+        append("\\nĐộ tin cậy đánh giá: ").append(confidence)
+        if (note.isNotBlank()) append("\\nNhận xét: ").append(note)
+        append("\\nKhông thể xác nhận người trong video là thật chỉ dựa vào kết quả này. Với cuộc gọi liên quan tiền bạc hoặc OTP, hãy xác minh lại bằng số liên hệ đã lưu.")
+    }
+}
+
 @Composable fun SurveyPanel(c: Context) {
     val qs = listOf("Nhóm tuổi của bạn" to listOf("Dưới 18", "18–30", "31–50", "Trên 50"),
         "Bạn nhận cuộc gọi từ số lạ thường xuyên không?" to listOf("Hiếm", "Thỉnh thoảng", "Hằng ngày"),
@@ -135,29 +155,60 @@ fun fmtMedia(code: Int, j: JSONObject?): String {
     }
 }
 
-@Composable fun FacePanel(onStart: () -> Unit, onStop: () -> Unit) {
+@Composable fun FacePanel(
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onPickVideo: () -> Unit,
+    videoMessage: String,
+    onVideoMessage: (String) -> Unit
+) {
     val v = FaceBus.verdict
     Glass {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             IconBadge(Icons.Rounded.Videocam, C.Cyan)
             Column {
-                Text("Kiểm tra video call giả mạo", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
-                Text("Tính năng thử nghiệm", color = C.Dim, fontSize = 11.sp)
+                Text("Kiểm tra video deepfake", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = C.Text)
+                Text("Phân tích video có sẵn hoặc theo dõi video call", color = C.Dim, fontSize = 11.sp)
             }
         }
-        Text("Khi đang video call, bật chế độ này: app quan sát màn hình, đo các chỉ báo trên khuôn mặt và cảnh báo nếu nghi giả mạo. Chỉ xử lý trong máy, không lưu hình. Kết quả chỉ là chỉ báo, không phải kết luận.",
+        Text("Video được lấy tối đa 8 khung hình đại diện để AI đối chiếu. Chỉ các khung hình đã nén được gửi lên máy chủ; không gửi âm thanh hay toàn bộ video. Kết quả là chỉ báo, không phải xác minh danh tính.",
+            fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
+        GoldButton("Chọn video từ thư viện (1–30 giây)", leading = Icons.Rounded.VideoLibrary) {
+            onVideoMessage("")
+            onPickVideo()
+        }
+        if (videoMessage.isNotBlank()) {
+            Text(videoMessage, color = C.Text, fontSize = 13.sp, lineHeight = 18.sp)
+        }
+        Divider(color = C.Stroke)
+        Text("Phân tích trực tiếp trong cuộc gọi", color = C.Text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text("Bật chế độ này khi đang video call. ScamShield quan sát màn hình sau khi bạn đồng ý chia sẻ, rồi phân tích các chỉ báo khuôn mặt trong máy.",
             fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
         if (FaceBus.running) DangerButton("Dừng kiểm tra", leading = Icons.Rounded.Stop, onClick = onStop)
         else GoldButton("Bắt đầu kiểm tra video call", leading = Icons.Rounded.PlayArrow, onClick = onStart)
         if (FaceBus.running && v != null) {
-            val col = when (v.level) { FaceLevel.HIGH -> C.Bad; FaceLevel.SUSPICIOUS -> C.Warn; FaceLevel.OK -> C.Mint; else -> Color.White }
+            val col = when (v.level) {
+                FaceLevel.HIGH -> C.Bad
+                FaceLevel.SUSPICIOUS, FaceLevel.UNVERIFIED -> C.Warn
+                FaceLevel.OK -> C.Mint
+                else -> C.Dim
+            }
             Text(v.headline, color = col, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            if (v.progress < 1f) {
-                Text("Tiến độ thu thập: ${(v.progress * 100).toInt()}%", fontSize = 12.sp, color = C.Sub)
-                ScoreBar(v.progress, C.Cyan)
-            } else {
-                Text("Điểm rủi ro: ${(v.probability * 100).toInt()}% • ${"%.0f".format(v.fps)} khung/giây", fontSize = 12.sp, color = C.Sub)
-                ScoreBar(v.probability.toFloat(), col)
+            when (v.level) {
+                FaceLevel.ANALYZING -> {
+                    Text("Đang thu thập dữ liệu — chưa có kết luận an toàn (${(v.progress * 100).toInt()}%)", fontSize = 12.sp, color = C.Sub)
+                    ScoreBar(v.progress, C.Cyan)
+                }
+                FaceLevel.UNVERIFIED -> {
+                    Text("Không đủ cơ sở xác nhận người trong cuộc gọi là thật. Bản hiện tại chưa có bộ phân loại deepfake chuyên dụng đang hoạt động.",
+                        fontSize = 12.sp, color = C.Sub, lineHeight = 17.sp)
+                }
+                FaceLevel.NO_FACE -> Text("Không thấy khuôn mặt đủ rõ để đánh giá. Đây không phải kết quả an toàn.", fontSize = 12.sp, color = C.Sub)
+                else -> {
+                    Text("Điểm chỉ báo rủi ro: ${(v.probability * 100).toInt()}% • ${"%.0f".format(v.fps)} khung/giây",
+                        fontSize = 12.sp, color = C.Sub)
+                    ScoreBar(v.probability.toFloat(), col)
+                }
             }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 v.indicators.forEach { ind ->
