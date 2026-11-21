@@ -105,10 +105,10 @@ fun fmtVideo(code: Int, j: JSONObject?): String {
     }
     return buildString {
         append(verdict)
-        if (frames > 0) append("\\nĐã đối chiếu ").append(frames).append(" khung hình")
-        append("\\nĐộ tin cậy đánh giá: ").append(confidence)
-        if (note.isNotBlank()) append("\\nNhận xét: ").append(note)
-        append("\\nKhông thể xác nhận người trong video là thật chỉ dựa vào kết quả này. Với cuộc gọi liên quan tiền bạc hoặc OTP, hãy xác minh lại bằng số liên hệ đã lưu.")
+        if (frames > 0) append('\n').append("Đã đối chiếu ").append(frames).append(" khung hình")
+        append('\n').append("Độ tin cậy đánh giá: ").append(confidence)
+        if (note.isNotBlank()) append('\n').append("Nhận xét: ").append(note)
+        append('\n').append("Không thể xác nhận người trong video là thật chỉ dựa vào kết quả này. Với cuộc gọi liên quan tiền bạc hoặc OTP, hãy xác minh lại bằng số liên hệ đã lưu.")
     }
 }
 
