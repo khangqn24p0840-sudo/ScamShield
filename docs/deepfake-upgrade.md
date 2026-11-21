@@ -11,8 +11,8 @@ The two sources use the same ML Kit face detection, TFLite classifier, and tempo
 ## Android compatibility
 
 - Minimum supported Android version: Android 9 (Pie), API 28.
-- The APK packages ARM 64-bit and ARM 32-bit native libraries.
-- Devices running Android 8.1 or older are intentionally not supported by this build.
+- The Android build does not force ARM-only packaging. It includes the native ABIs provided by its dependencies, which are inspected by CI.
+- Physical-device and emulator compatibility still depends on the CPU ABI and Android image supported by the bundled native libraries.
 
 ## Runtime and performance
 
@@ -22,6 +22,10 @@ The two sources use the same ML Kit face detection, TFLite classifier, and tempo
 - TFLite input buffers, pixel arrays, and output arrays are reused instead of allocated for every inference.
 - UINT8 model input is converted using the tensor's quantization scale and zero point.
 - The TFLite model is packaged as an uncompressed APK asset so it can be memory-mapped by the interpreter.
+
+## APK validation
+
+The GitHub Actions build verifies the APK signature, reads the packaged manifest with Android build-tools, and reports the native ABIs actually included in the APK. A successful compile alone is not treated as proof that an APK can be installed on a target device.
 
 ## Model packaging
 
