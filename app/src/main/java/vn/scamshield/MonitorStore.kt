@@ -533,7 +533,7 @@ object MonitorStore {
                 )
             }
         }
-        return result.take(safeLimit).asReversed()
+        return result.asReversed()
     }
 
     /** Transcript ngắn, có thứ tự thời gian, chỉ từ cuộc trò chuyện gần nhất. */
@@ -610,7 +610,7 @@ object MonitorStore {
                 )
             }
         }
-        return result.asReversed()
+        return result.take(safeLimit).asReversed()
     }
 
     /** Bộ nhớ ngữ cảnh được lưu trên thiết bị, phân tách theo đúng target và thread. */
