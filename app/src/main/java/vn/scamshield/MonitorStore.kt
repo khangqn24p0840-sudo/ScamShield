@@ -10,6 +10,7 @@ import android.provider.Telephony
 import org.json.JSONArray
 import org.json.JSONObject
 import java.security.MessageDigest
+import java.text.Normalizer
 
 data class MonitoredTarget(
     val id: String,
@@ -51,6 +52,16 @@ data class ConversationAnalysisResult(
 /** Lưu riêng trên thiết bị. Không tự đồng bộ nội dung tin nhắn lên máy chủ. */
 object MonitorStore {
     private const val MAX_STORED_MESSAGES = 10000
+
+    private fun normalizeSocialIdentity(value: String): String {
+        val decomposed = Normalizer.normalize(value.lowercase(), Normalizer.Form.NFD)
+        return decomposed
+            .replace(Regex("\\p{Mn}+"), "")
+            .replace('đ', 'd')
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+    }
 
     private class MonitorDb(context: Context) :
         SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 6) {
@@ -341,15 +352,16 @@ object MonitorStore {
         conversationTitle: String = "",
         conversationKey: String = ""
     ): String? {
-        val senderName = sender.trim().lowercase()
-        val threadName = conversationTitle.trim().lowercase()
+        val senderName = normalizeSocialIdentity(sender)
+        val threadName = normalizeSocialIdentity(conversationTitle)
         if (senderName.isBlank() && threadName.isBlank()) return null
         val target = targets(c).firstOrNull { candidate ->
             if (candidate.channel != "social" ||
                 (candidate.appPackage.isNotBlank() && candidate.appPackage != packageName)
             ) return@firstOrNull false
-            val wanted = candidate.identifier.trim().lowercase()
-            // Match chính xác tên người gửi hoặc tên cuộc trò chuyện; tránh bắt nhầm tên gần giống.
+            val wanted = normalizeSocialIdentity(candidate.identifier)
+            // So khớp chính xác sau khi chuẩn hóa dấu tiếng Việt, khoảng trắng và dấu câu.
+            // Không dùng contains/fuzzy match để tránh thu thập nhầm cuộc trò chuyện khác.
             wanted == senderName || wanted == threadName
         } ?: return null
         val stableKey = conversationKey.trim().ifBlank {
