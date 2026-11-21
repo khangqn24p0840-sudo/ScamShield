@@ -8,9 +8,15 @@ The feature provides a shared on-device inference path for:
 
 The two sources use the same ML Kit face detection, TFLite classifier, and temporal analyzer. Video frames are processed in memory and are not persisted or uploaded.
 
+## Android compatibility
+
+- Minimum supported Android version: Android 9 (Pie), API 28.
+- The APK packages ARM 64-bit and ARM 32-bit native libraries.
+- Devices running Android 8.1 or older are intentionally not supported by this build.
+
 ## Runtime and performance
 
-- Library video frames are decoded at a maximum 640-pixel longest side on Android 8.1 and newer; older versions decode then downscale before analysis.
+- Library video frames are decoded at a maximum 640-pixel longest side on Android 9 and newer.
 - Short videos are sampled at up to 6 frames per second, capped at 120 frames. Longer videos are sampled uniformly across the whole video, also capped at 120 frames. Temporal indicators requiring a higher sample rate may be unavailable for long videos.
 - Progress updates are throttled to avoid flooding the main thread.
 - TFLite input buffers, pixel arrays, and output arrays are reused instead of allocated for every inference.
