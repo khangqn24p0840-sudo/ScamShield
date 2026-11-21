@@ -53,7 +53,7 @@ import java.util.Locale
     when (sub) {
         "all" -> HistoryScreen(c, 0, back)
         "blocked" -> HistoryScreen(c, 2, back)
-        "video" -> Page("Video Call Deepfake", back) { FacePanel(h.startFace, h.stopFace) }
+        "video" -> Page("Video Deepfake", back) { FacePanel(h.startFace, h.stopFace, h.pickVideo, h.aiMsg(), h.setAiMsg) }
         "blocklist" -> BlocklistScreen(c, back)
         "msg" -> MessageScreen(c, back, open)
         "social" -> SocialScreen(c, h, back)
