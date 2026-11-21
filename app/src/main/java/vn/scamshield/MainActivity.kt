@@ -44,6 +44,85 @@ class MainActivity : ComponentActivity() {
             }
         } catch (e: Exception) { aiMsg = "Không đọc được ảnh" }
     }
+    private val videoPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) analyzeVideo(uri)
+    }
+
+    /** Lấy tối đa 8 khung hình đại diện; chỉ gửi các khung đã nén, không gửi toàn bộ video hay âm thanh. */
+    private fun analyzeVideo(uri: android.net.Uri) {
+        aiMsg = "Đang đọc video…"
+        Thread {
+            var retriever: android.media.MediaMetadataRetriever? = null
+            try {
+                retriever = android.media.MediaMetadataRetriever()
+                retriever.setDataSource(this, uri)
+                val durationMs = retriever.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+                    ?: throw IllegalArgumentException("Không xác định được thời lượng video")
+                if (durationMs !in 1_000L..30_000L) {
+                    throw IllegalArgumentException("Chỉ hỗ trợ video dài từ 1 đến 30 giây")
+                }
+                val frameCount = minOf(8, maxOf(3, (durationMs / 500L).toInt()))
+                val frames = org.json.JSONArray()
+                var totalBytes = 0
+                for (index in 0 until frameCount) {
+                    val timestampMs = ((index + 0.5) * durationMs / frameCount).toLong()
+                        .coerceIn(0L, durationMs - 1L)
+                    val original = retriever.getFrameAtTime(
+                        timestampMs * 1_000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST
+                    ) ?: continue
+                    try {
+                        val maxSide = 640
+                        val scale = minOf(1.0, maxSide.toDouble() / maxOf(original.width, original.height))
+                        val width = maxOf(1, (original.width * scale).toInt())
+                        val height = maxOf(1, (original.height * scale).toInt())
+                        val frame = if (width != original.width || height != original.height)
+                            android.graphics.Bitmap.createScaledBitmap(original, width, height, true) else original
+                        try {
+                            val output = java.io.ByteArrayOutputStream()
+                            var quality = 82
+                            var bytes: ByteArray
+                            do {
+                                output.reset()
+                                frame.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, output)
+                                bytes = output.toByteArray()
+                                quality -= 8
+                            } while (bytes.size > 600 * 1024 && quality >= 58)
+                            if (bytes.isEmpty() || bytes.size > 800 * 1024) {
+                                throw IllegalArgumentException("Một khung hình vượt giới hạn dung lượng")
+                            }
+                            totalBytes += bytes.size
+                            if (totalBytes > 5 * 1024 * 1024) {
+                                throw IllegalArgumentException("Video tạo ra quá nhiều dữ liệu để phân tích")
+                            }
+                            frames.put(JSONObject()
+                                .put("timestamp_ms", timestampMs)
+                                .put("mime", "image/jpeg")
+                                .put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)))
+                        } finally {
+                            if (frame !== original) frame.recycle()
+                        }
+                    } finally {
+                        original.recycle()
+                    }
+                }
+                if (frames.length() < 3) throw IllegalArgumentException("Không trích xuất đủ khung hình từ video")
+                val payload = JSONObject().put("duration_ms", durationMs).put("frames", frames)
+                runOnUiThread {
+                    aiMsg = "Đã lấy ${frames.length()} khung hình. Đang gửi AI phân tích…"
+                    Api.call(this, "POST", "/api/analyze/video", payload) { code, result ->
+                        aiMsg = fmtVideo(code, result)
+                    }
+                }
+            } catch (e: Exception) {
+                val message = e.localizedMessage?.takeIf { it.isNotBlank() } ?: "Không đọc được video"
+                runOnUiThread { aiMsg = "Không thể phân tích video: $message" }
+            } finally {
+                try { retriever?.release() } catch (_: Exception) { }
+            }
+        }.start()
+    }
+
     private val captureL = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
         if (r.resultCode == RESULT_OK && r.data != null)
             androidx.core.content.ContextCompat.startForegroundService(this, Intent(this, ScreenFaceService::class.java).putExtra("code", r.resultCode).putExtra("data", r.data))
@@ -62,6 +141,7 @@ class MainActivity : ComponentActivity() {
                 else recL.launch(arrayOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.POST_NOTIFICATIONS))
             },
             pickImage = { picker.launch("image/*") },
+            pickVideo = { videoPicker.launch("video/*") },
             startFace = { captureL.launch(getSystemService(android.media.projection.MediaProjectionManager::class.java).createScreenCaptureIntent()) },
             stopFace = { stopService(Intent(this, ScreenFaceService::class.java)); FaceBus.running = false },
             openOverlay = { startActivity(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:$packageName"))) },
