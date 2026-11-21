@@ -292,6 +292,59 @@ fun MessageMonitorScreen(c: Context, openSocialSettings: () -> Unit, back: () ->
             }
         }
 
+        if (channel == "social" || targets.any { it.channel == "social" }) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier.fillMaxWidth().border(1.dp, Color(0xFFD6E6FA), RoundedCornerShape(18.dp))
+            ) {
+                Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Trạng thái theo dõi chat", color = C.Text, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text(
+                        "Quyền đọc thông báo: " + if (SocialListener.enabled(c)) "ĐÃ BẬT" else "CHƯA BẬT",
+                        color = if (SocialListener.enabled(c)) C.Mint else C.Warn,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Đọc chat đang mở: " + when {
+                            !screenMonitorEnabled -> "ĐANG TẮT"
+                            !accessibilityServiceEnabled -> "CHƯA BẬT DỊCH VỤ TRỢ NĂNG"
+                            else -> "ĐÃ BẬT"
+                        },
+                        color = if (screenMonitorEnabled && accessibilityServiceEnabled) C.Mint else C.Warn,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "AI tự động phân tích: " + when {
+                            Store.str(c, "token").isBlank() -> "CẦN ĐĂNG NHẬP"
+                            !autoContextEnabled -> "ĐANG TẮT"
+                            else -> "ĐÃ BẬT"
+                        },
+                        color = if (Store.str(c, "token").isNotBlank() && autoContextEnabled) C.Mint else C.Warn,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                    )
+                    if (!SocialListener.enabled(c)) {
+                        Text(
+                            "Hãy cấp quyền Truy cập thông báo để nhận tin mới khi Android tạo thông báo cho cuộc chat.",
+                            color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp
+                        )
+                    }
+                    if (!screenMonitorEnabled || !accessibilityServiceEnabled) {
+                        Text(
+                            "Khi bạn đang mở Zalo/Messenger để nhắn trực tiếp, thông báo có thể không xuất hiện. Hãy bật “Đọc chat đang mở” và kích hoạt ScamShield trong Trợ năng Android.",
+                            color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp
+                        )
+                    }
+                    if (Store.str(c, "token").isBlank() || !autoContextEnabled) {
+                        Text(
+                            "Muốn AI phân tích ngữ cảnh tự động: đăng nhập ScamShield rồi bật “ScamShield tự động hiểu ngữ cảnh”.",
+                            color = C.Sub, fontSize = 10.sp, lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(18.dp),
