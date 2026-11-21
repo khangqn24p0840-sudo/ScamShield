@@ -4,10 +4,11 @@ android {
     compileSdk = 36
     defaultConfig {
         applicationId = "vn.scamshield"
-        minSdk = 24
+        // Android 9 Pie (API 28) is the minimum supported Android version.
+        minSdk = 28
         targetSdk = 34
-        versionCode = 23
-        versionName = "4.18"
+        versionCode = 24
+        versionName = "4.19"
 
         // Android phones/tablets use ARM; do not package emulator-only x86 native libraries.
         ndk {
