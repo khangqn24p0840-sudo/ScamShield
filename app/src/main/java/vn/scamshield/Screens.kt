@@ -293,7 +293,8 @@ private data class Cat(val icon: androidx.compose.ui.graphics.vector.ImageVector
         Cat(Icons.Rounded.SmartToy, "Yêu cầu AI", C.Blue, "ai"),
         Cat(Icons.Rounded.FamilyRestroom, "Chat gia đình", C.Mint, "family"),
         Cat(Icons.Rounded.TrackChanges, "Theo dõi tin nhắn", C.Blue, "monitor"),
-        Cat(Icons.Rounded.MoreHoriz, "Khác", C.Dim, "other"))
+        Cat(Icons.Rounded.MoreHoriz, "Khác", C.Dim, "other"),
+        Cat(Icons.Rounded.Mic, "Nghe cuộc gọi", C.Mint, "live"))
     val featurePages = cats.chunked(6)
     val currentPage = featurePage.coerceIn(0, featurePages.lastIndex)
     var featureVisible by remember { mutableStateOf(false) }
