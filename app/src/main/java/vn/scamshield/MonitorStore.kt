@@ -63,8 +63,69 @@ object MonitorStore {
             .trim()
     }
 
+    // Các nhãn điều khiển đã bị Zalo công bố qua contentDescription và từng lọt vào transcript.
+    // Chỉ áp dụng cho dữ liệu đọc từ màn hình (channel=screen), không áp dụng cho SMS/thông báo.
+    private val screenUiArtifacts = setOf(
+        "mo noi gui cac dinh kem khac",
+        "mo noi soan tin nhan thoai",
+        "mo noi gui hinh anh",
+        "gui tin nhan di",
+        "mo ban phim bieu tuong cam xuc",
+        "tro ve",
+        "goi dien thoai",
+        "goi video",
+        "xem them thong tin khac",
+        "send message",
+        "open attachments",
+        "open voice message composer",
+        "open image picker",
+        "back",
+        "video call",
+        "more options"
+    )
+
+    fun isScreenUiArtifact(value: String): Boolean {
+        val normalized = normalizeSocialIdentity(value)
+            .replace(Regex("\\s+\\d{1,2}\\s+\\d{2}$"), "")
+            .trim()
+        return normalized in screenUiArtifacts
+    }
+
+    private fun removeScreenUiArtifacts(database: SQLiteDatabase) {
+        val staleIds = mutableListOf<String>()
+        val affectedThreads = linkedSetOf<Pair<String, String>>()
+        database.rawQuery(
+            "SELECT id,target_id,conversation_key,body FROM messages WHERE channel='screen'",
+            null
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                val body = cursor.getString(3).orEmpty()
+                if (isScreenUiArtifact(body)) {
+                    staleIds += cursor.getString(0)
+                    affectedThreads += cursor.getString(1) to cursor.getString(2)
+                }
+            }
+        }
+        staleIds.forEach { id ->
+            database.delete("messages", "id=?", arrayOf(id))
+        }
+        // Không giữ lại kết quả AI/memory được tạo từ transcript lẫn nhãn giao diện.
+        affectedThreads.forEach { (targetId, conversationKey) ->
+            database.delete(
+                "conversation_analysis",
+                "target_id=? AND conversation_key=?",
+                arrayOf(targetId, conversationKey)
+            )
+            database.delete(
+                "conversation_memory",
+                "target_id=? AND conversation_key=?",
+                arrayOf(targetId, conversationKey)
+            )
+        }
+    }
+
     private class MonitorDb(context: Context) :
-        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 6) {
+        SQLiteOpenHelper(context, "scamshield_message_monitor.db", null, 7) {
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL(
                 """CREATE TABLE targets (
@@ -114,6 +175,9 @@ object MonitorStore {
                 db.execSQL("ALTER TABLE messages ADD COLUMN risk_score INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE messages ADD COLUMN risk_level TEXT NOT NULL DEFAULT 'UNKNOWN'")
                 db.execSQL("ALTER TABLE messages ADD COLUMN risk_reasons TEXT NOT NULL DEFAULT '[]'")
+            }
+            if (oldVersion < 7) {
+                MonitorStore.removeScreenUiArtifacts(db)
             }
         }
 
@@ -386,6 +450,7 @@ object MonitorStore {
         conversationKey: String,
         senderLabel: String = ""
     ): Boolean {
+        if (isScreenUiArtifact(body)) return false
         val target = targets(c).firstOrNull {
             it.id == targetId && it.channel == "social" && it.appPackage == packageName
         } ?: return false
@@ -468,7 +533,7 @@ object MonitorStore {
                 )
             }
         }
-        return result.asReversed()
+        return result.take(safeLimit).asReversed()
     }
 
     /** Transcript ngắn, có thứ tự thời gian, chỉ từ cuộc trò chuyện gần nhất. */
@@ -519,19 +584,23 @@ object MonitorStore {
         conversationKey: String,
         limit: Int = 12
     ): List<MonitoredMessage> {
+        val safeLimit = limit.coerceIn(1, 50)
         val result = mutableListOf<MonitoredMessage>()
         db(c).rawQuery(
             """SELECT id,target_id,channel,sender,body,timestamp,app_package,conversation_key,conversation_title,risk_score,risk_level,risk_reasons
                FROM messages
                WHERE target_id=? AND conversation_key=?
                ORDER BY timestamp DESC LIMIT ?""",
-            arrayOf(targetId, conversationKey, limit.coerceIn(1, 50).toString())
+            arrayOf(targetId, conversationKey, (safeLimit * 4).toString())
         ).use { cursor ->
             while (cursor.moveToNext()) {
+                val channel = cursor.getString(2)
+                val body = cursor.getString(4)
+                if (channel == "screen" && isScreenUiArtifact(body)) continue
                 result += MonitoredMessage(
                     id = cursor.getString(0), targetId = cursor.getString(1),
-                    channel = cursor.getString(2), sender = cursor.getString(3),
-                    body = cursor.getString(4), timestamp = cursor.getLong(5),
+                    channel = channel, sender = cursor.getString(3),
+                    body = body, timestamp = cursor.getLong(5),
                     appPackage = cursor.getString(6), conversationKey = cursor.getString(7),
                     conversationTitle = cursor.getString(8),
                     riskScore = cursor.getInt(9),
