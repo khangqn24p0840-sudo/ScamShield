@@ -26,6 +26,11 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     composeOptions { kotlinCompilerExtensionVersion = "1.5.15" }
+
+    // TFLite is memory-mapped by the runtime; keep the model asset uncompressed in the APK.
+    androidResources {
+        noCompress += "tflite"
+    }
 }
 
 /*
