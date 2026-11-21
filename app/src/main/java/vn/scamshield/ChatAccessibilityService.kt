@@ -57,7 +57,11 @@ class ChatAccessibilityService : AccessibilityService() {
         }
     }
 
-    private data class VisibleText(val value: String, val bounds: Rect)
+    private data class VisibleText(
+        val value: String,
+        val bounds: Rect,
+        val fromContentDescription: Boolean = false
+    )
     private data class VisibleMessage(val value: String, val sender: String)
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -168,28 +172,37 @@ class ChatAccessibilityService : AccessibilityService() {
         val conversationKey = packageName + "|" + target.identifier.trim().lowercase(Locale.ROOT)
         // Thu thập cả tin đến (bên trái) và tin đi (bên phải) đang hiển thị.
         // Không đọc ô nhập: collectVisibleText đã loại bỏ mọi node editable/password.
+        val contentBottom = snapshot.composerTop
+            ?: (snapshot.screenHeight * 0.97f).toInt()
         val visibleMessages = snapshot.nodes
             .asSequence()
             .filter { node ->
-                node.value.length in 2..800 &&
+                node.value.length in 2..1200 &&
                     node.bounds.top >= (snapshot.screenHeight * 0.08f).toInt() &&
-                    node.bounds.bottom <= (snapshot.screenHeight * 0.88f).toInt() &&
-                    node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt() &&
-                    node.bounds.left >= (snapshot.screenWidth * 0.02f).toInt() &&
-                    node.bounds.right <= (snapshot.screenWidth * 0.98f).toInt() &&
-                    !isCommonUiText(node.value)
+                    node.bounds.bottom <= contentBottom &&
+                    !isCommonUiText(node.value) &&
+                    !MonitorStore.isScreenUiArtifact(node.value)
             }
             .sortedWith(compareBy<VisibleText> { it.bounds.top }.thenBy { it.bounds.left })
             .map { node ->
-                val sender = if (node.bounds.centerX() >= (snapshot.screenWidth * 0.56f).toInt()) {
-                    "Bạn"
-                } else {
-                    "Tin đến · ${target.identifier}"
+                // Một số phiên bản Zalo gán bounds toàn chiều ngang cho cả bong bóng trái/phải.
+                // Chỉ suy ra người gửi khi bounds thực sự thể hiện vị trí bong bóng.
+                val hasReliableHorizontalPosition =
+                    node.bounds.width() > 0 &&
+                        node.bounds.width() < (snapshot.screenWidth * 0.88f).toInt()
+                val sender = when {
+                    !hasReliableHorizontalPosition -> "Người gửi chưa xác định"
+                    node.bounds.centerX() >= (snapshot.screenWidth * 0.56f).toInt() -> "Bạn"
+                    else -> "Tin đến · ${target.identifier}"
                 }
                 VisibleMessage(node.value.trim(), sender)
             }
             .distinctBy { normalize(it.value) }
             .toList()
+        Log.d(
+            TAG,
+            "Screen message candidates=${visibleMessages.size}, unknownSender=${visibleMessages.count { it.sender == "Người gửi chưa xác định" }}"
+        )
         if (visibleMessages.isEmpty()) {
             Log.d(TAG, "Matched conversation but no readable message nodes were found")
             return
@@ -262,7 +275,8 @@ class ChatAccessibilityService : AccessibilityService() {
         val nodes: List<VisibleText>,
         val screenWidth: Int,
         val screenHeight: Int,
-        val hasComposer: Boolean
+        val hasComposer: Boolean,
+        val composerTop: Int?
     )
 
     private fun findAppWindowRoot(packageName: String): AccessibilityNodeInfo? {
@@ -287,6 +301,7 @@ class ChatAccessibilityService : AccessibilityService() {
         pending.addLast(root)
         var visited = 0
         var hasComposer = false
+        var composerTop: Int? = null
 
         while (pending.isNotEmpty() && visited < 1600) {
             val node = pending.removeLast()
@@ -300,17 +315,27 @@ class ChatAccessibilityService : AccessibilityService() {
                     className.contains("AutoCompleteTextView", ignoreCase = true)
                 if (isInput && bounds.bottom >= (height * 0.45f).toInt()) {
                     hasComposer = true
+                    composerTop = composerTop?.let { minOf(it, bounds.top) } ?: bounds.top
                 }
 
                 if (node.isVisibleToUser && !node.isPassword && !isInput && !bounds.isEmpty) {
-                    // Zalo and other chat apps may expose labels through contentDescription
-                    // instead of text. Read both, then let the existing deduplication collapse repeats.
-                    val values = listOfNotNull(
-                        node.text?.toString()?.trim(),
-                        node.contentDescription?.toString()?.trim()
-                    ).filter { it.length in 2..800 }.distinct()
-                    values.forEach { value ->
-                        result += VisibleText(value, Rect(bounds))
+                    // Ưu tiên text thật của node. contentDescription của nút Zalo thường là
+                    // "Mở nơi gửi ảnh", "Gọi video"... nên chỉ dùng làm fallback cho node
+                    // không tương tác, không focus để tránh biến nút giao diện thành tin nhắn.
+                    val textValue = node.text?.toString()?.trim().orEmpty()
+                    if (textValue.length in 2..1200) {
+                        result += VisibleText(textValue, Rect(bounds))
+                    } else {
+                        val description = node.contentDescription?.toString()?.trim().orEmpty()
+                        if (
+                            !node.isClickable &&
+                            !node.isFocusable &&
+                            description.length in 2..800 &&
+                            !isCommonUiText(description) &&
+                            !MonitorStore.isScreenUiArtifact(description)
+                        ) {
+                            result += VisibleText(description, Rect(bounds), fromContentDescription = true)
+                        }
                     }
                 }
 
@@ -331,9 +356,14 @@ class ChatAccessibilityService : AccessibilityService() {
         val deduplicated = result
             .groupBy { normalize(it.value) + "|" + (it.bounds.centerY() / 10) }
             .values
-            .mapNotNull { group -> group.minByOrNull { it.bounds.width() } }
+            .mapNotNull { group ->
+                group.minWithOrNull(
+                    compareBy<VisibleText> { if (it.fromContentDescription) 1 else 0 }
+                        .thenBy { it.bounds.width() }
+                )
+            }
 
-        return ScreenSnapshot(deduplicated, width, height, hasComposer)
+        return ScreenSnapshot(deduplicated, width, height, hasComposer, composerTop)
     }
 
     private fun isCommonUiText(value: String): Boolean {
@@ -342,7 +372,12 @@ class ChatAccessibilityService : AccessibilityService() {
         val labels = setOf(
             "nhap tin nhan", "soan tin nhan", "gui", "tim kiem",
             "dang hoat dong", "hoat dong", "online", "da xem",
-            "da gui", "delivered", "seen", "search", "message"
+            "da gui", "delivered", "seen", "search", "message",
+            "tro ve", "goi dien thoai", "goi video", "xem them thong tin khac",
+            "mo ban phim bieu tuong cam xuc", "mo noi gui cac dinh kem khac",
+            "mo noi soan tin nhan thoai", "mo noi gui hinh anh",
+            "gui tin nhan di", "send message", "back", "video call",
+            "open attachments", "open voice message composer", "open image picker"
         )
         return text in labels
     }
